@@ -780,7 +780,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#000',
     lineHeight: 24,
-    outlineStyle: 'none',
   },
   sectionContainer: {
     paddingHorizontal: 24,
