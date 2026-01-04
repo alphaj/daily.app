@@ -1,263 +1,482 @@
 import { useRouter } from 'expo-router';
-import { Plus, Trash2, Flame } from 'lucide-react-native';
-import React, { useCallback, useState, useRef } from 'react';
+import {
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  MoreHorizontal,
+  Plus,
+  Zap,
+  Search,
+  Menu,
+  Check,
+  Flame,
+} from 'lucide-react-native';
+import React, { useCallback, useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
   ScrollView,
-  Animated,
-  PanResponder,
   Dimensions,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import { useTodos } from '@/contexts/TodoContext';
 import { useHabits } from '@/contexts/HabitContext';
-import { WeeklyProgress } from '@/components/WeeklyProgress';
-import { CelebrationOverlay } from '@/components/CelebrationOverlay';
-import type { Habit } from '@/types/habit';
+import { useNotes } from '@/contexts/NoteContext';
+import type { Todo } from '@/types/todo';
+import { format, addDays, startOfWeek, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths } from 'date-fns';
+import SwipeableRow from '@/components/SwipeableRow';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const SWIPE_THRESHOLD = -80;
 
-function HabitItem({ habit, onDelete }: { habit: Habit; onDelete: () => void }) {
-  const { toggleHabitCompletion, isCompletedToday, getWeeklyProgress } = useHabits();
-  const completed = isCompletedToday(habit);
-  const weeklyProgress = getWeeklyProgress(habit);
-  
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const translateX = useRef(new Animated.Value(0)).current;
-  const deleteOpacity = useRef(new Animated.Value(0)).current;
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        return Math.abs(gestureState.dx) > 10 && Math.abs(gestureState.dy) < 10;
-      },
-      onPanResponderMove: (_, gestureState) => {
-        if (gestureState.dx < 0) {
-          translateX.setValue(Math.max(gestureState.dx, -100));
-          deleteOpacity.setValue(Math.min(Math.abs(gestureState.dx) / 80, 1));
-        }
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dx < SWIPE_THRESHOLD) {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          Animated.timing(translateX, {
-            toValue: -SCREEN_WIDTH,
-            duration: 200,
-            useNativeDriver: true,
-          }).start(() => {
-            onDelete();
-          });
-        } else {
-          Animated.spring(translateX, {
-            toValue: 0,
-            useNativeDriver: true,
-          }).start();
-          Animated.timing(deleteOpacity, {
-            toValue: 0,
-            duration: 150,
-            useNativeDriver: true,
-          }).start();
-        }
-      },
-    })
-  ).current;
-
+function TodoItem({
+  todo,
+  toggleTodo,
+  deleteTodo
+}: {
+  todo: Todo;
+  toggleTodo: (id: string) => void;
+  deleteTodo: (id: string) => void;
+}) {
   const handlePress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    
-    Animated.sequence([
-      Animated.spring(scaleAnim, {
-        toValue: 0.97,
-        useNativeDriver: true,
-        speed: 50,
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        speed: 50,
-      }),
-    ]).start();
+    toggleTodo(todo.id);
+  }, [todo.id, toggleTodo]);
 
-    const wasJustCompleted = toggleHabitCompletion(habit.id);
-    
-    if (wasJustCompleted) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }
-  }, [habit.id, scaleAnim, toggleHabitCompletion]);
+  const handleDelete = useCallback(() => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    deleteTodo(todo.id);
+  }, [todo.id, deleteTodo]);
 
   return (
-    <View style={styles.habitWrapper}>
-      <Animated.View 
-        style={[
-          styles.deleteBackground,
-          { opacity: deleteOpacity }
-        ]}
-      >
-        <Trash2 size={20} color="#fff" />
-      </Animated.View>
-      
-      <Animated.View 
-        style={{ 
-          transform: [{ scale: scaleAnim }, { translateX }] 
-        }}
-        {...panResponder.panHandlers}
-      >
-        <Pressable
-          style={[styles.habitItem, completed && styles.habitItemCompleted]}
-          onPress={handlePress}
-        >
-          <View style={styles.habitContent}>
-            <View style={[styles.checkbox, completed && styles.checkboxCompleted]}>
-              {completed && <View style={styles.checkmark} />}
-            </View>
-            <View style={styles.habitInfo}>
-              <Text style={[styles.habitName, completed && styles.habitNameCompleted]}>
-                {habit.name}
-              </Text>
-              {habit.intention?.cue && (
-                <Text style={styles.cueText}>{habit.intention.cue}</Text>
-              )}
-              <View style={styles.habitMeta}>
-                {habit.currentStreak > 0 && (
-                  <View style={styles.streakBadge}>
-                    <Flame size={12} color="#FF9500" />
-                    <Text style={styles.streakText}>{habit.currentStreak}</Text>
-                  </View>
-                )}
-                <WeeklyProgress progress={weeklyProgress} compact />
-              </View>
-            </View>
+    <SwipeableRow onDelete={handleDelete}>
+      <Pressable style={styles.todoItem} onPress={handlePress}>
+        <View style={[styles.checkboxContainer, todo.completed ? styles.checkboxChecked : styles.checkboxUnchecked]}>
+          {todo.completed && <Check size={16} color="#C7C7CC" strokeWidth={3} />}
+        </View>
+        <Text style={[styles.todoText, todo.completed && styles.todoTextChecked]}>
+          {todo.title}
+        </Text>
+      </Pressable>
+    </SwipeableRow>
+  );
+}
+
+function CalendarModal({
+  visible,
+  onClose,
+  selectedDate,
+  onSelectDate,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  selectedDate: Date;
+  onSelectDate: (date: Date) => void;
+}) {
+  const [currentMonth, setCurrentMonth] = React.useState(selectedDate);
+
+  const monthStart = startOfMonth(currentMonth);
+  const monthEnd = endOfMonth(currentMonth);
+  const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
+  const startDayOfWeek = getDay(monthStart);
+
+  const handlePrevMonth = () => {
+    Haptics.selectionAsync();
+    setCurrentMonth(subMonths(currentMonth, 1));
+  };
+
+  const handleNextMonth = () => {
+    Haptics.selectionAsync();
+    setCurrentMonth(addMonths(currentMonth, 1));
+  };
+
+  const handleSelectDate = (date: Date) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onSelectDate(date);
+    onClose();
+  };
+
+  const handleGoToToday = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const today = new Date();
+    setCurrentMonth(today);
+    onSelectDate(today);
+    onClose();
+  };
+
+  // Create array with empty slots for days before the month starts
+  const calendarDays: (Date | null)[] = [
+    ...Array(startDayOfWeek).fill(null),
+    ...daysInMonth,
+  ];
+
+  const weekDayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <Pressable style={styles.modalOverlay} onPress={onClose}>
+        <Pressable style={styles.calendarModal} onPress={(e) => e.stopPropagation()}>
+          {/* Calendar Header */}
+          <View style={styles.calendarHeader}>
+            <Pressable onPress={handlePrevMonth} hitSlop={10} style={styles.calendarNavButton}>
+              <ChevronLeft size={24} color="#000" />
+            </Pressable>
+            <Text style={styles.calendarMonthText}>
+              {format(currentMonth, 'MMMM yyyy')}
+            </Text>
+            <Pressable onPress={handleNextMonth} hitSlop={10} style={styles.calendarNavButton}>
+              <ChevronRight size={24} color="#000" />
+            </Pressable>
           </View>
+
+          {/* Week Day Headers */}
+          <View style={styles.weekDayRow}>
+            {weekDayHeaders.map((day) => (
+              <View key={day} style={styles.weekDayCell}>
+                <Text style={styles.weekDayText}>{day}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Calendar Grid */}
+          <View style={styles.calendarGrid}>
+            {calendarDays.map((date, index) => {
+              if (!date) {
+                return <View key={`empty-${index}`} style={styles.calendarDayCell} />;
+              }
+
+              const isSelected = isSameDay(date, selectedDate);
+              const isToday = isSameDay(date, new Date());
+
+              return (
+                <Pressable
+                  key={date.toISOString()}
+                  style={[
+                    styles.calendarDayCell,
+                    isSelected && styles.calendarDaySelected,
+                    isToday && !isSelected && styles.calendarDayToday,
+                  ]}
+                  onPress={() => handleSelectDate(date)}
+                >
+                  <Text
+                    style={[
+                      styles.calendarDayText,
+                      isSelected && styles.calendarDayTextSelected,
+                      isToday && !isSelected && styles.calendarDayTextToday,
+                    ]}
+                  >
+                    {format(date, 'd')}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {/* Today Button */}
+          <Pressable style={styles.todayButton} onPress={handleGoToToday}>
+            <Text style={styles.todayButtonText}>Go to Today</Text>
+          </Pressable>
         </Pressable>
-      </Animated.View>
-    </View>
+      </Pressable>
+    </Modal>
+  );
+}
+
+function HabitCheckItem({
+  habit,
+  isCompleted,
+  onToggle,
+  onDelete
+}: {
+  habit: any;
+  isCompleted: boolean;
+  onToggle: (id: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  const handlePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    onToggle(habit.id);
+  };
+
+  const handleDelete = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    onDelete(habit.id);
+  };
+
+  return (
+    <SwipeableRow onDelete={handleDelete}>
+      <Pressable style={styles.habitItem} onPress={handlePress}>
+        <View style={[styles.habitCheckbox, isCompleted && styles.habitCheckboxCompleted]}>
+          {isCompleted && <Check size={14} color="#fff" strokeWidth={3} />}
+        </View>
+        <Text style={[styles.habitText, isCompleted && styles.habitTextCompleted]}>
+          {habit.name}
+        </Text>
+        {habit.currentStreak > 0 && (
+          <View style={styles.miniStreak}>
+            <Flame size={12} color="#FF9500" />
+            <Text style={styles.miniStreakText}>{habit.currentStreak}</Text>
+          </View>
+        )}
+      </Pressable>
+    </SwipeableRow>
   );
 }
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { habits, isLoading, deleteHabit, getMotivationalMessage, getOverallStats } = useHabits();
-  const [showCelebration, setShowCelebration] = useState(false);
+  const { getTodosForDate, toggleTodo, addTodo, deleteTodo } = useTodos();
+  const { habits, toggleHabitCompletion, isCompletedToday, deleteHabit } = useHabits();
+  const { getNoteForDate, updateNoteForDate } = useNotes();
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [calendarModalVisible, setCalendarModalVisible] = useState(false);
+  const [addOptionsVisible, setAddOptionsVisible] = useState(false);
+  const [noteText, setNoteText] = useState('');
 
-  const stats = getOverallStats;
-  const motivationalMessage = getMotivationalMessage();
+  // Get tasks for the selected date
+  const todosForDate = getTodosForDate(selectedDate);
 
-  const completedCount = habits.filter(h => {
-    const today = new Date().toISOString().split('T')[0];
-    return h.completedDates.includes(today);
-  }).length;
+  // Load note for selected date
+  useEffect(() => {
+    const note = getNoteForDate(selectedDate);
+    setNoteText(note);
+  }, [selectedDate, getNoteForDate]);
 
-  const totalCount = habits.length;
-  const progressPercent = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+  // Save note when text changes
+  const handleNoteChange = useCallback((text: string) => {
+    setNoteText(text);
+    updateNoteForDate(selectedDate, text);
+  }, [selectedDate, updateNoteForDate]);
 
-  const handleDelete = useCallback((id: string) => {
-    deleteHabit(id);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-  }, [deleteHabit]);
+  // Calendar Strip Data
+  const startOfCurrentWeek = startOfWeek(selectedDate, { weekStartsOn: 0 });
+  const weekDays = Array.from({ length: 7 }).map((_, i) => addDays(startOfCurrentWeek, i));
+
+  const handleAddPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setAddOptionsVisible(true);
+  };
+
+  const handleAddTask = () => {
+    setAddOptionsVisible(false);
+    router.push('/add-todo');
+  };
+
+  const handleAddHabit = () => {
+    setAddOptionsVisible(false);
+    router.push('/add-habit');
+  };
+
+  const handleCalendarPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setCalendarModalVisible(true);
+  };
+
+  const formattedSelectedDate = format(selectedDate, 'MMM d, yyyy');
+  const dayName = format(selectedDate, 'EEEE').toUpperCase();
+  const isToday = isSameDay(selectedDate, new Date());
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <CelebrationOverlay 
-        visible={showCelebration} 
-        onComplete={() => setShowCelebration(false)} 
-      />
-      
+
+      {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.title}>Daily</Text>
-          <Text style={styles.motivational}>{motivationalMessage}</Text>
+        <Pressable style={styles.iconButton} onPress={handleCalendarPress}>
+          <Calendar size={24} color="#000" strokeWidth={1.5} />
+        </Pressable>
+
+        <View style={styles.headerCenter}>
+          <Text style={styles.logoText}>daily.app</Text>
+          <View style={styles.dateNav}>
+            <Pressable
+              hitSlop={10}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setSelectedDate(addDays(selectedDate, -1));
+              }}
+            >
+              <ChevronLeft size={20} color="#000" />
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                Haptics.selectionAsync();
+                setSelectedDate(new Date());
+              }}
+            >
+              <Text style={styles.headerDateText}>{isToday ? 'Today' : format(selectedDate, 'MMM d')}</Text>
+            </Pressable>
+            <Pressable
+              hitSlop={10}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setSelectedDate(addDays(selectedDate, 1));
+              }}
+            >
+              <ChevronRight size={20} color="#000" />
+            </Pressable>
+          </View>
         </View>
-        <Pressable
-          style={styles.addButton}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push('/add-habit');
-          }}
-        >
-          <Plus size={24} color="#007AFF" strokeWidth={2.5} />
+
+        <Pressable style={styles.iconButton}>
+          <MoreHorizontal size={24} color="#000" />
         </Pressable>
       </View>
 
-      {totalCount > 0 && (
-        <View style={styles.progressSection}>
-          <View style={styles.progressBar}>
-            <Animated.View 
-              style={[
-                styles.progressFill, 
-                { width: `${progressPercent}%` }
-              ]} 
-            />
-          </View>
-          <Text style={styles.progressText}>
-            {completedCount}/{totalCount} today
-          </Text>
-        </View>
-      )}
+      {/* Calendar Strip */}
+      <View style={styles.calendarStrip}>
+        {weekDays.map((date, index) => {
+          const isSelected = isSameDay(date, selectedDate);
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {isLoading ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>Loading...</Text>
-          </View>
-        ) : habits.length === 0 ? (
-          <View style={styles.emptyState}>
-            <View style={styles.emptyIcon}>
-              <Plus size={32} color="#C7C7CC" />
-            </View>
-            <Text style={styles.emptyTitle}>No habits yet</Text>
-            <Text style={styles.emptySubtitle}>
-              Add the things you absolutely must do every day
-            </Text>
+          return (
             <Pressable
-              style={styles.emptyButton}
+              key={index}
+              style={[styles.dayItem, isSelected && styles.dayItemSelected]}
               onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                router.push('/add-habit');
+                Haptics.selectionAsync();
+                setSelectedDate(date);
               }}
             >
-              <Text style={styles.emptyButtonText}>Add First Habit</Text>
+              <Text style={styles.dayName}>
+                {format(date, 'EEE').toUpperCase()}
+              </Text>
+              <Text style={styles.dayNumber}>
+                {format(date, 'd')}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <ScrollView
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 100 }}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Date Heading */}
+        <View style={styles.pageHeader}>
+          <Text style={styles.subDate}>
+            {dayName} <Text style={{ color: '#C6C6C8' }}>•</Text> {isToday && <Text style={{ color: '#5856D6' }}>TODAY</Text>}
+          </Text>
+          <Text style={styles.mainDate}>{formattedSelectedDate}</Text>
+        </View>
+
+        {/* Notes Input */}
+        <View style={styles.notesInputSection}>
+          <Text style={styles.sectionLabel}>Notes</Text>
+          <TextInput
+            style={styles.notesInput}
+            placeholder="What's on your mind today?"
+            placeholderTextColor="#C7C7CC"
+            multiline
+            value={noteText}
+            onChangeText={handleNoteChange}
+          />
+        </View>
+
+        {/* Tasks Section */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionLabel}>Tasks</Text>
+            <Pressable onPress={handleAddPress}>
+              <Text style={styles.addLink}>+ Add</Text>
             </Pressable>
           </View>
-        ) : (
-          <View style={styles.habitList}>
-            {habits.map(habit => (
-              <HabitItem 
-                key={habit.id} 
-                habit={habit} 
-                onDelete={() => handleDelete(habit.id)}
-              />
-            ))}
-            
-            {stats.longestStreak > 0 && (
-              <View style={styles.statsCard}>
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{stats.longestStreak}</Text>
-                  <Text style={styles.statLabel}>Best Streak</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{Math.round(stats.weeklyCompletionRate * 100)}%</Text>
-                  <Text style={styles.statLabel}>This Week</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{stats.totalCompletions}</Text>
-                  <Text style={styles.statLabel}>Total Done</Text>
-                </View>
-              </View>
+          <View style={styles.todoList}>
+            {todosForDate.length === 0 ? (
+              <Text style={styles.emptyText}>No tasks for this day</Text>
+            ) : (
+              todosForDate.map(todo => (
+                <TodoItem key={todo.id} todo={todo} toggleTodo={toggleTodo} deleteTodo={deleteTodo} />
+              ))
             )}
           </View>
-        )}
+        </View>
+
+        {/* Habits Section */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionLabel}>Habits</Text>
+            <Pressable onPress={() => router.push('/add-habit')}>
+              <Text style={styles.addLink}>+ Add</Text>
+            </Pressable>
+          </View>
+          <View style={styles.habitsList}>
+            {habits.length === 0 ? (
+              <Text style={styles.emptyText}>No habits yet</Text>
+            ) : (
+              habits.map(habit => (
+                <HabitCheckItem
+                  key={habit.id}
+                  habit={habit}
+                  isCompleted={isCompletedToday(habit)}
+                  onToggle={toggleHabitCompletion}
+                  onDelete={deleteHabit}
+                />
+              ))
+            )}
+          </View>
+        </View>
       </ScrollView>
+
+      {/* Bottom Bar */}
+      <View style={styles.bottomBar}>
+        <Pressable style={styles.bottomTab} onPress={() => router.push('/todos')}>
+          <Search size={24} color="#000" strokeWidth={1.5} />
+        </Pressable>
+        <Pressable style={[styles.bottomTab, styles.bottomTabActive]}>
+          <Calendar size={24} color="#5856D6" strokeWidth={1.5} />
+        </Pressable>
+
+        <Pressable style={styles.fab} onPress={handleAddPress}>
+          <Plus size={28} color="#000" strokeWidth={1.5} />
+        </Pressable>
+
+        <Pressable style={styles.bottomTab} onPress={() => router.push('/habits')}>
+          <Zap size={24} color="#000" strokeWidth={1.5} />
+        </Pressable>
+        <Pressable style={styles.bottomTab} onPress={() => router.push('/menu')}>
+          <Menu size={24} color="#000" strokeWidth={1.5} />
+        </Pressable>
+      </View>
+
+      {/* Calendar Modal */}
+      <CalendarModal
+        visible={calendarModalVisible}
+        onClose={() => setCalendarModalVisible(false)}
+        selectedDate={selectedDate}
+        onSelectDate={setSelectedDate}
+      />
+
+      {/* Add Options Modal */}
+      <Modal
+        visible={addOptionsVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAddOptionsVisible(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setAddOptionsVisible(false)}>
+          <View style={styles.addOptionsModal}>
+            <Text style={styles.addOptionsTitle}>What would you like to add?</Text>
+            <Pressable style={styles.addOptionButton} onPress={handleAddTask}>
+              <Text style={styles.addOptionText}>📝 Task</Text>
+            </Pressable>
+            <Pressable style={styles.addOptionButton} onPress={handleAddHabit}>
+              <Text style={styles.addOptionText}>⚡ Habit</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -265,243 +484,366 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: '#fff',
   },
   header: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 12,
-    backgroundColor: '#F2F2F7',
-  },
-  headerLeft: {
-    flex: 1,
-  },
-  title: {
-    fontSize: 34,
-    fontWeight: '700',
-    color: '#000',
-    letterSpacing: 0.4,
-  },
-  motivational: {
-    fontSize: 15,
-    color: '#8E8E93',
-    marginTop: 4,
-  },
-  addButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  progressSection: {
-    paddingHorizontal: 24,
-    paddingBottom: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  progressBar: {
-    flex: 1,
-    height: 6,
-    backgroundColor: '#E5E5EA',
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#34C759',
-    borderRadius: 3,
-  },
-  progressText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#8E8E93',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
     paddingHorizontal: 16,
-    paddingBottom: 32,
+    paddingVertical: 10,
   },
-  habitList: {
-    gap: 10,
+  iconButton: {
+    padding: 8,
   },
-  habitWrapper: {
-    position: 'relative',
-  },
-  deleteBackground: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: 80,
-    backgroundColor: '#FF3B30',
-    borderRadius: 14,
-    justifyContent: 'center',
+  headerCenter: {
     alignItems: 'center',
+    gap: 30,
+    marginTop: -8,
   },
-  habitItem: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+  logoText: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#000',
+    letterSpacing: -1.0,
   },
-  habitItemCompleted: {
-    backgroundColor: '#F8FFF8',
-  },
-  habitContent: {
+  dateNav: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: 12,
   },
-  checkbox: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    borderWidth: 2,
-    borderColor: '#D1D1D6',
-    justifyContent: 'center',
+  headerDateText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#000',
+  },
+  calendarStrip: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  dayItem: {
     alignItems: 'center',
-    marginTop: 2,
-  },
-  checkboxCompleted: {
-    backgroundColor: '#34C759',
-    borderColor: '#34C759',
-  },
-  checkmark: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#fff',
-  },
-  habitInfo: {
-    flex: 1,
+    justifyContent: 'center',
+    paddingVertical: 6,
+    width: 40,
+    borderRadius: 8,
     gap: 4,
   },
-  habitName: {
+  dayItemSelected: {
+    backgroundColor: '#E6E6FA', // Light purple
+  },
+  dayName: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#8E8E93',
+    textTransform: 'uppercase',
+  },
+  dayNumber: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#000',
+  },
+  content: {
+    flex: 1,
+  },
+  pageHeader: {
+    paddingHorizontal: 24,
+    marginTop: 16,
+    marginBottom: 24,
+  },
+  subDate: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#8E8E93',
+    marginBottom: 6,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  mainDate: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#000',
+    letterSpacing: -0.5,
+  },
+  notesSection: {
+    paddingHorizontal: 24,
+    marginBottom: 32,
+  },
+  notesTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#000',
+    marginBottom: 12,
+    letterSpacing: -0.3,
+  },
+  notesBody: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#000',
+    fontWeight: '400',
+  },
+  todoList: {
+    paddingHorizontal: 24,
+  },
+  todoItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 20,
+  },
+  checkboxContainer: {
+    marginRight: 14,
+    marginTop: 2,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxUnchecked: {
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#5856D6', // Purple/Blue outline
+  },
+  checkboxChecked: {
+    // No border for checked state in the image design, just the check icon naturally usually content-bound?
+    // Actually the mock shows a checkmark. Let's assume it's just the icon.
+    // Or maybe a faint border? Let's go with no border to match "clean" look or kept layout.
+    // Making it consistent container size.
+  },
+  todoText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#000',
+    lineHeight: 24,
+    fontWeight: '400',
+  },
+  todoTextChecked: {
+    color: '#C7C7CC',
+  },
+  bottomBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 32,
+    paddingVertical: 8,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#F2F2F7',
+    paddingBottom: 20,
+  },
+  bottomTab: {
+    padding: 4,
+  },
+  bottomTabActive: {
+    opacity: 1,
+  },
+  fab: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#F2F2F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -16, // Float slightly up
+  },
+  // Calendar Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  calendarModal: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+    width: SCREEN_WIDTH - 40,
+    maxWidth: 380,
+  },
+  calendarHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingHorizontal: 4,
+  },
+  calendarNavButton: {
+    padding: 8,
+  },
+  calendarMonthText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#000',
+  },
+  weekDayRow: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  weekDayCell: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  weekDayText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#8E8E93',
+    textTransform: 'uppercase',
+  },
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  calendarDayCell: {
+    width: `${100 / 7}%`,
+    aspectRatio: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calendarDaySelected: {
+    backgroundColor: '#5856D6',
+    borderRadius: 20,
+  },
+  calendarDayToday: {
+    borderWidth: 2,
+    borderColor: '#5856D6',
+    borderRadius: 20,
+  },
+  calendarDayText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#000',
+  },
+  calendarDayTextSelected: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  calendarDayTextToday: {
+    color: '#5856D6',
+    fontWeight: '700',
+  },
+  todayButton: {
+    marginTop: 16,
+    paddingVertical: 12,
+    backgroundColor: '#F2F2F7',
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  todayButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#5856D6',
+  },
+  addOptionsModal: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 24,
+    width: SCREEN_WIDTH - 80,
+    maxWidth: 300,
+    alignItems: 'center',
+  },
+  addOptionsTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#000',
+    marginBottom: 20,
+  },
+  addOptionButton: {
+    width: '100%',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: '#F2F2F7',
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  addOptionText: {
     fontSize: 17,
     fontWeight: '600',
     color: '#000',
-    letterSpacing: -0.4,
-  },
-  habitNameCompleted: {
-    color: '#34C759',
-  },
-  cueText: {
-    fontSize: 13,
-    color: '#8E8E93',
-  },
-  habitMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 6,
-  },
-  streakBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: '#FFF5E6',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  streakText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FF9500',
-  },
-  statsCard: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 16,
-    marginTop: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#000',
-  },
-  statLabel: {
-    fontSize: 11,
-    color: '#8E8E93',
-    marginTop: 2,
-    fontWeight: '500',
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: '#E5E5EA',
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 80,
-    paddingHorizontal: 32,
-  },
-  emptyIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#F2F2F7',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-    borderWidth: 2,
-    borderColor: '#E5E5EA',
-    borderStyle: 'dashed',
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#000',
-    marginBottom: 8,
-  },
-  emptySubtitle: {
-    fontSize: 15,
-    color: '#8E8E93',
     textAlign: 'center',
-    lineHeight: 22,
   },
-  emptyButton: {
-    marginTop: 24,
+  // New styles for enhanced daily notes
+  notesInputSection: {
     paddingHorizontal: 24,
-    paddingVertical: 14,
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
+    marginBottom: 24,
   },
-  emptyButtonText: {
+  sectionLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#8E8E93',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 12,
+  },
+  notesInput: {
     fontSize: 16,
+    color: '#000',
+    lineHeight: 24,
+    outlineStyle: 'none',
+  },
+  sectionContainer: {
+    paddingHorizontal: 24,
+    marginBottom: 24,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  addLink: {
+    fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
+    color: '#5856D6',
   },
   emptyText: {
+    fontSize: 14,
+    color: '#C7C7CC',
+    fontStyle: 'italic',
+  },
+  habitsList: {
+    gap: 8,
+  },
+  habitItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#F9F9F9',
+    borderRadius: 12,
+  },
+  habitCheckbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: '#5856D6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  habitCheckboxCompleted: {
+    backgroundColor: '#5856D6',
+    borderColor: '#5856D6',
+  },
+  habitText: {
+    flex: 1,
     fontSize: 15,
+    fontWeight: '500',
+    color: '#000',
+  },
+  habitTextCompleted: {
     color: '#8E8E93',
+  },
+  miniStreak: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  miniStreakText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FF9500',
   },
 });
