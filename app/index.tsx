@@ -6,7 +6,6 @@ import {
   MoreHorizontal,
   Plus,
   Zap,
-  Search,
   Menu,
   Check,
   Flame,
@@ -430,9 +429,6 @@ export default function HomeScreen() {
 
       {/* Bottom Bar */}
       <View style={styles.bottomBar}>
-        <Pressable style={styles.bottomTab} onPress={() => router.push('/todos')}>
-          <Search size={24} color="#000" strokeWidth={1.5} />
-        </Pressable>
         <Pressable style={[styles.bottomTab, styles.bottomTabActive]}>
           <Calendar size={24} color="#5856D6" strokeWidth={1.5} />
         </Pressable>
