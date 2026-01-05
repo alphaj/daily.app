@@ -12,16 +12,16 @@ function getToday(): string {
 
 function calculateStreak(completedDates: string[]): number {
   if (completedDates.length === 0) return 0;
-  
+
   const sortedDates = [...completedDates].sort().reverse();
   let streak = 0;
   let checkDate = new Date();
-  
+
   for (const dateStr of sortedDates) {
     const completedDate = new Date(dateStr + 'T00:00:00');
     const expectedDate = new Date(checkDate);
     expectedDate.setHours(0, 0, 0, 0);
-    
+
     if (completedDate.getTime() === expectedDate.getTime()) {
       streak++;
       checkDate.setDate(checkDate.getDate() - 1);
@@ -29,20 +29,20 @@ function calculateStreak(completedDates: string[]): number {
       break;
     }
   }
-  
+
   return streak;
 }
 
 function getWeekDates(): string[] {
   const dates: string[] = [];
   const today = new Date();
-  
+
   for (let i = 6; i >= 0; i--) {
     const date = new Date(today);
     date.setDate(date.getDate() - i);
     dates.push(date.toISOString().split('T')[0]);
   }
-  
+
   return dates;
 }
 
@@ -79,10 +79,11 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
     }
   }, [habitsQuery.data]);
 
-  const addHabit = (name: string, intention?: ImplementationIntention) => {
+  const addHabit = (name: string, intention?: ImplementationIntention, emoji?: string) => {
     const newHabit: Habit = {
       id: Date.now().toString(),
       name,
+      emoji,
       createdAt: new Date().toISOString(),
       completedDates: [],
       currentStreak: 0,
@@ -94,8 +95,8 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
     saveMutation.mutate(updated);
   };
 
-  const updateHabit = (id: string, updates: Partial<Pick<Habit, 'name' | 'intention'>>) => {
-    const updated = habits.map(habit => 
+  const updateHabit = (id: string, updates: Partial<Pick<Habit, 'name' | 'intention' | 'emoji'>>) => {
+    const updated = habits.map(habit =>
       habit.id === id ? { ...habit, ...updates } : habit
     );
     setHabits(updated);
@@ -111,19 +112,19 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
   const toggleHabitCompletion = (id: string): boolean => {
     const today = getToday();
     let wasCompleted = false;
-    
+
     const updated = habits.map(habit => {
       if (habit.id === id) {
         const isCompleted = habit.completedDates.includes(today);
         wasCompleted = !isCompleted;
-        
+
         const newCompletedDates = isCompleted
           ? habit.completedDates.filter(d => d !== today)
           : [...habit.completedDates, today];
-        
+
         const currentStreak = calculateStreak(newCompletedDates);
         const bestStreak = Math.max(habit.bestStreak, currentStreak);
-        
+
         return {
           ...habit,
           completedDates: newCompletedDates,
@@ -145,7 +146,7 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
   const getWeeklyProgress = (habit: Habit): DayCompletion[] => {
     const weekDates = getWeekDates();
     const today = getToday();
-    
+
     return weekDates.map(date => ({
       date,
       dayName: getDayName(date),
@@ -157,7 +158,7 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
   const getOverallStats = useMemo((): HabitStats => {
     const weekDates = getWeekDates();
     const totalPossible = habits.length * 7;
-    
+
     let weeklyCompletions = 0;
     habits.forEach(habit => {
       weekDates.forEach(date => {
@@ -182,7 +183,7 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
     const today = getToday();
     const completedToday = habits.filter(h => h.completedDates.includes(today)).length;
     const total = habits.length;
-    
+
     if (total === 0) return "Add your first habit to get started";
     if (completedToday === total) return "Perfect day! All habits complete";
     if (completedToday === 0) return "Start strong today";

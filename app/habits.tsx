@@ -9,6 +9,7 @@ import {
     Menu,
     Flame,
     Check,
+    Search,
 } from 'lucide-react-native';
 import React from 'react';
 import {
@@ -32,12 +33,14 @@ function HabitItem({
     getWeeklyProgress,
     onToggle,
     onDelete,
+    onPress,
 }: {
     habit: any;
     isCompletedToday: (h: any) => boolean;
     getWeeklyProgress: (h: any) => any[];
     onToggle: (id: string) => void;
     onDelete: (id: string) => void;
+    onPress: (id: string) => void;
 }) {
     const completed = isCompletedToday(habit);
     const weekProgress = getWeeklyProgress(habit);
@@ -52,16 +55,35 @@ function HabitItem({
         onDelete(habit.id);
     };
 
+    const handleCardPress = () => {
+        Haptics.selectionAsync();
+        onPress(habit.id);
+    };
+
     return (
         <SwipeableRow onDelete={handleDelete}>
-            <View style={styles.habitCard}>
+            <Pressable style={styles.habitCard} onPress={handleCardPress}>
                 <View style={styles.habitHeader}>
-                    <Pressable
-                        style={[styles.habitCheckbox, completed && styles.habitCheckboxCompleted]}
-                        onPress={handlePress}
-                    >
-                        {completed && <Check size={18} color="#fff" strokeWidth={3} />}
-                    </Pressable>
+                    {habit.emoji ? (
+                        <Pressable
+                            style={[styles.habitEmojiContainer, completed && styles.habitEmojiContainerCompleted]}
+                            onPress={handlePress}
+                        >
+                            <Text style={styles.habitEmoji}>{habit.emoji}</Text>
+                            {completed && (
+                                <View style={styles.emojiCheckmark}>
+                                    <Check size={12} color="#fff" strokeWidth={3} />
+                                </View>
+                            )}
+                        </Pressable>
+                    ) : (
+                        <Pressable
+                            style={[styles.habitCheckbox, completed && styles.habitCheckboxCompleted]}
+                            onPress={handlePress}
+                        >
+                            {completed && <Check size={18} color="#fff" strokeWidth={3} />}
+                        </Pressable>
+                    )}
                     <Text style={[styles.habitName, completed && styles.habitNameCompleted]}>
                         {habit.name}
                     </Text>
@@ -90,7 +112,7 @@ function HabitItem({
                         </View>
                     ))}
                 </View>
-            </View>
+            </Pressable>
         </SwipeableRow>
     );
 }
@@ -113,6 +135,10 @@ export default function HabitsScreen() {
     const handleAddPress = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         router.push('/add-habit');
+    };
+
+    const handleHabitPress = (id: string) => {
+        router.push({ pathname: '/habit-detail', params: { id } });
     };
 
     const completedToday = habits.filter((h) => isCompletedToday(h)).length;
@@ -185,6 +211,7 @@ export default function HabitsScreen() {
                                 getWeeklyProgress={getWeeklyProgress}
                                 onToggle={toggleHabitCompletion}
                                 onDelete={deleteHabit}
+                                onPress={handleHabitPress}
                             />
                         ))
                     )}
@@ -193,6 +220,9 @@ export default function HabitsScreen() {
 
             {/* Bottom Bar */}
             <View style={styles.bottomBar}>
+                <Pressable style={styles.bottomTab} onPress={() => router.replace('/todos')}>
+                    <Search size={24} color="#000" strokeWidth={1.5} />
+                </Pressable>
                 <Pressable style={styles.bottomTab} onPress={() => router.replace('/')}>
                     <Calendar size={24} color="#000" strokeWidth={1.5} />
                 </Pressable>
@@ -204,7 +234,6 @@ export default function HabitsScreen() {
                 <Pressable style={[styles.bottomTab, styles.bottomTabActive]}>
                     <Zap size={24} color="#5856D6" strokeWidth={1.5} />
                 </Pressable>
-
                 <Pressable style={styles.bottomTab} onPress={() => router.push('/menu')}>
                     <Menu size={24} color="#000" strokeWidth={1.5} />
                 </Pressable>
@@ -313,6 +342,35 @@ const styles = StyleSheet.create({
     habitCheckboxCompleted: {
         backgroundColor: '#5856D6',
         borderColor: '#5856D6',
+    },
+    habitEmojiContainer: {
+        width: 44,
+        height: 44,
+        borderRadius: 12,
+        backgroundColor: '#F5F5FF',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 12,
+        position: 'relative',
+    },
+    habitEmojiContainerCompleted: {
+        backgroundColor: '#E8FFE8',
+    },
+    habitEmoji: {
+        fontSize: 24,
+    },
+    emojiCheckmark: {
+        position: 'absolute',
+        bottom: -2,
+        right: -2,
+        width: 18,
+        height: 18,
+        borderRadius: 9,
+        backgroundColor: '#34C759',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 2,
+        borderColor: '#fff',
     },
     habitName: {
         flex: 1,

@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { X, Clock, MapPin } from 'lucide-react-native';
+import { X, Plus, ChevronDown, ChevronUp } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   View,
@@ -15,23 +15,34 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useHabits } from '@/contexts/HabitContext';
 
-const TIME_SUGGESTIONS = ['Morning', 'Afternoon', 'Evening', 'Before bed'];
-const CUE_SUGGESTIONS = ['After waking up', 'After breakfast', 'After lunch', 'After work'];
+// Popular habit emojis - just the essentials
+const QUICK_EMOJIS = ['💪', '📚', '🧘', '💧', '🏃', '😴', '✍️', '🎯'];
+
+// Full emoji list for expanded view
+const ALL_EMOJIS = [
+  '💪', '📚', '🧘', '💧', '🏃', '😴', '✍️', '🎯',
+  '🏋️', '🚴', '🤸', '🏊', '⚽', '🎾', '💊', '🩺',
+  '🧖', '💆', '🛁', '🌅', '☀️', '🌙', '🩷', '🧊',
+  '🥗', '🍎', '🥑', '🥕', '🍵', '🍳', '🫐', '🥦',
+  '💻', '📝', '📧', '⏰', '📅', '✅', '🗂️', '💼',
+  '🎓', '📖', '🧠', '💡', '🎨', '🎵', '🎹', '🌐',
+  '🙏', '🕯️', '🌸', '🍃', '🌿', '🦋', '✨', '💫',
+  '👨‍👩‍👧', '💬', '📞', '🤝', '💌', '🎁', '🥰', '👋',
+  '💰', '💵', '📈', '🏦', '💳', '🪙', '💎', '🏠',
+  '🧹', '🧺', '🪴', '🛏️', '🧽', '🪥', '📦', '🧸',
+];
 
 export default function AddHabitScreen() {
   const router = useRouter();
   const { addHabit } = useHabits();
   const [habitName, setHabitName] = useState('');
-  const [when, setWhen] = useState('');
-  const [cue, setCue] = useState('');
+  const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
+  const [showAllEmojis, setShowAllEmojis] = useState(false);
 
   const handleSave = () => {
     if (habitName.trim()) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      addHabit(habitName.trim(), {
-        when: when.trim() || undefined,
-        cue: cue.trim() || undefined,
-      });
+      addHabit(habitName.trim(), {}, selectedEmoji || undefined);
       router.back();
     }
   };
@@ -41,10 +52,17 @@ export default function AddHabitScreen() {
     router.back();
   };
 
-  const selectSuggestion = (value: string, setter: (v: string) => void) => {
-    Haptics.selectionAsync();
-    setter(value);
+  const selectEmoji = (emoji: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedEmoji(selectedEmoji === emoji ? null : emoji);
   };
+
+  const toggleEmojiPicker = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowAllEmojis(!showAllEmojis);
+  };
+
+  const isValid = habitName.trim().length > 0;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -52,106 +70,106 @@ export default function AddHabitScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
+        {/* Header */}
         <View style={styles.header}>
           <Pressable style={styles.closeButton} onPress={handleCancel}>
-            <X size={28} color="#000" strokeWidth={2} />
-          </Pressable>
-          <Text style={styles.headerTitle}>New Habit</Text>
-          <Pressable
-            style={styles.saveButton}
-            onPress={handleSave}
-            disabled={!habitName.trim()}
-          >
-            <Text
-              style={[
-                styles.saveButtonText,
-                !habitName.trim() && styles.saveButtonTextDisabled,
-              ]}
-            >
-              Add
-            </Text>
+            <X size={24} color="#8E8E93" strokeWidth={2} />
           </Pressable>
         </View>
 
-        <ScrollView 
+        <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={styles.content}
+          contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.section}>
-            <Text style={styles.label}>What do you want to do every day?</Text>
+          {/* Main Content */}
+          <View style={styles.content}>
+            {/* Selected Emoji Display */}
+            <Pressable
+              style={[
+                styles.emojiDisplay,
+                selectedEmoji && styles.emojiDisplayActive
+              ]}
+              onPress={() => setSelectedEmoji(null)}
+            >
+              <Text style={styles.emojiDisplayText}>
+                {selectedEmoji || '✨'}
+              </Text>
+            </Pressable>
+
+            {/* Habit Input */}
             <TextInput
               style={styles.input}
-              placeholder="e.g. Read for 30 minutes"
+              placeholder="What habit are you building?"
               placeholderTextColor="#C7C7CC"
               value={habitName}
               onChangeText={setHabitName}
               autoFocus
-              returnKeyType="next"
+              returnKeyType="done"
+              onSubmitEditing={handleSave}
             />
-          </View>
 
-          <View style={styles.section}>
-            <View style={styles.labelRow}>
-              <Clock size={16} color="#8E8E93" />
-              <Text style={styles.labelSecondary}>When will you do it?</Text>
-            </View>
-            <TextInput
-              style={styles.inputSecondary}
-              placeholder="e.g. 7:00 AM"
-              placeholderTextColor="#C7C7CC"
-              value={when}
-              onChangeText={setWhen}
-            />
-            <View style={styles.suggestions}>
-              {TIME_SUGGESTIONS.map((time) => (
-                <Pressable
-                  key={time}
-                  style={[styles.chip, when === time && styles.chipSelected]}
-                  onPress={() => selectSuggestion(time, setWhen)}
-                >
-                  <Text style={[styles.chipText, when === time && styles.chipTextSelected]}>
-                    {time}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
+            {/* Quick Emoji Row */}
+            <View style={styles.emojiSection}>
+              <View style={styles.emojiRow}>
+                {QUICK_EMOJIS.map((emoji) => (
+                  <Pressable
+                    key={emoji}
+                    style={[
+                      styles.emojiButton,
+                      selectedEmoji === emoji && styles.emojiButtonSelected,
+                    ]}
+                    onPress={() => selectEmoji(emoji)}
+                  >
+                    <Text style={styles.emojiText}>{emoji}</Text>
+                  </Pressable>
+                ))}
+              </View>
 
-          <View style={styles.section}>
-            <View style={styles.labelRow}>
-              <MapPin size={16} color="#8E8E93" />
-              <Text style={styles.labelSecondary}>Link to existing routine</Text>
-            </View>
-            <TextInput
-              style={styles.inputSecondary}
-              placeholder="e.g. After my morning coffee"
-              placeholderTextColor="#C7C7CC"
-              value={cue}
-              onChangeText={setCue}
-            />
-            <View style={styles.suggestions}>
-              {CUE_SUGGESTIONS.map((suggestion) => (
-                <Pressable
-                  key={suggestion}
-                  style={[styles.chip, cue === suggestion && styles.chipSelected]}
-                  onPress={() => selectSuggestion(suggestion, setCue)}
-                >
-                  <Text style={[styles.chipText, cue === suggestion && styles.chipTextSelected]}>
-                    {suggestion}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
+              {/* More Button */}
+              <Pressable style={styles.moreButton} onPress={toggleEmojiPicker}>
+                <Text style={styles.moreButtonText}>
+                  {showAllEmojis ? 'Show less' : 'More icons'}
+                </Text>
+                {showAllEmojis ? (
+                  <ChevronUp size={16} color="#5856D6" />
+                ) : (
+                  <ChevronDown size={16} color="#5856D6" />
+                )}
+              </Pressable>
 
-          <View style={styles.tipCard}>
-            <Text style={styles.tipTitle}>💡 Habit stacking tip</Text>
-            <Text style={styles.tipText}>
-              Linking a new habit to an existing routine makes it 2-3x more likely to stick.
-            </Text>
+              {/* Expanded Emoji Grid */}
+              {showAllEmojis && (
+                <View style={styles.allEmojisGrid}>
+                  {ALL_EMOJIS.map((emoji, index) => (
+                    <Pressable
+                      key={`${emoji}-${index}`}
+                      style={[
+                        styles.emojiButtonSmall,
+                        selectedEmoji === emoji && styles.emojiButtonSelected,
+                      ]}
+                      onPress={() => selectEmoji(emoji)}
+                    >
+                      <Text style={styles.emojiTextSmall}>{emoji}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+            </View>
           </View>
         </ScrollView>
+
+        {/* Add Button */}
+        <View style={styles.footer}>
+          <Pressable
+            style={[styles.addButton, !isValid && styles.addButtonDisabled]}
+            onPress={handleSave}
+            disabled={!isValid}
+          >
+            <Plus size={20} color="#fff" strokeWidth={2.5} />
+            <Text style={styles.addButtonText}>Add Habit</Text>
+          </Pressable>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -160,7 +178,7 @@ export default function AddHabitScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: '#fff',
   },
   keyboardView: {
     flex: 1,
@@ -168,121 +186,129 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#F2F2F7',
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#C7C7CC',
+    justifyContent: 'flex-start',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   closeButton: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     justifyContent: 'center',
-    alignItems: 'flex-start',
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#000',
-    letterSpacing: -0.4,
-  },
-  saveButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  saveButtonText: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#007AFF',
-  },
-  saveButtonTextDisabled: {
-    opacity: 0.3,
+    alignItems: 'center',
+    borderRadius: 20,
+    backgroundColor: '#F2F2F7',
   },
   scrollView: {
     flex: 1,
   },
+  scrollContent: {
+    flexGrow: 1,
+  },
   content: {
-    padding: 24,
-    gap: 28,
-  },
-  section: {
-    gap: 10,
-  },
-  label: {
-    fontSize: 15,
-    color: '#000',
-    fontWeight: '500',
-  },
-  labelRow: {
-    flexDirection: 'row',
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 24,
     alignItems: 'center',
-    gap: 6,
+    gap: 24,
   },
-  labelSecondary: {
-    fontSize: 14,
-    color: '#8E8E93',
-    fontWeight: '500',
+  emojiDisplay: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#F2F2F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emojiDisplayActive: {
+    backgroundColor: '#EEF0FF',
+  },
+  emojiDisplayText: {
+    fontSize: 36,
   },
   input: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 17,
+    width: '100%',
+    fontSize: 20,
+    fontWeight: '500',
     color: '#000',
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
+    textAlign: 'center',
+    paddingVertical: 16,
   },
-  inputSecondary: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 14,
-    fontSize: 16,
-    color: '#000',
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
+  emojiSection: {
+    width: '100%',
+    alignItems: 'center',
+    gap: 16,
   },
-  suggestions: {
+  emojiRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    justifyContent: 'center',
     gap: 8,
+    flexWrap: 'wrap',
   },
-  chip: {
-    paddingHorizontal: 14,
+  emojiButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F2F2F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emojiButtonSmall: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F2F2F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emojiButtonSelected: {
+    backgroundColor: '#5856D6',
+    transform: [{ scale: 1.1 }],
+  },
+  emojiText: {
+    fontSize: 22,
+  },
+  emojiTextSmall: {
+    fontSize: 20,
+  },
+  moreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingVertical: 8,
-    borderRadius: 16,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
+    paddingHorizontal: 12,
   },
-  chipSelected: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF',
-  },
-  chipText: {
+  moreButtonText: {
     fontSize: 14,
-    color: '#000',
+    color: '#5856D6',
     fontWeight: '500',
   },
-  chipTextSelected: {
-    color: '#fff',
+  allEmojisGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+    paddingTop: 8,
   },
-  tipCard: {
-    backgroundColor: '#FFF9E6',
-    borderRadius: 12,
-    padding: 16,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: '#FFE066',
+  footer: {
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+    paddingTop: 16,
   },
-  tipTitle: {
-    fontSize: 14,
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#5856D6',
+    paddingVertical: 16,
+    borderRadius: 14,
+  },
+  addButtonDisabled: {
+    opacity: 0.4,
+  },
+  addButtonText: {
+    fontSize: 17,
     fontWeight: '600',
-    color: '#000',
-  },
-  tipText: {
-    fontSize: 13,
-    color: '#666',
-    lineHeight: 18,
+    color: '#fff',
   },
 });

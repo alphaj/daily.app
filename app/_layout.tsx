@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { HabitProvider } from "@/contexts/HabitContext";
 import { TodoProvider } from "@/contexts/TodoContext";
 import { NoteProvider } from "@/contexts/NoteContext";
+import { BrainDumpProvider } from "@/contexts/BrainDumpContext";
 import { trpc, trpcClient } from "@/lib/trpc";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -37,9 +38,11 @@ export default function RootLayout() {
         <HabitProvider>
           <TodoProvider>
             <NoteProvider>
-              <GestureHandlerRootView style={{ flex: 1 }}>
-                <RootLayoutNav />
-              </GestureHandlerRootView>
+              <BrainDumpProvider>
+                <GestureHandlerRootView style={{ flex: 1 }}>
+                  <RootLayoutNav />
+                </GestureHandlerRootView>
+              </BrainDumpProvider>
             </NoteProvider>
           </TodoProvider>
         </HabitProvider>
