@@ -6,7 +6,6 @@ import {
     MoreHorizontal,
     Plus,
     Zap,
-    Search,
     Menu,
     Flame,
     Check,
@@ -194,9 +193,6 @@ export default function HabitsScreen() {
 
             {/* Bottom Bar */}
             <View style={styles.bottomBar}>
-                <Pressable style={styles.bottomTab} onPress={() => router.push('/menu')}>
-                    <Menu size={24} color="#000" strokeWidth={1.5} />
-                </Pressable>
                 <Pressable style={styles.bottomTab} onPress={() => router.replace('/')}>
                     <Calendar size={24} color="#000" strokeWidth={1.5} />
                 </Pressable>
@@ -208,8 +204,9 @@ export default function HabitsScreen() {
                 <Pressable style={[styles.bottomTab, styles.bottomTabActive]}>
                     <Zap size={24} color="#5856D6" strokeWidth={1.5} />
                 </Pressable>
-                <Pressable style={styles.bottomTab} onPress={() => router.replace('/todos')}>
-                    <Search size={24} color="#000" strokeWidth={1.5} />
+
+                <Pressable style={styles.bottomTab} onPress={() => router.push('/menu')}>
+                    <Menu size={24} color="#000" strokeWidth={1.5} />
                 </Pressable>
             </View>
         </SafeAreaView>
