@@ -1,6 +1,5 @@
 import { useRouter } from 'expo-router';
 import {
-    Calendar,
     ChevronLeft,
     ChevronRight,
     MoreHorizontal,
@@ -9,7 +8,8 @@ import {
     Menu,
     Flame,
     Check,
-    Search,
+    CheckSquare,
+    Home,
 } from 'lucide-react-native';
 import React from 'react';
 import {
@@ -220,11 +220,11 @@ export default function HabitsScreen() {
 
             {/* Bottom Bar */}
             <View style={styles.bottomBar}>
-                <Pressable style={styles.bottomTab} onPress={() => router.replace('/todos')}>
-                    <Search size={24} color="#000" strokeWidth={1.5} />
-                </Pressable>
                 <Pressable style={styles.bottomTab} onPress={() => router.replace('/')}>
-                    <Calendar size={24} color="#000" strokeWidth={1.5} />
+                    <Home size={24} color="#000" strokeWidth={1.5} />
+                </Pressable>
+                <Pressable style={styles.bottomTab}>
+                    <CheckSquare size={24} color="#000" strokeWidth={1.5} />
                 </Pressable>
 
                 <Pressable style={styles.fab} onPress={handleAddPress}>
