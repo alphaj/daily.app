@@ -1,6 +1,5 @@
 import { useRouter } from 'expo-router';
 import {
-    ChevronLeft,
     Settings,
     Plus,
     Clock,
@@ -27,6 +26,7 @@ import {
     TextInput,
     KeyboardAvoidingView,
     Platform,
+    Animated,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -60,20 +60,37 @@ function DumpItem({
     const [isExpanded, setIsExpanded] = useState(false);
     const config = TYPE_CONFIG[item.type];
     const IconComponent = config.icon;
+    const scaleAnim = useRef(new Animated.Value(1)).current;
 
-    const handlePress = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        setIsExpanded(!isExpanded);
+    const handlePressIn = () => {
+        Animated.spring(scaleAnim, {
+            toValue: 0.98,
+            useNativeDriver: true,
+            speed: 20,
+        }).start();
     };
 
-    const handleDelete = () => {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        onDelete(item.id);
+    const handlePressOut = () => {
+        Animated.spring(scaleAnim, {
+            toValue: 1,
+            useNativeDriver: true,
+            speed: 20,
+        }).start();
+    };
+
+    const handlePress = () => {
+        Haptics.selectionAsync();
+        setIsExpanded(!isExpanded);
     };
 
     const handlePin = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         onTogglePin(item.id);
+    };
+
+    const handleDelete = () => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        onDelete(item.id);
     };
 
     const handleConvertToTask = () => {
@@ -89,41 +106,64 @@ function DumpItem({
     const timeAgo = formatDistanceToNow(new Date(item.createdAt), { addSuffix: true });
 
     return (
-        <View style={[styles.dumpItemContainer, isExpanded && styles.dumpItemContainerExpanded]}>
-            <Pressable style={styles.dumpItem} onPress={handlePress} onLongPress={handlePin}>
-                <View style={[styles.typeIndicator, { backgroundColor: config.color }]}>
-                    <IconComponent size={14} color="#fff" strokeWidth={2} />
+        <Animated.View style={[
+            styles.itemWrapper,
+            { transform: [{ scale: scaleAnim }] }
+        ]}>
+            <Pressable
+                style={[styles.dumpItem, isExpanded && styles.dumpItemExpanded]}
+                onPress={handlePress}
+                onPressIn={handlePressIn}
+                onPressOut={handlePressOut}
+                onLongPress={handlePin}
+            >
+                <View style={styles.itemHeader}>
+                    <View style={[styles.typeIndicator, { backgroundColor: config.color + '20' }]}>
+                        <IconComponent size={16} color={config.color} strokeWidth={2.5} />
+                    </View>
+                    <View style={styles.itemContent}>
+                        <Text style={styles.dumpText}>{item.content}</Text>
+                        <View style={styles.metaRow}>
+                            <Text style={styles.dumpMeta}>
+                                {config.label} • {timeAgo}
+                            </Text>
+                            {item.isPinned && (
+                                <View style={styles.pinBadge}>
+                                    <Pin size={10} color="#5856D6" strokeWidth={2.5} />
+                                    <Text style={styles.pinText}>Pinned</Text>
+                                </View>
+                            )}
+                        </View>
+                    </View>
                 </View>
-                <View style={styles.dumpContent}>
-                    <Text style={styles.dumpText}>{item.content}</Text>
-                    <Text style={styles.dumpMeta}>
-                        {config.label} • {timeAgo}
-                    </Text>
-                </View>
-                {item.isPinned && (
-                    <View style={styles.pinnedBadge}>
-                        <Pin size={12} color="#5856D6" />
+
+                {isExpanded && (
+                    <View style={styles.actionBar}>
+                        <View style={styles.divider} />
+                        <View style={styles.actionButtons}>
+                            <Pressable style={styles.actionButton} onPress={handleConvertToTask}>
+                                <View style={[styles.actionIcon, { backgroundColor: '#34C75915' }]}>
+                                    <CheckCircle2 size={18} color="#34C759" strokeWidth={2} />
+                                </View>
+                                <Text style={styles.actionText}>Task</Text>
+                            </Pressable>
+                            <Pressable style={styles.actionButton} onPress={handleConvertToHabit}>
+                                <View style={[styles.actionIcon, { backgroundColor: '#5856D615' }]}>
+                                    <Zap size={18} color="#5856D6" strokeWidth={2} />
+                                </View>
+                                <Text style={styles.actionText}>Habit</Text>
+                            </Pressable>
+                            <Pressable style={styles.actionButton} onPress={handleDelete}>
+                                <View style={[styles.actionIcon, { backgroundColor: '#FF3B3015' }]}>
+                                    <Trash2 size={18} color="#FF3B30" strokeWidth={2} />
+                                </View>
+                                <Text style={[styles.actionText, { color: '#FF3B30' }]}>Delete</Text>
+                            </Pressable>
+                        </View>
                     </View>
                 )}
             </Pressable>
-
-            {isExpanded && (
-                <View style={styles.actionBar}>
-                    <Pressable style={styles.actionButton} onPress={handleConvertToTask}>
-                        <CheckCircle2 size={18} color="#34C759" strokeWidth={2} />
-                        <Text style={[styles.actionText, { color: '#34C759' }]}>Task</Text>
-                    </Pressable>
-                    <Pressable style={styles.actionButton} onPress={handleConvertToHabit}>
-                        <Zap size={18} color="#5856D6" strokeWidth={2} />
-                        <Text style={[styles.actionText, { color: '#5856D6' }]}>Habit</Text>
-                    </Pressable>
-                    <Pressable style={styles.actionButton} onPress={handleDelete}>
-                        <Trash2 size={18} color="#FF3B30" strokeWidth={2} />
-                        <Text style={[styles.actionText, { color: '#FF3B30' }]}>Delete</Text>
-                    </Pressable>
-                </View>
-            )}
-        </View>
+        </Animated.View>
     );
 }
 
@@ -170,58 +210,52 @@ export default function BrainDumpScreen() {
             >
                 {/* Header */}
                 <View style={styles.header}>
-                    <Pressable style={styles.iconButton} onPress={() => router.back()}>
-                        <ChevronLeft size={24} color="#000" strokeWidth={1.5} />
-                    </Pressable>
-
-                    <View style={styles.headerCenter}>
-                        <Text style={styles.logoText}>daily.app</Text>
-                        <Text style={styles.headerTitle}>Brain Dump</Text>
-                    </View>
-
-                    <Pressable style={styles.iconButton} onPress={() => router.push('/menu')}>
+                    <Text style={styles.headerTitle}>Brain Dump</Text>
+                    <Pressable
+                        style={styles.headerButton}
+                        onPress={() => router.push('/menu')}
+                    >
                         <Settings size={22} color="#000" strokeWidth={1.5} />
                     </Pressable>
                 </View>
 
-                {/* Quick Input */}
-                <View style={styles.inputContainer}>
-                    <TextInput
-                        ref={inputRef}
-                        style={styles.input}
-                        placeholder="What's on your mind?"
-                        placeholderTextColor="#C7C7CC"
-                        value={inputText}
-                        onChangeText={setInputText}
-                        onSubmitEditing={handleSubmit}
-                        returnKeyType="done"
-                        blurOnSubmit={false}
-                    />
-                    {inputText.trim() && (
-                        <Pressable style={styles.sendButton} onPress={handleSubmit}>
-                            <Send size={20} color="#fff" />
-                        </Pressable>
-                    )}
-                </View>
-
-                {/* Hint */}
-                <Text style={styles.hintText}>
-                    Type anything • Auto-detects links, ideas, reminders & tasks
-                </Text>
-
+                {/* Main Content */}
                 <ScrollView
                     style={styles.content}
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={{ paddingBottom: 100 }}
                     keyboardShouldPersistTaps="handled"
                 >
+                    {/* Input Card */}
+                    <View style={styles.inputCard}>
+                        <TextInput
+                            ref={inputRef}
+                            style={styles.input}
+                            placeholder="What's on your mind?"
+                            placeholderTextColor="#C7C7CC"
+                            value={inputText}
+                            onChangeText={setInputText}
+                            onSubmitEditing={handleSubmit}
+                            returnKeyType="done"
+                            blurOnSubmit={false}
+                            multiline
+                        />
+                        <View style={styles.inputFooter}>
+                            <Text style={styles.hintText}>
+                                Auto-detects tasks, ideas & reminders
+                            </Text>
+                            {inputText.trim() && (
+                                <Pressable style={styles.sendButton} onPress={handleSubmit}>
+                                    <Send size={18} color="#fff" strokeWidth={2.5} />
+                                </Pressable>
+                            )}
+                        </View>
+                    </View>
+
                     {/* Pinned Section */}
                     {pinnedItems.length > 0 && (
                         <View style={styles.section}>
-                            <View style={styles.sectionHeader}>
-                                <Pin size={14} color="#5856D6" />
-                                <Text style={styles.sectionTitle}>Pinned</Text>
-                            </View>
+                            <Text style={styles.sectionTitle}>Pinned</Text>
                             {pinnedItems.map(item => (
                                 <DumpItem
                                     key={item.id}
@@ -242,10 +276,12 @@ export default function BrainDumpScreen() {
                         )}
                         {unpinnedItems.length === 0 && pinnedItems.length === 0 ? (
                             <View style={styles.emptyState}>
-                                <MessageCircle size={48} color="#C7C7CC" strokeWidth={1} />
-                                <Text style={styles.emptyTitle}>Empty mind?</Text>
+                                <View style={styles.emptyIconContainer}>
+                                    <Brain size={48} color="#C7C7CC" strokeWidth={1} />
+                                </View>
+                                <Text style={styles.emptyTitle}>Empty Mind</Text>
                                 <Text style={styles.emptySubtitle}>
-                                    Capture your thoughts, ideas, and random things here
+                                    Capture your thoughts, ideas, and tasks before they slip away.
                                 </Text>
                             </View>
                         ) : (
@@ -273,13 +309,13 @@ export default function BrainDumpScreen() {
                     </Pressable>
 
                     <Pressable style={styles.fab} onPress={handleAddPress}>
-                        <Plus size={28} color="#000" strokeWidth={1.5} />
+                        <Plus size={24} color="#000" strokeWidth={2} />
                     </Pressable>
 
-                    <Pressable style={styles.bottomTab} onPress={() => router.push('/projects')}>
+                    <Pressable style={styles.bottomTab} onPress={() => router.replace('/projects')}>
                         <FolderKanban size={24} color="#000" strokeWidth={1.5} />
                     </Pressable>
-                    <Pressable style={styles.bottomTab} onPress={() => router.push('/later')}>
+                    <Pressable style={styles.bottomTab} onPress={() => router.replace('/later')}>
                         <Clock size={24} color="#000" strokeWidth={1.5} />
                     </Pressable>
                 </View>
@@ -291,7 +327,7 @@ export default function BrainDumpScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: '#F2F2F7',
     },
     flex: {
         flex: 1,
@@ -300,101 +336,154 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-    },
-    iconButton: {
-        padding: 8,
-    },
-    headerCenter: {
-        alignItems: 'center',
-        gap: 4,
-    },
-    logoText: {
-        fontSize: 20,
-        fontWeight: '800',
-        color: '#000',
-        letterSpacing: -1.0,
+        paddingHorizontal: 24,
+        paddingVertical: 16,
+        paddingBottom: 16,
     },
     headerTitle: {
-        fontSize: 14,
-        fontWeight: '500',
-        color: '#8E8E93',
+        fontSize: 34,
+        fontWeight: '700',
+        color: '#000',
+        letterSpacing: -0.5,
     },
-    inputContainer: {
-        flexDirection: 'row',
+    headerButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: '#fff',
         alignItems: 'center',
-        marginHorizontal: 24,
-        marginTop: 16,
-        backgroundColor: '#F2F2F7',
-        borderRadius: 16,
-        paddingHorizontal: 16,
-        paddingVertical: 14,
-        gap: 12,
+        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+    },
+    content: {
+        flex: 1,
+        paddingHorizontal: 20,
+    },
+    inputCard: {
+        backgroundColor: '#fff',
+        borderRadius: 24,
+        padding: 16,
+        marginBottom: 32,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 12,
+        elevation: 2,
     },
     input: {
-        flex: 1,
         fontSize: 17,
         color: '#000',
         fontWeight: '500',
+        minHeight: 24,
+        maxHeight: 120,
+        marginBottom: 12,
+    },
+    inputFooter: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    hintText: {
+        fontSize: 12,
+        color: '#8E8E93',
+        fontWeight: '500',
     },
     sendButton: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+        width: 32,
+        height: 32,
+        borderRadius: 16,
         backgroundColor: '#5856D6',
         alignItems: 'center',
         justifyContent: 'center',
     },
-    hintText: {
-        fontSize: 12,
-        color: '#C7C7CC',
-        textAlign: 'center',
-        marginTop: 8,
-        marginBottom: 16,
-    },
-    content: {
-        flex: 1,
-    },
     section: {
-        paddingHorizontal: 24,
         marginBottom: 24,
     },
-    sectionHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        marginBottom: 12,
-    },
     sectionTitle: {
-        fontSize: 13,
+        fontSize: 20,
         fontWeight: '700',
-        color: '#8E8E93',
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
+        color: '#000',
+        marginBottom: 16,
+        marginLeft: 4,
+    },
+    itemWrapper: {
         marginBottom: 12,
     },
     dumpItem: {
+        backgroundColor: '#fff',
+        borderRadius: 20,
+        padding: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.03,
+        shadowRadius: 8,
+        elevation: 1,
+    },
+    dumpItemExpanded: {
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        transform: [{ scale: 1.01 }],
+    },
+    itemHeader: {
         flexDirection: 'row',
         alignItems: 'flex-start',
-        padding: 12,
+        gap: 12,
     },
-    dumpItemContainer: {
-        backgroundColor: '#fff',
+    typeIndicator: {
+        width: 36,
+        height: 36,
         borderRadius: 12,
-        marginBottom: 8,
-        borderWidth: 1,
-        borderColor: '#F2F2F7',
-        overflow: 'hidden',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    dumpItemContainerExpanded: {
-        borderColor: '#5856D6',
-        backgroundColor: '#F8F8FC',
+    itemContent: {
+        flex: 1,
+        paddingTop: 2,
+    },
+    dumpText: {
+        fontSize: 16,
+        fontWeight: '500',
+        color: '#000',
+        lineHeight: 22,
+        marginBottom: 4,
+    },
+    metaRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    dumpMeta: {
+        fontSize: 12,
+        color: '#8E8E93',
+        fontWeight: '500',
+    },
+    pinBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        backgroundColor: '#F2F2F7',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 6,
+    },
+    pinText: {
+        fontSize: 10,
+        fontWeight: '600',
+        color: '#5856D6',
     },
     actionBar: {
+        marginTop: 12,
+    },
+    divider: {
+        height: 1,
+        backgroundColor: '#F2F2F7',
+        marginBottom: 12,
+    },
+    actionButtons: {
         flexDirection: 'row',
-        padding: 12,
-        paddingTop: 0,
         gap: 8,
     },
     actionButton: {
@@ -403,61 +492,48 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         gap: 6,
-        paddingVertical: 10,
+        paddingVertical: 8,
+        borderRadius: 12,
+        backgroundColor: '#F9F9F9',
+    },
+    actionIcon: {
+        width: 24,
+        height: 24,
         borderRadius: 8,
-        backgroundColor: '#fff',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-        elevation: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     actionText: {
         fontSize: 13,
         fontWeight: '600',
-    },
-    typeIndicator: {
-        width: 28,
-        height: 28,
-        borderRadius: 8,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: 12,
-    },
-    dumpContent: {
-        flex: 1,
-    },
-    dumpText: {
-        fontSize: 16,
-        fontWeight: '500',
         color: '#000',
-        lineHeight: 22,
-    },
-    dumpMeta: {
-        fontSize: 12,
-        color: '#8E8E93',
-        marginTop: 4,
-    },
-    pinnedBadge: {
-        marginLeft: 8,
     },
     emptyState: {
         alignItems: 'center',
         justifyContent: 'center',
         paddingVertical: 60,
     },
+    emptyIconContainer: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: '#E5E5EA',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 20,
+    },
     emptyTitle: {
-        fontSize: 18,
+        fontSize: 20,
         fontWeight: '700',
         color: '#000',
-        marginTop: 16,
+        marginBottom: 8,
     },
     emptySubtitle: {
-        fontSize: 14,
+        fontSize: 15,
         color: '#8E8E93',
-        marginTop: 8,
         textAlign: 'center',
-        paddingHorizontal: 40,
+        maxWidth: 260,
+        lineHeight: 22,
     },
     bottomBar: {
         flexDirection: 'row',

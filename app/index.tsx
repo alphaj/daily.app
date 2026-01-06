@@ -489,10 +489,10 @@ export default function HomeScreen() {
 
       {/* Bottom Bar */}
       <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-        <Pressable style={[styles.bottomTab, styles.bottomTabActive]}>
-          <Home size={24} color="#5856D6" strokeWidth={1.5} />
+        <Pressable style={styles.bottomTab} onPress={() => router.replace('/')}>
+          <Home size={24} color="#000" strokeWidth={1.5} />
         </Pressable>
-        <Pressable style={styles.bottomTab} onPress={() => router.push('/brain-dump')}>
+        <Pressable style={styles.bottomTab} onPress={() => router.replace('/brain-dump')}>
           <Brain size={24} color="#000" strokeWidth={1.5} />
         </Pressable>
 
@@ -500,10 +500,10 @@ export default function HomeScreen() {
           <Plus size={28} color="#000" strokeWidth={1.5} />
         </Pressable>
 
-        <Pressable style={styles.bottomTab} onPress={() => router.push('/projects')}>
+        <Pressable style={styles.bottomTab} onPress={() => router.replace('/projects')}>
           <FolderKanban size={24} color="#000" strokeWidth={1.5} />
         </Pressable>
-        <Pressable style={styles.bottomTab} onPress={() => router.push('/later')}>
+        <Pressable style={styles.bottomTab} onPress={() => router.replace('/later')}>
           <Clock size={24} color="#000" strokeWidth={1.5} />
         </Pressable>
       </View>

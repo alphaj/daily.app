@@ -45,20 +45,24 @@ function LaterItemCard({
   const config = AREA_CONFIG[item.area];
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.98,
+      useNativeDriver: true,
+      speed: 20,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 20,
+    }).start();
+  };
+
   const handlePress = () => {
     Haptics.selectionAsync();
-    Animated.sequence([
-      Animated.timing(scaleAnim, {
-        toValue: 0.98,
-        duration: 50,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scaleAnim, {
-        toValue: 1,
-        duration: 50,
-        useNativeDriver: true,
-      }),
-    ]).start();
   };
 
   const handleArchive = () => {
@@ -68,22 +72,31 @@ function LaterItemCard({
 
   return (
     <SwipeableRow onDelete={() => onDelete(item.id)}>
-      <Pressable onPress={handlePress} onLongPress={handleArchive} delayLongPress={500}>
-        <Animated.View style={[styles.itemCard, { transform: [{ scale: scaleAnim }] }]}>
+      <Animated.View style={[styles.cardWrapper, { transform: [{ scale: scaleAnim }] }]}>
+        <Pressable
+            style={styles.itemCard}
+            onPress={handlePress}
+            onPressIn={handlePressIn}
+            onPressOut={handlePressOut}
+            onLongPress={handleArchive}
+            delayLongPress={500}
+        >
           <View style={styles.itemHeader}>
             <View style={[styles.areaBadge, { backgroundColor: config.color + '15' }]}>
               <Text style={styles.areaEmoji}>{config.emoji}</Text>
               <Text style={[styles.areaLabel, { color: config.color }]}>{config.label}</Text>
             </View>
           </View>
+          
           <Text style={styles.itemTitle}>{item.title}</Text>
+          
           {item.note && (
             <Text style={styles.itemNote} numberOfLines={2}>
               {item.note}
             </Text>
           )}
-        </Animated.View>
-      </Pressable>
+        </Pressable>
+      </Animated.View>
     </SwipeableRow>
   );
 }
@@ -102,7 +115,9 @@ function ArchivedItemCard({
   return (
     <View style={styles.archivedCard}>
       <View style={styles.archivedContent}>
-        <Text style={styles.archivedEmoji}>{config.emoji}</Text>
+        <View style={[styles.archivedIcon, { backgroundColor: config.color + '15' }]}>
+            <Text style={{ fontSize: 14 }}>{config.emoji}</Text>
+        </View>
         <Text style={styles.archivedTitle} numberOfLines={1}>{item.title}</Text>
       </View>
       <View style={styles.archivedActions}>
@@ -112,8 +127,9 @@ function ArchivedItemCard({
             Haptics.selectionAsync();
             onRestore(item.id);
           }}
+          hitSlop={10}
         >
-          <RotateCcw size={16} color="#5856D6" />
+          <RotateCcw size={18} color="#5856D6" strokeWidth={2} />
         </Pressable>
         <Pressable
           style={styles.archivedAction}
@@ -121,8 +137,9 @@ function ArchivedItemCard({
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
             onDelete(item.id);
           }}
+          hitSlop={10}
         >
-          <Trash2 size={16} color="#FF3B30" />
+          <Trash2 size={18} color="#FF3B30" strokeWidth={2} />
         </Pressable>
       </View>
     </View>
@@ -185,61 +202,33 @@ export default function LaterScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.iconButton} />
-
-        <View style={styles.headerCenter}>
-          <Text style={styles.logoText}>daily.app</Text>
-          <Text style={styles.headerTitle}>Later</Text>
-        </View>
-
+        <Text style={styles.headerTitle}>Later</Text>
         <Pressable 
-          style={styles.iconButton} 
+          style={styles.headerButton} 
           onPress={() => router.push('/menu')}
         >
           <Settings size={22} color="#000" strokeWidth={1.5} />
         </Pressable>
       </View>
 
-      {/* Subheader */}
-      <View style={styles.subheader}>
-        <Text style={styles.subheaderText}>
-          {activeItems.length} {activeItems.length === 1 ? 'idea' : 'ideas'} parked
-        </Text>
-        {archivedItems.length > 0 && (
-          <Pressable
-            style={styles.archiveToggle}
-            onPress={() => {
-              Haptics.selectionAsync();
-              setShowArchive(!showArchive);
-            }}
-          >
-            <Archive size={16} color="#8E8E93" />
-            <Text style={styles.archiveToggleText}>
-              {showArchive ? 'Hide' : 'Show'} archived ({archivedItems.length})
-            </Text>
-          </Pressable>
-        )}
-      </View>
-
       <ScrollView
         style={styles.content}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 120 }}
+        contentContainerStyle={{ paddingBottom: 120, paddingHorizontal: 20 }}
         keyboardShouldPersistTaps="handled"
       >
         {!hasItems && !showArchive ? (
           <View style={styles.emptyState}>
-            <View style={styles.emptyIcon}>
+            <View style={styles.emptyIconContainer}>
               <Clock size={48} color="#C7C7CC" strokeWidth={1} />
             </View>
-            <Text style={styles.emptyTitle}>Nothing here yet</Text>
+            <Text style={styles.emptyTitle}>Someday</Text>
             <Text style={styles.emptySubtitle}>
-              Capture ideas, tasks, and things you want to do{'\n'}
-              someday without cluttering your daily focus.
+              Capture ideas and tasks you want to do someday, without cluttering your today.
             </Text>
-            <Pressable style={styles.emptyButton} onPress={handleAddPress}>
-              <Plus size={18} color="#fff" strokeWidth={2} />
-              <Text style={styles.emptyButtonText}>Add your first idea</Text>
+            <Pressable style={styles.createButton} onPress={handleAddPress}>
+              <Plus size={20} color="#fff" strokeWidth={2.5} />
+              <Text style={styles.createButtonText}>Add Idea</Text>
             </Pressable>
           </View>
         ) : (
@@ -254,33 +243,53 @@ export default function LaterScreen() {
                     <Text style={[styles.areaSectionTitle, { color: config.color }]}>
                       {config.label}
                     </Text>
-                    <Text style={styles.areaSectionCount}>{items.length}</Text>
+                    <View style={[styles.countBadge, { backgroundColor: config.color + '15' }]}>
+                        <Text style={[styles.countText, { color: config.color }]}>{items.length}</Text>
+                    </View>
                   </View>
-                  {items.map(item => (
-                    <LaterItemCard
-                      key={item.id}
-                      item={item}
-                      onArchive={archiveItem}
-                      onDelete={handleDelete}
-                    />
-                  ))}
+                  <View style={styles.itemsList}>
+                    {items.map(item => (
+                        <LaterItemCard
+                        key={item.id}
+                        item={item}
+                        onArchive={archiveItem}
+                        onDelete={handleDelete}
+                        />
+                    ))}
+                  </View>
                 </View>
               );
             })}
 
-            {/* Archived Section */}
-            {showArchive && archivedItems.length > 0 && (
-              <View style={styles.archivedSection}>
-                <Text style={styles.archivedSectionTitle}>Archived</Text>
-                {archivedItems.map(item => (
-                  <ArchivedItemCard
-                    key={item.id}
-                    item={item}
-                    onRestore={restoreItem}
-                    onDelete={handleDelete}
-                  />
-                ))}
-              </View>
+            {/* Archive Toggle */}
+            {archivedItems.length > 0 && (
+                <View style={styles.archiveSection}>
+                     <Pressable
+                        style={styles.archiveToggle}
+                        onPress={() => {
+                        Haptics.selectionAsync();
+                        setShowArchive(!showArchive);
+                        }}
+                    >
+                        <Archive size={16} color="#8E8E93" strokeWidth={2} />
+                        <Text style={styles.archiveToggleText}>
+                        {showArchive ? 'Hide' : 'Show'} Archived ({archivedItems.length})
+                        </Text>
+                    </Pressable>
+
+                    {showArchive && (
+                        <View style={styles.archivedList}>
+                            {archivedItems.map(item => (
+                            <ArchivedItemCard
+                                key={item.id}
+                                item={item}
+                                onRestore={restoreItem}
+                                onDelete={handleDelete}
+                            />
+                            ))}
+                        </View>
+                    )}
+                </View>
             )}
           </>
         )}
@@ -288,8 +297,8 @@ export default function LaterScreen() {
 
       {/* Floating Add Button */}
       {hasItems && (
-        <Pressable style={styles.floatingAdd} onPress={handleAddPress}>
-          <Plus size={24} color="#fff" strokeWidth={2} />
+        <Pressable style={styles.fab} onPress={handleAddPress}>
+          <Plus size={28} color="#fff" strokeWidth={2} />
         </Pressable>
       )}
 
@@ -298,21 +307,30 @@ export default function LaterScreen() {
         <Pressable style={styles.bottomTab} onPress={() => router.replace('/')}>
           <Home size={24} color="#000" strokeWidth={1.5} />
         </Pressable>
-        <Pressable style={styles.bottomTab} onPress={() => router.push('/brain-dump')}>
+        <Pressable style={styles.bottomTab} onPress={() => router.replace('/brain-dump')}>
           <Brain size={24} color="#000" strokeWidth={1.5} />
         </Pressable>
 
-        <Pressable style={styles.fab} onPress={handleAddPress}>
-          <Plus size={24} color="#000" strokeWidth={2} />
+        <Pressable style={styles.bottomFabPlaceholder} onPress={handleAddPress}>
+            {/* Placeholder for center alignment if needed, or use specific add logic */}
+             <Plus size={24} color="#000" strokeWidth={2} />
         </Pressable>
 
-        <Pressable style={styles.bottomTab} onPress={() => router.push('/projects')}>
+        <Pressable style={styles.bottomTab} onPress={() => router.replace('/projects')}>
           <FolderKanban size={24} color="#000" strokeWidth={1.5} />
         </Pressable>
         <Pressable style={[styles.bottomTab, styles.bottomTabActive]}>
           <Clock size={24} color="#5856D6" strokeWidth={1.5} />
         </Pressable>
       </View>
+      
+      {/* Center FAB override for consistency with other pages */}
+      <View pointerEvents="box-none" style={[styles.centerFabContainer, { bottom: Math.max(insets.bottom, 20) + 12 }]}>
+         <Pressable style={styles.centerFab} onPress={handleAddPress}>
+            <Plus size={28} color="#000" strokeWidth={1.5} />
+         </Pressable>
+      </View>
+
 
       {/* Add Modal */}
       <Modal
@@ -332,6 +350,7 @@ export default function LaterScreen() {
               <Pressable
                 style={styles.modalClose}
                 onPress={() => setShowAddModal(false)}
+                hitSlop={10}
               >
                 <X size={24} color="#8E8E93" />
               </Pressable>
@@ -370,7 +389,7 @@ export default function LaterScreen() {
                     key={area}
                     style={[
                       styles.areaOption,
-                      isSelected && { backgroundColor: config.color + '20', borderColor: config.color },
+                      isSelected && { backgroundColor: config.color + '15', borderColor: config.color },
                     ]}
                     onPress={() => {
                       Haptics.selectionAsync();
@@ -403,82 +422,54 @@ export default function LaterScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#F2F2F7',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: '#fff',
-  },
-  iconButton: {
-    padding: 8,
-    width: 40,
-  },
-  headerCenter: {
-    alignItems: 'center',
-    gap: 4,
-  },
-  logoText: {
-    fontSize: 20,
-    fontWeight: '800' as const,
-    color: '#000',
-    letterSpacing: -1.0,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    paddingBottom: 16,
   },
   headerTitle: {
-    fontSize: 14,
-    fontWeight: '500' as const,
-    color: '#8E8E93',
+    fontSize: 34,
+    fontWeight: '700',
+    color: '#000',
+    letterSpacing: -0.5,
   },
-  subheader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
+  headerButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
-  },
-  subheaderText: {
-    fontSize: 13,
-    fontWeight: '500' as const,
-    color: '#8E8E93',
-  },
-  archiveToggle: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-  },
-  archiveToggleText: {
-    fontSize: 13,
-    fontWeight: '500' as const,
-    color: '#8E8E93',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
   },
   content: {
     flex: 1,
   },
   emptyState: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 40,
-    paddingTop: 80,
+    paddingVertical: 60,
   },
-  emptyIcon: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#F2F2F7',
+  emptyIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#E5E5EA',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   emptyTitle: {
-    fontSize: 22,
-    fontWeight: '700' as const,
+    fontSize: 20,
+    fontWeight: '700',
     color: '#000',
     marginBottom: 8,
   },
@@ -486,61 +477,74 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#8E8E93',
     textAlign: 'center',
+    maxWidth: 260,
     lineHeight: 22,
     marginBottom: 32,
   },
-  emptyButton: {
+  createButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     backgroundColor: '#000',
-    paddingVertical: 14,
     paddingHorizontal: 24,
+    paddingVertical: 14,
     borderRadius: 100,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
   },
-  emptyButtonText: {
+  createButtonText: {
     fontSize: 16,
-    fontWeight: '600' as const,
+    fontWeight: '600',
     color: '#fff',
   },
   areaSection: {
-    marginTop: 20,
-    paddingHorizontal: 20,
+    marginBottom: 24,
   },
   areaSectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     marginBottom: 12,
+    paddingLeft: 4,
   },
   areaSectionEmoji: {
     fontSize: 18,
   },
   areaSectionTitle: {
-    fontSize: 16,
-    fontWeight: '700' as const,
+    fontSize: 18,
+    fontWeight: '700',
   },
-  areaSectionCount: {
-    fontSize: 13,
-    fontWeight: '500' as const,
-    color: '#8E8E93',
+  countBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  countText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  itemsList: {
+    gap: 12,
+  },
+  cardWrapper: {
+    marginBottom: 0,
   },
   itemCard: {
     backgroundColor: '#fff',
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 16,
-    marginBottom: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.03,
     shadowRadius: 8,
     elevation: 2,
   },
   itemHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   areaBadge: {
     flexDirection: 'row',
@@ -548,86 +552,95 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 100,
+    borderRadius: 8,
   },
   areaEmoji: {
-    fontSize: 12,
+    fontSize: 10,
   },
   areaLabel: {
     fontSize: 11,
-    fontWeight: '600' as const,
+    fontWeight: '600',
+    textTransform: 'uppercase',
   },
   itemTitle: {
     fontSize: 17,
-    fontWeight: '600' as const,
+    fontWeight: '600',
     color: '#000',
-    lineHeight: 24,
+    lineHeight: 22,
+    marginBottom: 4,
   },
   itemNote: {
     fontSize: 14,
     color: '#8E8E93',
-    marginTop: 6,
     lineHeight: 20,
   },
-  archivedSection: {
-    marginTop: 24,
-    paddingHorizontal: 20,
+  archiveSection: {
+    marginTop: 16,
+    marginBottom: 32,
   },
-  archivedSectionTitle: {
+  archiveToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+  },
+  archiveToggleText: {
     fontSize: 14,
-    fontWeight: '700' as const,
+    fontWeight: '600',
     color: '#8E8E93',
-    textTransform: 'uppercase' as const,
-    letterSpacing: 0.5,
-    marginBottom: 12,
+  },
+  archivedList: {
+    marginTop: 16,
+    gap: 10,
   },
   archivedCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 8,
-    opacity: 0.7,
+    backgroundColor: '#F9F9F9',
+    borderRadius: 16,
+    padding: 12,
   },
   archivedContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
     flex: 1,
   },
-  archivedEmoji: {
-    fontSize: 16,
+  archivedIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   archivedTitle: {
     fontSize: 15,
     color: '#8E8E93',
     flex: 1,
+    fontWeight: '500',
+    textDecorationLine: 'line-through',
   },
   archivedActions: {
     flexDirection: 'row',
     gap: 12,
+    paddingLeft: 12,
   },
   archivedAction: {
-    padding: 4,
-  },
-  floatingAdd: {
-    position: 'absolute',
-    right: 20,
-    bottom: 100,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#000',
-    alignItems: 'center',
-    justifyContent: 'center',
+    padding: 6,
+    backgroundColor: '#fff',
+    borderRadius: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
   },
+  // Bottom Bar
   bottomBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -644,15 +657,50 @@ const styles = StyleSheet.create({
   bottomTabActive: {
     opacity: 1,
   },
-  fab: {
+  bottomFabPlaceholder: {
+     width: 52,
+     height: 52,
+     opacity: 0, // Hidden but takes space
+  },
+  centerFabContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 100,
+  },
+  centerFab: {
     width: 52,
     height: 52,
     borderRadius: 26,
     backgroundColor: '#F2F2F7',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
   },
+  // Floating Add Button (when scrolling)
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 100,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#000',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
+    zIndex: 100,
+  },
+  // Modal
   modalContainer: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -666,79 +714,91 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
+    paddingTop: 20,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: '700' as const,
+    fontSize: 22,
+    fontWeight: '700',
     color: '#000',
+    letterSpacing: -0.5,
   },
   modalClose: {
     padding: 4,
+    backgroundColor: '#F2F2F7',
+    borderRadius: 20,
   },
   modalInput: {
-    fontSize: 17,
+    fontSize: 18,
     color: '#000',
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
+    backgroundColor: '#F9F9F9',
+    borderRadius: 16,
     padding: 16,
-    marginBottom: 12,
+    marginBottom: 16,
+    fontWeight: '500',
   },
   modalNoteInput: {
-    height: 80,
-    textAlignVertical: 'top' as const,
+    height: 100,
+    textAlignVertical: 'top',
+    fontSize: 16,
+    fontWeight: '400',
   },
   areaPickerLabel: {
     fontSize: 13,
-    fontWeight: '600' as const,
+    fontWeight: '700',
     color: '#8E8E93',
-    textTransform: 'uppercase' as const,
+    textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginTop: 8,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   areaPicker: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
   areaPickerContent: {
-    gap: 8,
+    gap: 10,
   },
   areaOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 100,
-    backgroundColor: '#F2F2F7',
-    borderWidth: 2,
-    borderColor: 'transparent',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
   },
   areaOptionEmoji: {
-    fontSize: 14,
+    fontSize: 16,
   },
   areaOptionLabel: {
-    fontSize: 14,
-    fontWeight: '500' as const,
+    fontSize: 15,
+    fontWeight: '600',
     color: '#000',
   },
   saveButton: {
     backgroundColor: '#000',
-    borderRadius: 14,
-    paddingVertical: 16,
+    borderRadius: 100,
+    paddingVertical: 18,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
   },
   saveButtonDisabled: {
     backgroundColor: '#E5E5EA',
+    shadowOpacity: 0,
   },
   saveButtonText: {
     fontSize: 17,
-    fontWeight: '600' as const,
+    fontWeight: '700',
     color: '#fff',
   },
 });

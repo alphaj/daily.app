@@ -230,7 +230,7 @@ export default function ProjectsScreen() {
         </Pressable>
 
         <Pressable style={styles.fab} onPress={handleAddProject}>
-          <Plus size={24} color="#000" strokeWidth={2} />
+          <Plus size={28} color="#000" strokeWidth={1.5} />
         </Pressable>
 
         <Pressable style={[styles.bottomTab, styles.bottomTabActive]}>
