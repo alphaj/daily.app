@@ -79,7 +79,7 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
     }
   }, [habitsQuery.data]);
 
-  const addHabit = (name: string, intention?: ImplementationIntention, emoji?: string) => {
+  const addHabit = (name: string, intention?: ImplementationIntention, emoji?: string, whyStatement?: string, celebrationPhrase?: string) => {
     const newHabit: Habit = {
       id: Date.now().toString(),
       name,
@@ -89,13 +89,15 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
       currentStreak: 0,
       bestStreak: 0,
       intention,
+      whyStatement,
+      celebrationPhrase,
     };
     const updated = [...habits, newHabit];
     setHabits(updated);
     saveMutation.mutate(updated);
   };
 
-  const updateHabit = (id: string, updates: Partial<Pick<Habit, 'name' | 'intention' | 'emoji'>>) => {
+  const updateHabit = (id: string, updates: Partial<Pick<Habit, 'name' | 'intention' | 'emoji' | 'whyStatement' | 'celebrationPhrase'>>) => {
     const updated = habits.map(habit =>
       habit.id === id ? { ...habit, ...updates } : habit
     );
@@ -193,6 +195,27 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
     return `${total - completedToday} habits left today`;
   };
 
+  /** Check if all habits are completed today */
+  const getAllHabitsCompleted = (): boolean => {
+    if (habits.length === 0) return false;
+    const today = getToday();
+    return habits.every(h => h.completedDates.includes(today));
+  };
+
+  /** Get a celebration phrase from any habit that has one */
+  const getCelebrationPhrase = (): string | null => {
+    const habitWithPhrase = habits.find(h => h.celebrationPhrase);
+    return habitWithPhrase?.celebrationPhrase || null;
+  };
+
+  /** Get habits that had a streak today but would break it if uncompleted */
+  const getStreakAtRiskHabits = (): Habit[] => {
+    const today = getToday();
+    return habits.filter(h =>
+      h.completedDates.includes(today) && h.currentStreak > 0
+    );
+  };
+
   return {
     habits,
     isLoading: habitsQuery.isLoading,
@@ -204,5 +227,8 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
     getWeeklyProgress,
     getOverallStats,
     getMotivationalMessage,
+    getAllHabitsCompleted,
+    getCelebrationPhrase,
+    getStreakAtRiskHabits,
   };
 });

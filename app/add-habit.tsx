@@ -38,11 +38,19 @@ export default function AddHabitScreen() {
   const [habitName, setHabitName] = useState('');
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
   const [showAllEmojis, setShowAllEmojis] = useState(false);
+  const [whyStatement, setWhyStatement] = useState('');
+  const [celebrationPhrase, setCelebrationPhrase] = useState('');
 
   const handleSave = () => {
     if (habitName.trim()) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      addHabit(habitName.trim(), {}, selectedEmoji || undefined);
+      addHabit(
+        habitName.trim(),
+        {},
+        selectedEmoji || undefined,
+        whyStatement.trim() || undefined,
+        celebrationPhrase.trim() || undefined
+      );
       router.back();
     }
   };
@@ -155,6 +163,33 @@ export default function AddHabitScreen() {
                   ))}
                 </View>
               )}
+            </View>
+
+            {/* Reflection Fields */}
+            <View style={styles.reflectionSection}>
+              <Text style={styles.reflectionLabel}>Why does this matter to you?</Text>
+              <TextInput
+                style={styles.reflectionInput}
+                placeholder="Your personal reason for this habit..."
+                placeholderTextColor="#C7C7CC"
+                value={whyStatement}
+                onChangeText={setWhyStatement}
+                multiline
+                maxLength={200}
+              />
+
+              <Text style={styles.reflectionLabel}>Celebration phrase (3 words)</Text>
+              <TextInput
+                style={[styles.reflectionInput, styles.celebrationInput]}
+                placeholder="e.g., 'I did it!'"
+                placeholderTextColor="#C7C7CC"
+                value={celebrationPhrase}
+                onChangeText={setCelebrationPhrase}
+                maxLength={30}
+              />
+              <Text style={styles.reflectionHint}>
+                We'll show these when you need motivation most
+              </Text>
             </View>
           </View>
         </ScrollView>
@@ -310,5 +345,38 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '600',
     color: '#fff',
+  },
+  reflectionSection: {
+    width: '100%',
+    marginTop: 8,
+    paddingTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: '#F2F2F7',
+  },
+  reflectionLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#8E8E93',
+    marginBottom: 8,
+    marginTop: 16,
+  },
+  reflectionInput: {
+    fontSize: 16,
+    color: '#000',
+    backgroundColor: '#F9F9F9',
+    borderRadius: 12,
+    padding: 14,
+    minHeight: 48,
+    textAlignVertical: 'top',
+  },
+  celebrationInput: {
+    minHeight: 48,
+  },
+  reflectionHint: {
+    fontSize: 12,
+    color: '#C7C7CC',
+    marginTop: 12,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 });

@@ -36,6 +36,8 @@ import type { Todo } from '@/types/todo';
 import type { Habit } from '@/types/habit';
 import { format, addDays, startOfWeek, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths } from 'date-fns';
 import SwipeableRow from '@/components/SwipeableRow';
+import { CelebrationOverlay } from '@/components/CelebrationOverlay';
+import { ReflectionModal } from '@/components/ReflectionModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -78,26 +80,26 @@ function TodoItem({
 
   return (
     <View style={styles.todoItemWrapper}>
-        <SwipeableRow onDelete={handleDelete}>
+      <SwipeableRow onDelete={handleDelete}>
         <Pressable
-            onPress={handlePress}
-            onPressIn={handlePressIn}
-            onPressOut={handlePressOut}
+          onPress={handlePress}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
         >
-            <Animated.View style={[
-                styles.todoItem, 
-                todo.completed && styles.todoItemCompleted,
-                { transform: [{ scale: scaleAnim }] }
-            ]}>
-                <View style={[styles.checkboxContainer, todo.completed ? styles.checkboxChecked : styles.checkboxUnchecked]}>
-                    {todo.completed && <Check size={14} color="#fff" strokeWidth={4} />}
-                </View>
-                <Text style={[styles.todoText, todo.completed && styles.todoTextChecked]}>
-                    {todo.title}
-                </Text>
-            </Animated.View>
+          <Animated.View style={[
+            styles.todoItem,
+            todo.completed && styles.todoItemCompleted,
+            { transform: [{ scale: scaleAnim }] }
+          ]}>
+            <View style={[styles.checkboxContainer, todo.completed ? styles.checkboxChecked : styles.checkboxUnchecked]}>
+              {todo.completed && <Check size={14} color="#fff" strokeWidth={4} />}
+            </View>
+            <Text style={[styles.todoText, todo.completed && styles.todoTextChecked]}>
+              {todo.title}
+            </Text>
+          </Animated.View>
         </Pressable>
-        </SwipeableRow>
+      </SwipeableRow>
     </View>
   );
 }
@@ -237,7 +239,7 @@ function HabitCard({
 
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
+
     Animated.sequence([
       Animated.timing(scaleAnim, {
         toValue: 0.95,
@@ -261,10 +263,10 @@ function HabitCard({
       `Are you sure you want to delete "${habit.name}"?`,
       [
         { text: "Cancel", style: "cancel" },
-        { 
-          text: "Delete", 
-          style: "destructive", 
-          onPress: () => onDelete(habit.id) 
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => onDelete(habit.id)
         }
       ]
     );
@@ -272,9 +274,9 @@ function HabitCard({
 
   return (
     <Pressable onPress={handlePress} onLongPress={handleLongPress} delayLongPress={500}>
-      <Animated.View 
+      <Animated.View
         style={[
-          styles.habitCard, 
+          styles.habitCard,
           isCompleted ? styles.habitCardCompleted : styles.habitCardIncomplete,
           { transform: [{ scale: scaleAnim }] }
         ]}
@@ -290,16 +292,16 @@ function HabitCard({
             </View>
           )}
         </View>
-        
-        <Text 
+
+        <Text
           style={[styles.habitCardName, isCompleted && styles.habitCardNameCompleted]}
           numberOfLines={2}
         >
           {habit.name}
         </Text>
-        
+
         <View style={[styles.habitStatusIcon, isCompleted && styles.habitStatusIconCompleted]}>
-            {isCompleted ? <Check size={14} color="#000" strokeWidth={4} /> : null}
+          {isCompleted ? <Check size={14} color="#000" strokeWidth={4} /> : null}
         </View>
       </Animated.View>
     </Pressable>
@@ -310,12 +312,25 @@ export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { getTodosForDate, toggleTodo, deleteTodo } = useTodos();
-  const { habits, toggleHabitCompletion, isCompletedToday, deleteHabit } = useHabits();
+  const {
+    habits,
+    toggleHabitCompletion,
+    isCompletedToday,
+    deleteHabit,
+    getAllHabitsCompleted,
+    getCelebrationPhrase,
+    getStreakAtRiskHabits,
+  } = useHabits();
   const { getNoteForDate, updateNoteForDate } = useNotes();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [calendarModalVisible, setCalendarModalVisible] = useState(false);
   const [addOptionsVisible, setAddOptionsVisible] = useState(false);
   const [noteText, setNoteText] = useState('');
+
+  // Reflection & Celebration state
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [showReflection, setShowReflection] = useState(false);
+  const [reflectionHabit, setReflectionHabit] = useState<Habit | null>(null);
 
   // Get tasks for the selected date
   const todosForDate = getTodosForDate(selectedDate);
@@ -350,6 +365,38 @@ export default function HomeScreen() {
     setAddOptionsVisible(false);
     router.push('/add-habit');
   };
+
+  // Handle habit toggle with reflection/celebration logic
+  const handleHabitToggle = useCallback((habitId: string) => {
+    const habit = habits.find(h => h.id === habitId);
+    if (!habit) return;
+
+    const wasCompletedBefore = isCompletedToday(habit);
+
+    // If unchecking a habit with a streak and a why statement, show reflection
+    if (wasCompletedBefore && habit.currentStreak > 0 && habit.whyStatement) {
+      setReflectionHabit(habit);
+      setShowReflection(true);
+      // Still toggle the habit
+    }
+
+    // Toggle the habit
+    const nowCompleted = toggleHabitCompletion(habitId);
+
+    // If we just completed a habit, check if all are now complete
+    if (nowCompleted) {
+      // Small delay to allow state to update
+      setTimeout(() => {
+        const allCompleted = habits.every(h =>
+          h.id === habitId ? true : isCompletedToday(h)
+        );
+        if (allCompleted && habits.length > 0) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          setShowCelebration(true);
+        }
+      }, 100);
+    }
+  }, [habits, isCompletedToday, toggleHabitCompletion]);
 
   const handleCalendarPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -416,10 +463,10 @@ export default function HomeScreen() {
             <Pressable
               key={index}
               style={[
-                  styles.dayItem, 
-                  isSelected && styles.dayItemSelected,
-                  !isSelected && isTodayDate && styles.dayItemToday
-                ]}
+                styles.dayItem,
+                isSelected && styles.dayItemSelected,
+                !isSelected && isTodayDate && styles.dayItemToday
+              ]}
               onPress={() => {
                 Haptics.selectionAsync();
                 setSelectedDate(date);
@@ -454,8 +501,8 @@ export default function HomeScreen() {
         <View style={styles.sectionContainer}>
           <View style={styles.notesCard}>
             <View style={styles.cardHeader}>
-                <PenLine size={18} color="#5856D6" />
-                <Text style={styles.cardTitle}>Daily Note</Text>
+              <PenLine size={18} color="#5856D6" />
+              <Text style={styles.cardTitle}>Daily Note</Text>
             </View>
             <TextInput
               style={styles.notesInput}
@@ -472,8 +519,8 @@ export default function HomeScreen() {
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleRow}>
-                <ListTodo size={20} color="#000" />
-                <Text style={styles.sectionLabel}>Tasks</Text>
+              <ListTodo size={20} color="#000" />
+              <Text style={styles.sectionLabel}>Tasks</Text>
             </View>
             <Pressable onPress={handleAddPress} style={styles.addButton}>
               <Plus size={16} color="#5856D6" strokeWidth={2.5} />
@@ -486,7 +533,7 @@ export default function HomeScreen() {
               <View style={styles.emptyStateCard}>
                 <Text style={styles.emptyText}>No tasks for this day</Text>
                 <Pressable onPress={() => router.push('/add-todo')} style={styles.emptyAddButton}>
-                    <Text style={styles.emptyAddText}>Add a task</Text>
+                  <Text style={styles.emptyAddText}>Add a task</Text>
                 </Pressable>
               </View>
             ) : (
@@ -501,29 +548,29 @@ export default function HomeScreen() {
         <View style={styles.habitsSection}>
           <View style={styles.sectionHeaderPadding}>
             <View style={styles.sectionHeader}>
-                <View style={styles.sectionTitleRow}>
-                    <Flame size={20} color="#FF9500" />
-                    <Text style={styles.sectionLabel}>Habits</Text>
-                </View>
+              <View style={styles.sectionTitleRow}>
+                <Flame size={20} color="#FF9500" />
+                <Text style={styles.sectionLabel}>Habits</Text>
+              </View>
               <Pressable onPress={() => router.push('/add-habit')} style={styles.addButton}>
                 <Plus size={16} color="#5856D6" strokeWidth={2.5} />
                 <Text style={styles.addLink}>Add</Text>
               </Pressable>
             </View>
           </View>
-          
+
           {habits.length === 0 ? (
             <View style={styles.emptyHabitsContainer}>
               <View style={styles.emptyStateCard}>
                 <Text style={styles.emptyText}>No habits tracked yet</Text>
                 <Pressable onPress={() => router.push('/add-habit')} style={styles.emptyAddButton}>
-                    <Text style={styles.emptyAddText}>Start a habit</Text>
+                  <Text style={styles.emptyAddText}>Start a habit</Text>
                 </Pressable>
               </View>
             </View>
           ) : (
-            <ScrollView 
-              horizontal 
+            <ScrollView
+              horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.habitsScrollContent}
               decelerationRate="fast"
@@ -535,7 +582,7 @@ export default function HomeScreen() {
                   key={habit.id}
                   habit={habit}
                   isCompleted={isCompletedToday(habit)}
-                  onToggle={toggleHabitCompletion}
+                  onToggle={handleHabitToggle}
                   onDelete={deleteHabit}
                 />
               ))}
@@ -592,6 +639,23 @@ export default function HomeScreen() {
           </View>
         </Pressable>
       </Modal>
+
+      {/* Celebration Overlay */}
+      <CelebrationOverlay
+        visible={showCelebration}
+        onComplete={() => setShowCelebration(false)}
+        celebrationPhrase={getCelebrationPhrase()}
+      />
+
+      {/* Reflection Modal */}
+      <ReflectionModal
+        visible={showReflection}
+        habit={reflectionHabit}
+        onDismiss={() => {
+          setShowReflection(false);
+          setReflectionHabit(null);
+        }}
+      />
 
     </SafeAreaView>
   );
@@ -674,7 +738,7 @@ const styles = StyleSheet.create({
   },
   dayNameSelected: {
     // Usually white on black.
-    color: 'rgba(255, 255, 255, 0.6)',
+    color: 'rgba(255, 255, 255, 0.9)',
   },
   dayNumber: {
     fontSize: 16,

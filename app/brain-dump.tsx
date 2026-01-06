@@ -15,6 +15,7 @@ import {
     Send,
     Trash2,
     Zap,
+    Inbox,
 } from 'lucide-react-native';
 import React, { useState, useRef } from 'react';
 import {
@@ -277,7 +278,7 @@ export default function BrainDumpScreen() {
                         {unpinnedItems.length === 0 && pinnedItems.length === 0 ? (
                             <View style={styles.emptyState}>
                                 <View style={styles.emptyIconContainer}>
-                                    <Brain size={48} color="#C7C7CC" strokeWidth={1} />
+                                    <Inbox size={48} color="#C7C7CC" strokeWidth={1} />
                                 </View>
                                 <Text style={styles.emptyTitle}>Empty Mind</Text>
                                 <Text style={styles.emptySubtitle}>

@@ -13,6 +13,10 @@ export interface Habit {
   currentStreak: number;
   bestStreak: number;
   intention?: ImplementationIntention;
+  /** User's personal reason for building this habit */
+  whyStatement?: string;
+  /** 3-word celebration phrase shown when all habits are complete */
+  celebrationPhrase?: string;
 }
 
 export interface HabitStats {

@@ -10,6 +10,7 @@ import {
     MessageSquare,
     Star,
     Shield,
+    LogOut,
 } from 'lucide-react-native';
 import React from 'react';
 import {
@@ -18,9 +19,11 @@ import {
     StyleSheet,
     Pressable,
     ScrollView,
+    Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface MenuItemProps {
     icon: React.ReactNode;
@@ -28,9 +31,10 @@ interface MenuItemProps {
     subtitle?: string;
     onPress?: () => void;
     showChevron?: boolean;
+    danger?: boolean;
 }
 
-function MenuItem({ icon, title, subtitle, onPress, showChevron = true }: MenuItemProps) {
+function MenuItem({ icon, title, subtitle, onPress, showChevron = true, danger }: MenuItemProps) {
     return (
         <Pressable
             style={styles.menuItem}
@@ -41,7 +45,7 @@ function MenuItem({ icon, title, subtitle, onPress, showChevron = true }: MenuIt
         >
             <View style={styles.menuIcon}>{icon}</View>
             <View style={styles.menuContent}>
-                <Text style={styles.menuTitle}>{title}</Text>
+                <Text style={[styles.menuTitle, danger && styles.menuTitleDanger]}>{title}</Text>
                 {subtitle && <Text style={styles.menuSubtitle}>{subtitle}</Text>}
             </View>
             {showChevron && <ChevronRight size={20} color="#C7C7CC" />}
@@ -60,7 +64,25 @@ function MenuSection({ title, children }: { title?: string; children: React.Reac
 
 export default function MenuScreen() {
     const router = useRouter();
-    
+    const { logout, user } = useAuth();
+
+    const handleLogout = () => {
+        Alert.alert(
+            'Log out',
+            'Are you sure you want to log out?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Log out',
+                    style: 'destructive',
+                    onPress: async () => {
+                        await logout();
+                        router.replace('/(onboarding)/email');
+                    }
+                },
+            ]
+        );
+    };
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
@@ -88,7 +110,7 @@ export default function MenuScreen() {
                     <MenuItem
                         icon={<User size={22} color="#5856D6" />}
                         title="Profile"
-                        subtitle="Manage your account"
+                        subtitle={user?.email || 'Manage your account'}
                     />
                 </MenuSection>
 
@@ -133,6 +155,17 @@ export default function MenuScreen() {
                     <MenuItem
                         icon={<Star size={22} color="#FFCC00" />}
                         title="Rate the App"
+                    />
+                </MenuSection>
+
+                {/* Danger Zone */}
+                <MenuSection>
+                    <MenuItem
+                        icon={<LogOut size={22} color="#FF3B30" />}
+                        title="Log out"
+                        onPress={handleLogout}
+                        showChevron={false}
+                        danger
                     />
                 </MenuSection>
 
@@ -222,6 +255,9 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#000',
     },
+    menuTitleDanger: {
+        color: '#FF3B30',
+    },
     menuSubtitle: {
         fontSize: 13,
         color: '#8E8E93',
@@ -242,5 +278,5 @@ const styles = StyleSheet.create({
         color: '#8E8E93',
         marginTop: 4,
     },
-    
+
 });

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -13,9 +13,17 @@ interface Particle {
 
 const COLORS = ['#007AFF', '#34C759', '#FF9500', '#FF2D55', '#5856D6'];
 
-export function CelebrationOverlay({ visible, onComplete }: { visible: boolean; onComplete: () => void }) {
+interface CelebrationOverlayProps {
+  visible: boolean;
+  onComplete: () => void;
+  celebrationPhrase?: string | null;
+}
+
+export function CelebrationOverlay({ visible, onComplete, celebrationPhrase }: CelebrationOverlayProps) {
   const particles = useRef<Particle[]>([]);
-  
+  const textOpacity = useRef(new Animated.Value(0)).current;
+  const textScale = useRef(new Animated.Value(0.5)).current;
+
   useEffect(() => {
     if (visible) {
       particles.current = Array.from({ length: 12 }, () => ({
@@ -26,7 +34,7 @@ export function CelebrationOverlay({ visible, onComplete }: { visible: boolean; 
         color: COLORS[Math.floor(Math.random() * COLORS.length)],
       }));
 
-      const animations = particles.current.map((particle, i) => {
+      const particleAnimations = particles.current.map((particle, i) => {
         const angle = (i / 12) * Math.PI * 2;
         const distance = 80 + Math.random() * 40;
         const targetX = width / 2 + Math.cos(angle) * distance;
@@ -63,16 +71,63 @@ export function CelebrationOverlay({ visible, onComplete }: { visible: boolean; 
         ]);
       });
 
-      Animated.parallel(animations).start(() => {
+      // Text animation
+      const textAnimation = Animated.parallel([
+        Animated.sequence([
+          Animated.timing(textOpacity, {
+            toValue: 1,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.delay(600),
+          Animated.timing(textOpacity, {
+            toValue: 0,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.sequence([
+          Animated.spring(textScale, {
+            toValue: 1,
+            speed: 12,
+            bounciness: 10,
+            useNativeDriver: true,
+          }),
+          Animated.delay(500),
+          Animated.timing(textScale, {
+            toValue: 0.8,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ]),
+      ]);
+
+      Animated.parallel([...particleAnimations, textAnimation]).start(() => {
+        textOpacity.setValue(0);
+        textScale.setValue(0.5);
         onComplete();
       });
     }
-  }, [visible, onComplete]);
+  }, [visible, onComplete, textOpacity, textScale]);
 
   if (!visible) return null;
 
+  const displayPhrase = celebrationPhrase || 'All done! 🎉';
+
   return (
     <View style={styles.container} pointerEvents="none">
+      {/* Celebration Text */}
+      <Animated.View style={[
+        styles.textContainer,
+        {
+          opacity: textOpacity,
+          transform: [{ scale: textScale }],
+        }
+      ]}>
+        <Text style={styles.celebrationText}>{displayPhrase}</Text>
+      </Animated.View>
+
+      {/* Particles */}
       {particles.current.map((particle, i) => (
         <Animated.View
           key={i}
@@ -101,6 +156,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 1000,
   },
+  textContainer: {
+    position: 'absolute',
+    top: '35%',
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    paddingHorizontal: 32,
+    paddingVertical: 20,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+  },
+  celebrationText: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#fff',
+    textAlign: 'center',
+  },
   particle: {
     position: 'absolute',
     width: 8,
@@ -108,3 +181,4 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
 });
+
