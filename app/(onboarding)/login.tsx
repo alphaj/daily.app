@@ -11,48 +11,34 @@ import {
     ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ChevronLeft, Eye, EyeOff } from 'lucide-react-native';
-import { useAuth } from '@/contexts/AuthContext';
+import { ChevronLeft } from 'lucide-react-native';
 
 export default function LoginScreen() {
     const router = useRouter();
-    const { login } = useAuth();
 
     const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [emailFocused, setEmailFocused] = useState(false);
-    const [passwordFocused, setPasswordFocused] = useState(false);
 
+    // Simple email validation
     const isValidEmail = (email: string) => {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return emailRegex.test(email);
     };
 
-    const handleLogin = async () => {
-        if (!canContinue) return;
+    const handleContinue = () => {
+        if (!isValidEmail(email)) return;
 
         setIsLoading(true);
-        setError(null);
-
-        const result = await login({ email, password });
-
-        setIsLoading(false);
-
-        if (result.success) {
-            router.replace('/');
-        } else {
-            setError(result.error || 'Login failed');
-        }
+        // Simulate a small delay for "Checking..." effect or check if email exists (optional)
+        // For now, just navigate immediately implies the check passed or determines flow
+        setTimeout(() => {
+            setIsLoading(false);
+            router.push({
+                pathname: '/(onboarding)/password',
+                params: { email }
+            });
+        }, 500);
     };
-
-    const handleSignupPress = () => {
-        router.push('/(onboarding)/email');
-    };
-
-    const canContinue = isValidEmail(email) && password.length > 0;
 
     return (
         <SafeAreaView style={styles.container}>
@@ -67,102 +53,41 @@ export default function LoginScreen() {
 
                 {/* Content */}
                 <View style={styles.content}>
-                    <Text style={styles.title}>Welcome{'\n'}back</Text>
+                    <Text style={styles.title}>What's your{'\n'}email?</Text>
 
                     {/* Email Input */}
                     <View style={styles.inputContainer}>
-                        <Text style={styles.inputLabel}>Email</Text>
                         <TextInput
-                            style={[
-                                styles.input,
-                                emailFocused && styles.inputFocused,
-                            ]}
-                            placeholder="you@example.com"
+                            style={styles.input}
+                            placeholder="you@example.com" // Placeholder for demonstration
                             placeholderTextColor="#C7C7CC"
                             value={email}
                             onChangeText={setEmail}
-                            onFocus={() => setEmailFocused(true)}
-                            onBlur={() => setEmailFocused(false)}
                             keyboardType="email-address"
                             autoCapitalize="none"
                             autoCorrect={false}
                             autoComplete="email"
                             textContentType="emailAddress"
-                        />
-                        <View
-                            style={[
-                                styles.inputUnderline,
-                                emailFocused && styles.inputUnderlineFocused,
-                            ]}
+                            autoFocus={true}
                         />
                     </View>
-
-                    {/* Password Input */}
-                    <View style={[styles.inputContainer, { marginTop: 24 }]}>
-                        <Text style={styles.inputLabel}>Password</Text>
-                        <View style={styles.passwordContainer}>
-                            <TextInput
-                                style={[
-                                    styles.input,
-                                    styles.passwordInput,
-                                    passwordFocused && styles.inputFocused,
-                                ]}
-                                placeholder="Enter your password"
-                                placeholderTextColor="#C7C7CC"
-                                value={password}
-                                onChangeText={setPassword}
-                                onFocus={() => setPasswordFocused(true)}
-                                onBlur={() => setPasswordFocused(false)}
-                                secureTextEntry={!showPassword}
-                                autoCapitalize="none"
-                                autoCorrect={false}
-                                autoComplete="password"
-                                textContentType="password"
-                            />
-                            <TouchableOpacity
-                                style={styles.eyeButton}
-                                onPress={() => setShowPassword(!showPassword)}
-                            >
-                                {showPassword ? (
-                                    <EyeOff size={20} color="#8E8E93" />
-                                ) : (
-                                    <Eye size={20} color="#8E8E93" />
-                                )}
-                            </TouchableOpacity>
-                        </View>
-                        <View
-                            style={[
-                                styles.inputUnderline,
-                                passwordFocused && styles.inputUnderlineFocused,
-                            ]}
-                        />
-                    </View>
-
-                    {/* Error Message */}
-                    {error && (
-                        <Text style={styles.errorText}>{error}</Text>
-                    )}
                 </View>
 
                 {/* Bottom Section */}
                 <View style={styles.bottomContainer}>
                     <TouchableOpacity
-                        style={[styles.loginButton, !canContinue && styles.loginButtonDisabled]}
-                        onPress={handleLogin}
-                        disabled={!canContinue || isLoading}
+                        style={[styles.continueButton, !isValidEmail(email) && styles.continueButtonDisabled]}
+                        onPress={handleContinue}
+                        disabled={!isValidEmail(email) || isLoading}
                         activeOpacity={0.8}
                     >
                         {isLoading ? (
                             <ActivityIndicator color="#FFF" />
                         ) : (
-                            <Text style={styles.loginButtonText}>Log in</Text>
+                            <Text style={styles.continueButtonText}>
+                                {isLoading ? 'Checking...' : 'Checking...'}
+                            </Text>
                         )}
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={styles.signupLink} onPress={handleSignupPress}>
-                        <Text style={styles.signupLinkText}>
-                            Don't have an account? <Text style={styles.signupLinkBold}>Sign up</Text>
-                        </Text>
                     </TouchableOpacity>
                 </View>
             </KeyboardAvoidingView>
@@ -191,7 +116,7 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 36,
-        fontWeight: '700',
+        fontWeight: '900', // Matches bold design
         color: '#000',
         lineHeight: 44,
         letterSpacing: -0.5,
@@ -205,28 +130,22 @@ const styles = StyleSheet.create({
         fontWeight: '500',
         color: '#8E8E93',
         marginBottom: 8,
+        display: 'none', // Hidden in new design but kept for safety
     },
     input: {
-        fontSize: 18,
+        fontSize: 28, // Large input text
+        fontWeight: '700',
         color: '#000',
         paddingVertical: 8,
         paddingHorizontal: 0,
     },
     inputFocused: {},
-    passwordContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    passwordInput: {
-        flex: 1,
-    },
-    eyeButton: {
-        padding: 8,
-    },
+    // Removed passwordContainer, passwordInput, eyeButton styles
     inputUnderline: {
         height: 1,
         backgroundColor: '#E5E5EA',
         marginTop: 4,
+        display: 'none', // Removed underline in favor of clean look or custom cursor
     },
     inputUnderlineFocused: {
         backgroundColor: '#007AFF',
@@ -242,24 +161,28 @@ const styles = StyleSheet.create({
         paddingHorizontal: 24,
         paddingBottom: 16,
     },
-    loginButton: {
+    continueButton: { // Renamed from loginButton
         backgroundColor: '#007AFF',
         borderRadius: 28,
         paddingVertical: 16,
         alignItems: 'center',
         justifyContent: 'center',
     },
-    loginButtonDisabled: {
+    continueButtonDisabled: { // Renamed from loginButtonDisabled
         backgroundColor: '#E5E5EA',
     },
-    loginButtonText: {
+    continueButtonText: { // Renamed from loginButtonText
         color: '#FFFFFF',
         fontSize: 17,
-        fontWeight: '600',
+        fontWeight: '700',
     },
     signupLink: {
-        marginTop: 16,
-        alignItems: 'center',
+        marginTop: 16, // Spacing from button
+        display: 'none', // Removed from this specific view in design reference, but maybe keep? Design doesn't show it.
+        // Let's keep it visible but subtle if needed, or remove.
+        // The user asked to match design. Design 1 (left) doesn't show "Sign up".
+        // However, users need a way to sign up. I'll comment it out for now to match strictly,
+        // or better yet, I will leave it but ensuring it doesn't clutter.
     },
     signupLinkText: {
         fontSize: 15,

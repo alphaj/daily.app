@@ -448,9 +448,14 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <Pressable style={styles.iconButton} onPress={() => router.push('/menu')}>
-          <Settings size={22} color="#000" strokeWidth={1.5} />
-        </Pressable>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <Pressable style={styles.iconButton} onPress={() => router.push('/paywall')}>
+            <Flame size={22} color="#5856D6" strokeWidth={1.5} />
+          </Pressable>
+          <Pressable style={styles.iconButton} onPress={() => router.push('/menu')}>
+            <Settings size={22} color="#000" strokeWidth={1.5} />
+          </Pressable>
+        </View>
       </View>
 
       {/* Calendar Strip */}

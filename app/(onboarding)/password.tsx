@@ -10,39 +10,34 @@ import {
     SafeAreaView,
     ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
-import { useOnboarding } from '@/contexts/OnboardingContext';
+import { useAuth } from '@/contexts/AuthContext';
 
-export default function EmailScreen() {
+export default function PasswordScreen() {
     const router = useRouter();
-    const { state } = useOnboarding();
+    const { email } = useLocalSearchParams<{ email: string }>();
+    const { login } = useAuth();
 
-    const [email, setEmail] = useState(state.responses.email || '');
+    const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-    // Simple email validation
-    const isValidEmail = (email: string) => {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return emailRegex.test(email);
-    };
-
-    const handleContinue = () => {
-        if (!isValidEmail(email)) return;
+    const handleLogin = async () => {
+        if (!password || !email) return;
 
         setIsLoading(true);
-        // Simulate check
-        setTimeout(() => {
-            setIsLoading(false);
-            router.push({
-                pathname: '/(onboarding)/create-password',
-                params: { email }
-            });
-        }, 500);
-    };
+        setError(null);
 
-    const handleLoginPress = () => {
-        router.push('/(onboarding)/login');
+        const result = await login({ email, password });
+
+        setIsLoading(false);
+
+        if (result.success) {
+            router.replace('/');
+        } else {
+            setError(result.error || 'Login failed');
+        }
     };
 
     return (
@@ -58,49 +53,42 @@ export default function EmailScreen() {
 
                 {/* Content */}
                 <View style={styles.content}>
-                    <Text style={styles.title}>What's your{'\n'}email?</Text>
+                    <Text style={styles.title}>What's your{'\n'}password?</Text>
 
-                    {/* Email Input */}
+                    {/* Password Input */}
                     <View style={styles.inputContainer}>
                         <TextInput
                             style={styles.input}
-                            placeholder="you@example.com"
+                            placeholder="Password"
                             placeholderTextColor="#C7C7CC"
-                            value={email}
-                            onChangeText={setEmail}
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                            autoCorrect={false}
-                            autoComplete="email"
-                            textContentType="emailAddress"
+                            value={password}
+                            onChangeText={setPassword}
+                            secureTextEntry={true}
                             autoFocus={true}
+                            autoCapitalize="none"
                         />
                     </View>
+
+                    {/* Error Message */}
+                    {error && (
+                        <Text style={styles.errorText}>{error}</Text>
+                    )}
                 </View>
 
                 {/* Bottom Section */}
                 <View style={styles.bottomContainer}>
                     <TouchableOpacity
-                        style={[styles.continueButton, !isValidEmail(email) && styles.continueButtonDisabled]}
-                        onPress={handleContinue}
-                        disabled={!isValidEmail(email) || isLoading}
+                        style={[styles.loginButton, !password && styles.loginButtonDisabled]}
+                        onPress={handleLogin}
+                        disabled={!password || isLoading}
                         activeOpacity={0.8}
                     >
                         {isLoading ? (
                             <ActivityIndicator color="#FFF" />
                         ) : (
-                            <Text style={styles.continueButtonText}>
-                                {isLoading ? 'Checking...' : 'Checking...'}
-                            </Text>
+                            <Text style={styles.loginButtonText}>Continue</Text>
                         )}
                     </TouchableOpacity>
-
-                    {/* Optional: Navigation to Login if user mistakenly clicked "Sign up" */}
-                    {/* <TouchableOpacity style={styles.loginLink} onPress={handleLoginPress}>
-                        <Text style={styles.loginLinkText}>
-                            Already have an account? <Text style={styles.loginLinkBold}>Log in</Text>
-                        </Text>
-                    </TouchableOpacity> */}
                 </View>
             </KeyboardAvoidingView>
         </SafeAreaView>
@@ -128,7 +116,7 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 36,
-        fontWeight: '900', // Bold matches design
+        fontWeight: '900', // Matches the bold font in design
         color: '#000',
         lineHeight: 44,
         letterSpacing: -0.5,
@@ -138,41 +126,33 @@ const styles = StyleSheet.create({
         marginTop: 8,
     },
     input: {
-        fontSize: 28, // Large input
+        fontSize: 28, // Large input text
         fontWeight: '700',
-        color: '#000',
-        paddingVertical: 8,
-        paddingHorizontal: 0,
+        color: '#C7C7CC', // Placeholder color gray
+    },
+    errorText: {
+        marginTop: 16,
+        color: '#FF3B30',
+        fontSize: 14,
+        textAlign: 'center',
     },
     bottomContainer: {
         paddingHorizontal: 24,
         paddingBottom: 16,
     },
-    continueButton: {
-        backgroundColor: '#007AFF',
+    loginButton: {
+        backgroundColor: '#007AFF', // Vibrant blue
         borderRadius: 28,
         paddingVertical: 16,
         alignItems: 'center',
         justifyContent: 'center',
     },
-    continueButtonDisabled: {
+    loginButtonDisabled: {
         backgroundColor: '#E5E5EA',
     },
-    continueButtonText: {
+    loginButtonText: {
         color: '#FFFFFF',
         fontSize: 17,
         fontWeight: '700',
-    },
-    loginLink: {
-        marginTop: 16,
-        alignItems: 'center',
-    },
-    loginLinkText: {
-        fontSize: 15,
-        color: '#8E8E93',
-    },
-    loginLinkBold: {
-        color: '#007AFF',
-        fontWeight: '600',
     },
 });
