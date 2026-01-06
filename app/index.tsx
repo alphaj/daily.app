@@ -5,12 +5,12 @@ import {
   ChevronRight,
   MoreHorizontal,
   Plus,
-  Zap,
   Menu,
   Check,
   Flame,
   Home,
   Brain,
+  FolderKanban,
 } from 'lucide-react-native';
 import React, { useCallback, useState, useEffect, useRef } from 'react';
 import {
@@ -499,8 +499,8 @@ export default function HomeScreen() {
           <Plus size={28} color="#000" strokeWidth={1.5} />
         </Pressable>
 
-        <Pressable style={styles.bottomTab} onPress={() => router.push('/habits')}>
-          <Zap size={24} color="#000" strokeWidth={1.5} />
+        <Pressable style={styles.bottomTab} onPress={() => router.push('/projects')}>
+          <FolderKanban size={24} color="#000" strokeWidth={1.5} />
         </Pressable>
         <Pressable style={styles.bottomTab} onPress={() => router.push('/menu')}>
           <Menu size={24} color="#000" strokeWidth={1.5} />
