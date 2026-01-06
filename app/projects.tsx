@@ -1,27 +1,31 @@
 import { useRouter } from 'expo-router';
 import {
   Plus,
-  ChevronRight,
-  Trophy,
-  Target,
   Home,
   Brain,
   FolderKanban,
   Clock,
+  Trophy,
 } from 'lucide-react-native';
-import React, { useRef, useCallback } from 'react';
+import React, { useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
   ScrollView,
+  Dimensions,
   Animated,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useProjects } from '@/contexts/ProjectContext';
 import type { Project } from '@/types/project';
+
+const { width } = Dimensions.get('window');
+const PADDING = 20;
+const GAP = 16;
+const COLUMN_WIDTH = (width - (PADDING * 2) - GAP) / 2;
 
 function ProjectCard({ 
   project, 
@@ -33,26 +37,25 @@ function ProjectCard({
   onPress: () => void;
 }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
-  const completedTasks = project.tasks.filter(t => t.completed).length;
-  const totalTasks = project.tasks.length;
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
-      toValue: 0.97,
+      toValue: 0.96,
       useNativeDriver: true,
+      speed: 20,
     }).start();
   };
 
   const handlePressOut = () => {
     Animated.spring(scaleAnim, {
       toValue: 1,
-      friction: 3,
       useNativeDriver: true,
+      speed: 20,
     }).start();
   };
 
   const handlePress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Haptics.selectionAsync();
     onPress();
   };
 
@@ -64,56 +67,47 @@ function ProjectCard({
     >
       <Animated.View 
         style={[
-          styles.projectCard,
-          { transform: [{ scale: scaleAnim }] }
+          styles.card,
+          { 
+            transform: [{ scale: scaleAnim }],
+          }
         ]}
       >
-        <View style={[styles.cardAccent, { backgroundColor: project.color }]} />
-        
+        <View style={styles.cardHeader}>
+          <View style={[styles.iconContainer, { backgroundColor: project.color + '15' }]}>
+            <Text style={styles.icon}>{project.icon}</Text>
+          </View>
+          <View style={styles.progressRing}>
+            <View style={[styles.progressDot, { 
+              backgroundColor: progress === 100 ? project.color : '#E5E5EA' 
+            }]} />
+          </View>
+        </View>
+
         <View style={styles.cardContent}>
-          <View style={styles.cardHeader}>
-            <View style={[styles.iconContainer, { backgroundColor: `${project.color}15` }]}>
-              <Text style={styles.projectIcon}>{project.icon}</Text>
-            </View>
-            <ChevronRight size={20} color="#C7C7CC" />
-          </View>
+          <Text style={styles.cardTitle} numberOfLines={2}>{project.name}</Text>
+          <Text style={styles.cardSubtitle}>
+            {project.tasks.filter(t => t.completed).length}/{project.tasks.length} tasks
+          </Text>
+        </View>
 
-          <Text style={styles.projectName} numberOfLines={2}>{project.name}</Text>
-          
-          {project.description ? (
-            <Text style={styles.projectDescription} numberOfLines={1}>
-              {project.description}
-            </Text>
-          ) : null}
-
-          <View style={styles.progressSection}>
-            <View style={styles.progressBarContainer}>
-              <View 
-                style={[
-                  styles.progressBarFill, 
-                  { 
-                    width: `${progress}%`,
-                    backgroundColor: project.color 
-                  }
-                ]} 
-              />
-            </View>
-            <View style={styles.progressStats}>
-              <Text style={styles.progressText}>
-                {completedTasks}/{totalTasks} steps
-              </Text>
-              <Text style={[styles.progressPercent, { color: project.color }]}>
-                {progress}%
-              </Text>
-            </View>
-          </View>
+        <View style={styles.progressBarContainer}>
+          <View 
+            style={[
+              styles.progressBar, 
+              { 
+                width: `${progress}%`,
+                backgroundColor: project.color 
+              }
+            ]} 
+          />
         </View>
       </Animated.View>
     </Pressable>
   );
 }
 
-function CompletedProjectCard({ 
+function CompletedRow({ 
   project,
   onPress 
 }: { 
@@ -121,109 +115,112 @@ function CompletedProjectCard({
   onPress: () => void;
 }) {
   return (
-    <Pressable style={styles.completedCard} onPress={onPress}>
-      <View style={[styles.completedIconBg, { backgroundColor: `${project.color}20` }]}>
+    <Pressable 
+      style={styles.completedRow}
+      onPress={() => {
+        Haptics.selectionAsync();
+        onPress();
+      }}
+    >
+      <View style={[styles.completedIconContainer, { backgroundColor: project.color + '15' }]}>
         <Text style={styles.completedIcon}>{project.icon}</Text>
       </View>
       <View style={styles.completedInfo}>
-        <Text style={styles.completedName} numberOfLines={1}>{project.name}</Text>
-        <Text style={styles.completedStats}>{project.tasks.length} steps completed</Text>
+        <Text style={styles.completedTitle} numberOfLines={1}>{project.name}</Text>
+        <Text style={styles.completedSubtitle}>Completed</Text>
       </View>
-      <Trophy size={16} color="#FFD60A" fill="#FFD60A" />
+      <View style={styles.completedBadge}>
+        <Trophy size={14} color="#FFD60A" fill="#FFD60A" />
+      </View>
     </Pressable>
-  );
-}
-
-function EmptyState({ onAdd }: { onAdd: () => void }) {
-  return (
-    <View style={styles.emptyState}>
-      <View style={styles.emptyIconContainer}>
-        <Target size={48} color="#C7C7CC" strokeWidth={1.5} />
-      </View>
-      <Text style={styles.emptyTitle}>No projects yet</Text>
-      <Text style={styles.emptySubtitle}>
-        Create your first project to start{'\n'}tracking your goals
-      </Text>
-      <Pressable style={styles.emptyButton} onPress={onAdd}>
-        <Plus size={20} color="#fff" strokeWidth={2.5} />
-        <Text style={styles.emptyButtonText}>New Project</Text>
-      </Pressable>
-    </View>
   );
 }
 
 export default function ProjectsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { activeProjects, completedProjects, getProjectProgress, isLoading } = useProjects();
-
-  const handleAddProject = useCallback(() => {
+  const { activeProjects, completedProjects, getProjectProgress } = useProjects();
+  
+  // Clean, minimal layout
+  // We want to emphasize the content and the progress
+  
+  const handleAddProject = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     router.push('/add-project');
-  }, [router]);
+  };
 
-  const handleProjectPress = useCallback((projectId: string) => {
-    router.push(`/project/${projectId}` as const);
-  }, [router]);
-
-  const hasProjects = activeProjects.length > 0 || completedProjects.length > 0;
+  const handleProjectPress = (id: string) => {
+    router.push(`/project/${id}` as const);
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerSpacer} />
         <Text style={styles.headerTitle}>Projects</Text>
         <Pressable 
-          style={styles.addButton}
+          style={styles.headerButton}
           onPress={handleAddProject}
           hitSlop={10}
         >
-          <Plus size={24} color="#000" strokeWidth={1.5} />
+          <Plus size={26} color="#000" />
         </Pressable>
       </View>
 
-      {!hasProjects && !isLoading ? (
-        <EmptyState onAdd={handleAddProject} />
-      ) : (
-        <ScrollView 
-          style={styles.content}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          {activeProjects.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>In Progress</Text>
-              <View style={styles.projectsList}>
-                {activeProjects.map(project => (
-                  <ProjectCard
-                    key={project.id}
+      <ScrollView 
+        style={styles.content}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 }]}
+        showsVerticalScrollIndicator={false}
+      >
+        {activeProjects.length === 0 && completedProjects.length === 0 ? (
+          <View style={styles.emptyState}>
+            <View style={styles.emptyIconContainer}>
+              <FolderKanban size={48} color="#C7C7CC" strokeWidth={1} />
+            </View>
+            <Text style={styles.emptyTitle}>No Projects</Text>
+            <Text style={styles.emptyText}>
+              Create a project to start tracking your goals and big ideas.
+            </Text>
+            <Pressable style={styles.createButton} onPress={handleAddProject}>
+              <Plus size={20} color="#fff" />
+              <Text style={styles.createButtonText}>Create Project</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <>
+            {/* Active Projects Grid */}
+            <View style={styles.gridContainer}>
+              {activeProjects.map((project) => (
+                <View key={project.id} style={styles.gridItem}>
+                  <ProjectCard 
                     project={project}
                     progress={getProjectProgress(project)}
                     onPress={() => handleProjectPress(project.id)}
                   />
-                ))}
-              </View>
+                </View>
+              ))}
             </View>
-          )}
 
-          {completedProjects.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Completed</Text>
-              <View style={styles.completedList}>
-                {completedProjects.map(project => (
-                  <CompletedProjectCard
-                    key={project.id}
-                    project={project}
-                    onPress={() => handleProjectPress(project.id)}
-                  />
-                ))}
+            {/* Completed Projects Section */}
+            {completedProjects.length > 0 && (
+              <View style={styles.completedSection}>
+                <Text style={styles.sectionTitle}>Done</Text>
+                <View style={styles.completedList}>
+                  {completedProjects.map((project) => (
+                    <CompletedRow 
+                      key={project.id}
+                      project={project}
+                      onPress={() => handleProjectPress(project.id)}
+                    />
+                  ))}
+                </View>
               </View>
-            </View>
-          )}
-        </ScrollView>
-      )}
+            )}
+          </>
+        )}
+      </ScrollView>
 
-      {/* Bottom Bar */}
+      {/* Bottom Navigation */}
       <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 20) }]}>
         <Pressable style={styles.bottomTab} onPress={() => router.replace('/')}>
           <Home size={24} color="#000" strokeWidth={1.5} />
@@ -233,7 +230,7 @@ export default function ProjectsScreen() {
         </Pressable>
 
         <Pressable style={styles.fab} onPress={handleAddProject}>
-          <Plus size={28} color="#000" strokeWidth={1.5} />
+          <Plus size={24} color="#000" strokeWidth={2} />
         </Pressable>
 
         <Pressable style={[styles.bottomTab, styles.bottomTabActive]}>
@@ -250,139 +247,137 @@ export default function ProjectsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#F2F2F7', // iOS System Gray 6
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingVertical: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  headerSpacer: {
-    width: 32,
+    paddingBottom: 24,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 34,
     fontWeight: '700',
     color: '#000',
-    letterSpacing: -0.3,
+    letterSpacing: -0.5,
   },
-  addButton: {
-    padding: 4,
+  headerButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
   },
   content: {
     flex: 1,
   },
   scrollContent: {
-    paddingVertical: 24,
-    paddingBottom: 100,
+    paddingHorizontal: PADDING,
   },
-  section: {
-    marginBottom: 32,
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: GAP,
   },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#8E8E93',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    paddingHorizontal: 24,
-    marginBottom: 16,
+  gridItem: {
+    width: COLUMN_WIDTH,
   },
-  projectsList: {
-    paddingHorizontal: 20,
-    gap: 16,
-  },
-  projectCard: {
+  card: {
     backgroundColor: '#fff',
-    borderRadius: 20,
-    overflow: 'hidden',
+    borderRadius: 24,
+    padding: 16,
+    height: 160,
+    justifyContent: 'space-between',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.04,
     shadowRadius: 12,
-    elevation: 3,
-  },
-  cardAccent: {
-    height: 4,
-    width: '100%',
-  },
-  cardContent: {
-    padding: 20,
+    elevation: 2,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 16,
   },
   iconContainer: {
-    width: 48,
-    height: 48,
+    width: 44,
+    height: 44,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  projectIcon: {
-    fontSize: 24,
+  icon: {
+    fontSize: 22,
   },
-  projectName: {
-    fontSize: 20,
-    fontWeight: '700',
+  progressRing: {
+    padding: 4,
+  },
+  progressDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  cardContent: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    marginBottom: 12,
+  },
+  cardTitle: {
+    fontSize: 17,
+    fontWeight: '600',
     color: '#000',
-    letterSpacing: -0.4,
+    letterSpacing: -0.3,
     marginBottom: 4,
   },
-  projectDescription: {
-    fontSize: 14,
-    color: '#8E8E93',
-    marginBottom: 16,
-  },
-  progressSection: {
-    marginTop: 8,
-  },
-  progressBarContainer: {
-    height: 6,
-    backgroundColor: '#F2F2F7',
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginBottom: 10,
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  progressStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  progressText: {
+  cardSubtitle: {
     fontSize: 13,
     color: '#8E8E93',
     fontWeight: '500',
   },
-  progressPercent: {
-    fontSize: 14,
+  progressBarContainer: {
+    height: 4,
+    backgroundColor: '#F2F2F7',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  // Completed Section
+  completedSection: {
+    marginTop: 32,
+  },
+  sectionTitle: {
+    fontSize: 20,
     fontWeight: '700',
+    color: '#000',
+    marginBottom: 16,
+    paddingHorizontal: 4,
   },
   completedList: {
-    paddingHorizontal: 20,
-    gap: 8,
+    gap: 12,
   },
-  completedCard: {
+  completedRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 14,
-    gap: 12,
+    padding: 16,
+    borderRadius: 20,
+    gap: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
   },
-  completedIconBg: {
+  completedIconContainer: {
     width: 40,
     height: 40,
     borderRadius: 12,
@@ -395,59 +390,72 @@ const styles = StyleSheet.create({
   completedInfo: {
     flex: 1,
   },
-  completedName: {
-    fontSize: 15,
+  completedTitle: {
+    fontSize: 16,
     fontWeight: '600',
     color: '#000',
-    marginBottom: 2,
   },
-  completedStats: {
-    fontSize: 12,
+  completedSubtitle: {
+    fontSize: 13,
     color: '#8E8E93',
+    marginTop: 2,
   },
-  emptyState: {
-    flex: 1,
+  completedBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#FFF9E6', // Light yellow
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 40,
-    paddingBottom: 80,
+  },
+  // Empty State
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
   },
   emptyIconContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#F2F2F7',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#E5E5EA',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   emptyTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '700',
     color: '#000',
     marginBottom: 8,
   },
-  emptySubtitle: {
+  emptyText: {
     fontSize: 15,
     color: '#8E8E93',
     textAlign: 'center',
-    lineHeight: 22,
+    maxWidth: 240,
     marginBottom: 32,
+    lineHeight: 22,
   },
-  emptyButton: {
+  createButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     backgroundColor: '#000',
     paddingHorizontal: 24,
     paddingVertical: 14,
-    borderRadius: 14,
+    borderRadius: 100,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
   },
-  emptyButtonText: {
+  createButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
   },
+  // Bottom Bar
   bottomBar: {
     flexDirection: 'row',
     alignItems: 'center',
