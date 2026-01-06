@@ -19,6 +19,7 @@ interface HabitHeatmapProps {
     completedDates: string[];
     currentStreak: number;
     bestStreak: number;
+    createdAt: string;
     onDayPress?: (date: string, completed: boolean) => void;
 }
 
@@ -53,12 +54,16 @@ function formatDate(date: Date): string {
     return date.toISOString().split('T')[0];
 }
 
-function getCompletionLevel(date: Date, completedDates: string[]): number {
+function getCompletionLevel(date: Date, completedDates: string[], createdAt: string): number {
     const dateStr = formatDate(date);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    
+    const createdDate = new Date(createdAt.split('T')[0] + 'T00:00:00');
+    createdDate.setHours(0, 0, 0, 0);
 
     if (date > today) return -1; // Future date
+    if (date < createdDate) return -2; // Before habit was created
     if (completedDates.includes(dateStr)) return 1;
     return 0;
 }
@@ -96,10 +101,12 @@ function isStreakMilestone(date: Date, completedDates: string[]): number | null 
 function MonthGrid({
     monthOffset,
     completedDates,
+    createdAt,
     onDayPress
 }: {
     monthOffset: number;
     completedDates: string[];
+    createdAt: string;
     onDayPress?: (date: string, completed: boolean) => void;
 }) {
     const { dates, monthLabel, year } = getMonthData(monthOffset);
@@ -127,7 +134,7 @@ function MonthGrid({
                     }
 
                     const dateStr = formatDate(date);
-                    const level = getCompletionLevel(date, completedDates);
+                    const level = getCompletionLevel(date, completedDates, createdAt);
                     const isToday = dateStr === todayStr;
                     const milestone = isStreakMilestone(date, completedDates);
 
@@ -146,15 +153,17 @@ function MonthGrid({
                                 level === 1 && styles.dateCellCompleted,
                                 level === 0 && styles.dateCellMissed,
                                 level === -1 && styles.dateCellFuture,
+                                level === -2 && styles.dateCellBeforeCreation,
                                 isToday && styles.dateCellToday,
                             ]}
                             onPress={handlePress}
-                            disabled={level === -1}
+                            disabled={level === -1 || level === -2}
                         >
                             <Text style={[
                                 styles.dateText,
                                 level === 1 && styles.dateTextCompleted,
                                 level === -1 && styles.dateTextFuture,
+                                level === -2 && styles.dateTextBeforeCreation,
                                 isToday && styles.dateTextToday,
                             ]}>
                                 {date.getDate()}
@@ -196,7 +205,7 @@ function StreakDisplay({ currentStreak, bestStreak }: { currentStreak: number; b
                 ])
             ).start();
         }
-    }, [currentStreak]);
+    }, [currentStreak, glowAnim]);
 
     const glowOpacity = glowAnim.interpolate({
         inputRange: [0, 1],
@@ -231,6 +240,7 @@ export default function HabitHeatmap({
     completedDates,
     currentStreak,
     bestStreak,
+    createdAt,
     onDayPress
 }: HabitHeatmapProps) {
     // Calculate completion stats
@@ -278,6 +288,7 @@ export default function HabitHeatmap({
                             key={offset}
                             monthOffset={offset}
                             completedDates={completedDates}
+                            createdAt={createdAt}
                             onDayPress={onDayPress}
                         />
                     ))}
@@ -433,6 +444,10 @@ const styles = StyleSheet.create({
         backgroundColor: '#FAFAFA',
         opacity: 0.5,
     },
+    dateCellBeforeCreation: {
+        backgroundColor: 'transparent',
+        opacity: 0.3,
+    },
     dateCellToday: {
         borderWidth: 2,
         borderColor: '#5856D6',
@@ -447,6 +462,9 @@ const styles = StyleSheet.create({
     },
     dateTextFuture: {
         color: '#C7C7CC',
+    },
+    dateTextBeforeCreation: {
+        color: '#D1D1D6',
     },
     dateTextToday: {
         color: '#5856D6',

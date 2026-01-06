@@ -2,7 +2,6 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import {
     ChevronLeft,
     Flame,
-    Edit3,
     Trash2,
 } from 'lucide-react-native';
 import React, { useState, useCallback } from 'react';
@@ -27,6 +26,10 @@ export default function HabitDetailScreen() {
     const [showCelebration, setShowCelebration] = useState(false);
 
     const habit = habits.find(h => h.id === id);
+
+    const handleCelebrationComplete = useCallback(() => {
+        setShowCelebration(false);
+    }, []);
 
     if (!habit) {
         return (
@@ -72,10 +75,6 @@ export default function HabitDetailScreen() {
             ]
         );
     };
-
-    const handleCelebrationComplete = useCallback(() => {
-        setShowCelebration(false);
-    }, []);
 
     // Calculate next milestone
     const milestones = [7, 30, 100, 365];
@@ -165,6 +164,7 @@ export default function HabitDetailScreen() {
                         completedDates={habit.completedDates}
                         currentStreak={habit.currentStreak}
                         bestStreak={habit.bestStreak}
+                        createdAt={habit.createdAt}
                     />
                 </View>
 

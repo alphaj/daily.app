@@ -146,12 +146,14 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
   const getWeeklyProgress = (habit: Habit): DayCompletion[] => {
     const weekDates = getWeekDates();
     const today = getToday();
+    const createdDate = habit.createdAt.split('T')[0];
 
     return weekDates.map(date => ({
       date,
       dayName: getDayName(date),
       isToday: date === today,
       completed: habit.completedDates.includes(date),
+      isBeforeCreation: date < createdDate,
     }));
   };
 

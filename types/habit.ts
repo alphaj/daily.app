@@ -27,4 +27,5 @@ export interface DayCompletion {
   dayName: string;
   isToday: boolean;
   completed: boolean;
+  isBeforeCreation?: boolean;
 }
