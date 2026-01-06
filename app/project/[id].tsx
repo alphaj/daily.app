@@ -35,6 +35,7 @@ function RoadmapTask({
   onToggle,
   onDelete,
   onDragStart,
+  onDragEnd,
   isDragging,
   draggedOverIndex,
   pan,
@@ -48,6 +49,7 @@ function RoadmapTask({
   onToggle: () => void;
   onDelete: () => void;
   onDragStart: (index: number) => void;
+  onDragEnd: () => void;
   isDragging: boolean;
   draggedOverIndex: number | null;
   pan: Animated.ValueXY;
@@ -85,6 +87,7 @@ function RoadmapTask({
           bounciness: 8,
         }).start();
         pan.flattenOffset();
+        onDragEnd();
       },
     })
   ).current;
@@ -274,6 +277,10 @@ export default function ProjectDetailScreen() {
     setDraggingIndex(index);
   }, []);
 
+  const handleDragRelease = useCallback(() => {
+    setDraggingIndex(null);
+  }, []);
+
   const handleTaskLayout = useCallback((index: number, event: LayoutChangeEvent) => {
     const { y, height } = event.nativeEvent.layout;
     taskLayoutsRef.current[index] = { y, height };
@@ -435,6 +442,7 @@ export default function ProjectDetailScreen() {
                     onToggle={() => handleToggleTask(task.id)}
                     onDelete={() => handleDeleteTask(task.id)}
                     onDragStart={handleDragStart}
+                    onDragEnd={handleDragRelease}
                     isDragging={draggingIndex === index}
                     draggedOverIndex={draggedOverIndex}
                     pan={pan}
