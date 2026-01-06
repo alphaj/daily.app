@@ -10,7 +10,7 @@ import {
   Check,
   Flame,
   Home,
-  CheckSquare,
+  Brain,
 } from 'lucide-react-native';
 import React, { useCallback, useState, useEffect } from 'react';
 import {
@@ -434,8 +434,8 @@ export default function HomeScreen() {
         <Pressable style={[styles.bottomTab, styles.bottomTabActive]}>
           <Home size={24} color="#5856D6" strokeWidth={1.5} />
         </Pressable>
-        <Pressable style={styles.bottomTab}>
-          <CheckSquare size={24} color="#000" strokeWidth={1.5} />
+        <Pressable style={styles.bottomTab} onPress={() => router.push('/brain-dump')}>
+          <Brain size={24} color="#000" strokeWidth={1.5} />
         </Pressable>
 
         <Pressable style={styles.fab} onPress={handleAddPress}>

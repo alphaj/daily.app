@@ -132,6 +132,14 @@ export const [BrainDumpProvider, useBrainDump] = createContextHook(() => {
         saveMutation.mutate(updated);
     }, [items, saveMutation]);
 
+    const markConvertedToHabit = useCallback((id: string, habitId: string) => {
+        const updated = items.map(item =>
+            item.id === id ? { ...item, convertedToHabitId: habitId } : item
+        );
+        setItems(updated);
+        saveMutation.mutate(updated);
+    }, [items, saveMutation]);
+
     // Get non-archived items
     const activeItems = items.filter(item => !item.isArchived);
 
@@ -154,6 +162,7 @@ export const [BrainDumpProvider, useBrainDump] = createContextHook(() => {
         archiveItem,
         updateItemType,
         markConvertedToTask,
+        markConvertedToHabit,
         getItemsByType,
         getPinnedItems,
     };

@@ -20,6 +20,7 @@ function RootLayoutNav() {
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="habits" options={{ headerShown: false, animation: 'none' }} />
       <Stack.Screen name="todos" options={{ headerShown: false, animation: 'none' }} />
+      <Stack.Screen name="brain-dump" options={{ headerShown: false }} />
       <Stack.Screen name="menu" options={{ headerShown: false }} />
       <Stack.Screen name="add-habit" options={{ presentation: "modal", headerShown: false }} />
       <Stack.Screen name="add-todo" options={{ presentation: "modal", headerShown: false }} />

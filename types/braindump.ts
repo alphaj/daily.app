@@ -8,4 +8,5 @@ export interface BrainDumpItem {
     isPinned: boolean;
     isArchived: boolean;
     convertedToTaskId?: string;
+    convertedToHabitId?: string;
 }

@@ -8,7 +8,7 @@ import {
     Menu,
     Flame,
     Check,
-    CheckSquare,
+    Brain,
     Home,
 } from 'lucide-react-native';
 import React from 'react';
@@ -223,8 +223,8 @@ export default function HabitsScreen() {
                 <Pressable style={styles.bottomTab} onPress={() => router.replace('/')}>
                     <Home size={24} color="#000" strokeWidth={1.5} />
                 </Pressable>
-                <Pressable style={styles.bottomTab}>
-                    <CheckSquare size={24} color="#000" strokeWidth={1.5} />
+                <Pressable style={styles.bottomTab} onPress={() => router.push('/brain-dump')}>
+                    <Brain size={24} color="#000" strokeWidth={1.5} />
                 </Pressable>
 
                 <Pressable style={styles.fab} onPress={handleAddPress}>
