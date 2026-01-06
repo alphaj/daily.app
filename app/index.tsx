@@ -3,9 +3,9 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
-  MoreHorizontal,
+  Settings,
   Plus,
-  Menu,
+  Clock,
   Check,
   Flame,
   Home,
@@ -374,8 +374,8 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <Pressable style={styles.iconButton}>
-          <MoreHorizontal size={24} color="#000" />
+        <Pressable style={styles.iconButton} onPress={() => router.push('/menu')}>
+          <Settings size={22} color="#000" strokeWidth={1.5} />
         </Pressable>
       </View>
 
@@ -503,8 +503,8 @@ export default function HomeScreen() {
         <Pressable style={styles.bottomTab} onPress={() => router.push('/projects')}>
           <FolderKanban size={24} color="#000" strokeWidth={1.5} />
         </Pressable>
-        <Pressable style={styles.bottomTab} onPress={() => router.push('/menu')}>
-          <Menu size={24} color="#000" strokeWidth={1.5} />
+        <Pressable style={styles.bottomTab} onPress={() => router.push('/later')}>
+          <Clock size={24} color="#000" strokeWidth={1.5} />
         </Pressable>
       </View>
 

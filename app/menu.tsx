@@ -10,20 +10,14 @@ import {
     MessageSquare,
     Star,
     Shield,
-    Plus,
-    Zap,
-    Menu,
-    Home,
-    Brain,
 } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React from 'react';
 import {
     View,
     Text,
     StyleSheet,
     Pressable,
     ScrollView,
-    Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -66,22 +60,7 @@ function MenuSection({ title, children }: { title?: string; children: React.Reac
 
 export default function MenuScreen() {
     const router = useRouter();
-    const [addOptionsVisible, setAddOptionsVisible] = useState(false);
-
-    const handleAddPress = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        setAddOptionsVisible(true);
-    };
-
-    const handleAddTask = () => {
-        setAddOptionsVisible(false);
-        router.push('/add-todo');
-    };
-
-    const handleAddHabit = () => {
-        setAddOptionsVisible(false);
-        router.push('/add-habit');
-    };
+    
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
@@ -163,48 +142,6 @@ export default function MenuScreen() {
                     <Text style={styles.appVersion}>Version 1.0.0</Text>
                 </View>
             </ScrollView>
-
-            {/* Bottom Bar */}
-            <View style={styles.bottomBar}>
-                <Pressable style={styles.bottomTab} onPress={() => router.replace('/')}>
-                    <Home size={24} color="#000" strokeWidth={1.5} />
-                </Pressable>
-                <Pressable style={styles.bottomTab} onPress={() => router.push('/brain-dump')}>
-                    <Brain size={24} color="#000" strokeWidth={1.5} />
-                </Pressable>
-
-                <Pressable style={styles.fab} onPress={handleAddPress}>
-                    <Plus size={28} color="#000" strokeWidth={1.5} />
-                </Pressable>
-
-                <Pressable style={styles.bottomTab} onPress={() => router.push('/habits')}>
-                    <Zap size={24} color="#000" strokeWidth={1.5} />
-                </Pressable>
-
-                <Pressable style={[styles.bottomTab, styles.bottomTabActive]}>
-                    <Menu size={24} color="#5856D6" strokeWidth={1.5} />
-                </Pressable>
-            </View>
-
-            {/* Add Options Modal */}
-            <Modal
-                visible={addOptionsVisible}
-                transparent
-                animationType="fade"
-                onRequestClose={() => setAddOptionsVisible(false)}
-            >
-                <Pressable style={styles.modalOverlay} onPress={() => setAddOptionsVisible(false)}>
-                    <View style={styles.addOptionsModal}>
-                        <Text style={styles.addOptionsTitle}>What would you like to add?</Text>
-                        <Pressable style={styles.addOptionButton} onPress={handleAddTask}>
-                            <Text style={styles.addOptionText}>📝 Task</Text>
-                        </Pressable>
-                        <Pressable style={styles.addOptionButton} onPress={handleAddHabit}>
-                            <Text style={styles.addOptionText}>⚡ Habit</Text>
-                        </Pressable>
-                    </View>
-                </Pressable>
-            </Modal>
         </SafeAreaView>
     );
 }
@@ -305,64 +242,5 @@ const styles = StyleSheet.create({
         color: '#8E8E93',
         marginTop: 4,
     },
-    bottomBar: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 32,
-        paddingVertical: 8,
-        backgroundColor: '#fff',
-        borderTopWidth: 1,
-        borderTopColor: '#F2F2F7',
-        paddingBottom: 20,
-    },
-    bottomTab: {
-        padding: 4,
-    },
-    bottomTabActive: {
-        opacity: 1,
-    },
-    fab: {
-        width: 52,
-        height: 52,
-        borderRadius: 26,
-        backgroundColor: '#F2F2F7',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginTop: -16,
-    },
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    addOptionsModal: {
-        backgroundColor: '#fff',
-        borderRadius: 20,
-        padding: 24,
-        width: 300,
-        maxWidth: 300,
-        alignItems: 'center',
-    },
-    addOptionsTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#000',
-        marginBottom: 20,
-    },
-    addOptionButton: {
-        width: '100%',
-        paddingVertical: 16,
-        paddingHorizontal: 20,
-        backgroundColor: '#F2F2F7',
-        borderRadius: 12,
-        marginBottom: 12,
-    },
-    addOptionText: {
-        fontSize: 17,
-        fontWeight: '600',
-        color: '#000',
-        textAlign: 'center',
-    },
+    
 });

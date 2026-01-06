@@ -8,6 +8,7 @@ import { TodoProvider } from "@/contexts/TodoContext";
 import { NoteProvider } from "@/contexts/NoteContext";
 import { BrainDumpProvider } from "@/contexts/BrainDumpContext";
 import { ProjectProvider } from "@/contexts/ProjectContext";
+import { LaterProvider } from "@/contexts/LaterContext";
 import { trpc, trpcClient } from "@/lib/trpc";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -28,6 +29,7 @@ function RootLayoutNav() {
       <Stack.Screen name="projects" options={{ headerShown: false }} />
       <Stack.Screen name="add-project" options={{ presentation: "modal", headerShown: false }} />
       <Stack.Screen name="project/[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="later" options={{ headerShown: false, animation: 'none' }} />
     </Stack>
   );
 }
@@ -45,9 +47,11 @@ export default function RootLayout() {
             <NoteProvider>
               <BrainDumpProvider>
                 <ProjectProvider>
-                  <GestureHandlerRootView style={{ flex: 1 }}>
-                    <RootLayoutNav />
-                  </GestureHandlerRootView>
+                  <LaterProvider>
+                    <GestureHandlerRootView style={{ flex: 1 }}>
+                      <RootLayoutNav />
+                    </GestureHandlerRootView>
+                  </LaterProvider>
                 </ProjectProvider>
               </BrainDumpProvider>
             </NoteProvider>
