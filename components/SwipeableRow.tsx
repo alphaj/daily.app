@@ -133,6 +133,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     swipeableContainer: {
-        backgroundColor: '#fff',
+        backgroundColor: 'transparent',
     }
 });

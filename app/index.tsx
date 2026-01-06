@@ -11,6 +11,8 @@ import {
   Home,
   Brain,
   FolderKanban,
+  PenLine,
+  ListTodo,
 } from 'lucide-react-native';
 import React, { useCallback, useState, useEffect, useRef } from 'react';
 import {
@@ -46,6 +48,24 @@ function TodoItem({
   toggleTodo: (id: string) => void;
   deleteTodo: (id: string) => void;
 }) {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.98,
+      useNativeDriver: true,
+      speed: 20,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 20,
+    }).start();
+  };
+
   const handlePress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     toggleTodo(todo.id);
@@ -57,16 +77,28 @@ function TodoItem({
   }, [todo.id, deleteTodo]);
 
   return (
-    <SwipeableRow onDelete={handleDelete}>
-      <Pressable style={styles.todoItem} onPress={handlePress}>
-        <View style={[styles.checkboxContainer, todo.completed ? styles.checkboxChecked : styles.checkboxUnchecked]}>
-          {todo.completed && <Check size={16} color="#C7C7CC" strokeWidth={3} />}
-        </View>
-        <Text style={[styles.todoText, todo.completed && styles.todoTextChecked]}>
-          {todo.title}
-        </Text>
-      </Pressable>
-    </SwipeableRow>
+    <View style={styles.todoItemWrapper}>
+        <SwipeableRow onDelete={handleDelete}>
+        <Pressable
+            onPress={handlePress}
+            onPressIn={handlePressIn}
+            onPressOut={handlePressOut}
+        >
+            <Animated.View style={[
+                styles.todoItem, 
+                todo.completed && styles.todoItemCompleted,
+                { transform: [{ scale: scaleAnim }] }
+            ]}>
+                <View style={[styles.checkboxContainer, todo.completed ? styles.checkboxChecked : styles.checkboxUnchecked]}>
+                    {todo.completed && <Check size={14} color="#fff" strokeWidth={4} />}
+                </View>
+                <Text style={[styles.todoText, todo.completed && styles.todoTextChecked]}>
+                    {todo.title}
+                </Text>
+            </Animated.View>
+        </Pressable>
+        </SwipeableRow>
+    </View>
   );
 }
 
@@ -112,7 +144,6 @@ function CalendarModal({
     onClose();
   };
 
-  // Create array with empty slots for days before the month starts
   const calendarDays: (Date | null)[] = [
     ...Array(startDayOfWeek).fill(null),
     ...daysInMonth,
@@ -129,7 +160,6 @@ function CalendarModal({
     >
       <Pressable style={styles.modalOverlay} onPress={onClose}>
         <Pressable style={styles.calendarModal} onPress={(e) => e.stopPropagation()}>
-          {/* Calendar Header */}
           <View style={styles.calendarHeader}>
             <Pressable onPress={handlePrevMonth} hitSlop={10} style={styles.calendarNavButton}>
               <ChevronLeft size={24} color="#000" />
@@ -142,7 +172,6 @@ function CalendarModal({
             </Pressable>
           </View>
 
-          {/* Week Day Headers */}
           <View style={styles.weekDayRow}>
             {weekDayHeaders.map((day) => (
               <View key={day} style={styles.weekDayCell}>
@@ -151,7 +180,6 @@ function CalendarModal({
             ))}
           </View>
 
-          {/* Calendar Grid */}
           <View style={styles.calendarGrid}>
             {calendarDays.map((date, index) => {
               if (!date) {
@@ -185,7 +213,6 @@ function CalendarModal({
             })}
           </View>
 
-          {/* Today Button */}
           <Pressable style={styles.todayButton} onPress={handleGoToToday}>
             <Text style={styles.todayButtonText}>Go to Today</Text>
           </Pressable>
@@ -330,7 +357,7 @@ export default function HomeScreen() {
   };
 
   const formattedSelectedDate = format(selectedDate, 'MMM d, yyyy');
-  const dayName = format(selectedDate, 'EEEE').toUpperCase();
+  const dayName = format(selectedDate, 'EEEE');
   const isToday = isSameDay(selectedDate, new Date());
 
   return (
@@ -383,20 +410,25 @@ export default function HomeScreen() {
       <View style={styles.calendarStrip}>
         {weekDays.map((date, index) => {
           const isSelected = isSameDay(date, selectedDate);
+          const isTodayDate = isSameDay(date, new Date());
 
           return (
             <Pressable
               key={index}
-              style={[styles.dayItem, isSelected && styles.dayItemSelected]}
+              style={[
+                  styles.dayItem, 
+                  isSelected && styles.dayItemSelected,
+                  !isSelected && isTodayDate && styles.dayItemToday
+                ]}
               onPress={() => {
                 Haptics.selectionAsync();
                 setSelectedDate(date);
               }}
             >
-              <Text style={styles.dayName}>
-                {format(date, 'EEE').toUpperCase()}
+              <Text style={[styles.dayName, isSelected && styles.dayNameSelected]}>
+                {format(date, 'EEE')}
               </Text>
-              <Text style={styles.dayNumber}>
+              <Text style={[styles.dayNumber, isSelected && styles.dayNumberSelected]}>
                 {format(date, 'd')}
               </Text>
             </Pressable>
@@ -413,35 +445,50 @@ export default function HomeScreen() {
         {/* Date Heading */}
         <View style={styles.pageHeader}>
           <Text style={styles.subDate}>
-            {dayName} <Text style={{ color: '#C6C6C8' }}>•</Text> {isToday && <Text style={{ color: '#5856D6' }}>TODAY</Text>}
+            {dayName.toUpperCase()} {isToday && <Text style={{ color: '#5856D6' }}>• TODAY</Text>}
           </Text>
           <Text style={styles.mainDate}>{formattedSelectedDate}</Text>
         </View>
 
         {/* Notes Input */}
-        <View style={styles.notesInputSection}>
-          <Text style={styles.sectionLabel}>Notes</Text>
-          <TextInput
-            style={styles.notesInput}
-            placeholder="What's on your mind today?"
-            placeholderTextColor="#C7C7CC"
-            multiline
-            value={noteText}
-            onChangeText={handleNoteChange}
-          />
+        <View style={styles.sectionContainer}>
+          <View style={styles.notesCard}>
+            <View style={styles.cardHeader}>
+                <PenLine size={18} color="#5856D6" />
+                <Text style={styles.cardTitle}>Daily Note</Text>
+            </View>
+            <TextInput
+              style={styles.notesInput}
+              placeholder="What's on your mind today?"
+              placeholderTextColor="#C7C7CC"
+              multiline
+              value={noteText}
+              onChangeText={handleNoteChange}
+            />
+          </View>
         </View>
 
         {/* Tasks Section */}
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionLabel}>Tasks</Text>
-            <Pressable onPress={handleAddPress}>
-              <Text style={styles.addLink}>+ Add</Text>
+            <View style={styles.sectionTitleRow}>
+                <ListTodo size={20} color="#000" />
+                <Text style={styles.sectionLabel}>Tasks</Text>
+            </View>
+            <Pressable onPress={handleAddPress} style={styles.addButton}>
+              <Plus size={16} color="#5856D6" strokeWidth={2.5} />
+              <Text style={styles.addLink}>Add</Text>
             </Pressable>
           </View>
+
           <View style={styles.todoList}>
             {todosForDate.length === 0 ? (
-              <Text style={styles.emptyText}>No tasks for this day</Text>
+              <View style={styles.emptyStateCard}>
+                <Text style={styles.emptyText}>No tasks for this day</Text>
+                <Pressable onPress={() => router.push('/add-todo')} style={styles.emptyAddButton}>
+                    <Text style={styles.emptyAddText}>Add a task</Text>
+                </Pressable>
+              </View>
             ) : (
               todosForDate.map(todo => (
                 <TodoItem key={todo.id} todo={todo} toggleTodo={toggleTodo} deleteTodo={deleteTodo} />
@@ -454,16 +501,25 @@ export default function HomeScreen() {
         <View style={styles.habitsSection}>
           <View style={styles.sectionHeaderPadding}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionLabel}>Habits</Text>
-              <Pressable onPress={() => router.push('/add-habit')}>
-                <Text style={styles.addLink}>+ Add</Text>
+                <View style={styles.sectionTitleRow}>
+                    <Flame size={20} color="#FF9500" />
+                    <Text style={styles.sectionLabel}>Habits</Text>
+                </View>
+              <Pressable onPress={() => router.push('/add-habit')} style={styles.addButton}>
+                <Plus size={16} color="#5856D6" strokeWidth={2.5} />
+                <Text style={styles.addLink}>Add</Text>
               </Pressable>
             </View>
           </View>
           
           {habits.length === 0 ? (
             <View style={styles.emptyHabitsContainer}>
-              <Text style={styles.emptyText}>No habits yet</Text>
+              <View style={styles.emptyStateCard}>
+                <Text style={styles.emptyText}>No habits tracked yet</Text>
+                <Pressable onPress={() => router.push('/add-habit')} style={styles.emptyAddButton}>
+                    <Text style={styles.emptyAddText}>Start a habit</Text>
+                </Pressable>
+              </View>
             </View>
           ) : (
             <ScrollView 
@@ -471,7 +527,8 @@ export default function HomeScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.habitsScrollContent}
               decelerationRate="fast"
-              snapToInterval={132} // card width (120) + gap (12)
+              snapToInterval={142}
+              snapToAlignment="start"
             >
               {habits.map(habit => (
                 <HabitCard
@@ -489,8 +546,8 @@ export default function HomeScreen() {
 
       {/* Bottom Bar */}
       <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-        <Pressable style={styles.bottomTab} onPress={() => router.replace('/')}>
-          <Home size={24} color="#000" strokeWidth={1.5} />
+        <Pressable style={styles.bottomTab}>
+          <Home size={24} color="#5856D6" strokeWidth={1.5} />
         </Pressable>
         <Pressable style={styles.bottomTab} onPress={() => router.replace('/brain-dump')}>
           <Brain size={24} color="#000" strokeWidth={1.5} />
@@ -543,7 +600,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#F2F2F7',
   },
   header: {
     flexDirection: 'row',
@@ -551,20 +608,27 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 10,
+    backgroundColor: '#F2F2F7',
   },
   iconButton: {
     padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
   },
   headerCenter: {
     alignItems: 'center',
-    gap: 30,
-    marginTop: -8,
+    gap: 4,
   },
   logoText: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#000',
-    letterSpacing: -1.0,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#8E8E93',
+    letterSpacing: -0.5,
+    textTransform: 'uppercase',
   },
   dateNav: {
     flexDirection: 'row',
@@ -573,7 +637,7 @@ const styles = StyleSheet.create({
   },
   headerDateText: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '700',
     color: '#000',
   },
   calendarStrip: {
@@ -585,13 +649,22 @@ const styles = StyleSheet.create({
   dayItem: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 6,
-    width: 40,
-    borderRadius: 8,
+    paddingVertical: 8,
+    width: 44,
+    borderRadius: 14,
     gap: 4,
+    backgroundColor: '#fff', // White background for days
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
   },
   dayItemSelected: {
-    backgroundColor: '#E6E6FA', // Light purple
+    backgroundColor: '#000', // Selected is black
+  },
+  dayItemToday: {
+    borderWidth: 1,
+    borderColor: '#5856D6',
   },
   dayName: {
     fontSize: 10,
@@ -599,86 +672,265 @@ const styles = StyleSheet.create({
     color: '#8E8E93',
     textTransform: 'uppercase',
   },
+  dayNameSelected: {
+    // Usually white on black.
+    color: 'rgba(255, 255, 255, 0.6)',
+  },
   dayNumber: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     color: '#000',
+  },
+  dayNumberSelected: {
+    color: '#fff',
   },
   content: {
     flex: 1,
   },
   pageHeader: {
     paddingHorizontal: 24,
-    marginTop: 16,
+    marginTop: 8,
     marginBottom: 24,
   },
   subDate: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     color: '#8E8E93',
-    marginBottom: 6,
+    marginBottom: 4,
     letterSpacing: 0.8,
-    textTransform: 'uppercase',
   },
   mainDate: {
-    fontSize: 32,
+    fontSize: 34,
     fontWeight: '800',
     color: '#000',
-    letterSpacing: -0.5,
+    letterSpacing: -1,
   },
-  notesSection: {
-    paddingHorizontal: 24,
-    marginBottom: 32,
+  sectionContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
   },
-  notesTitle: {
+  notesCard: {
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#000',
+  },
+  notesInput: {
+    fontSize: 16,
+    color: '#000',
+    lineHeight: 24,
+    minHeight: 40,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sectionLabel: {
     fontSize: 20,
     fontWeight: '800',
     color: '#000',
-    marginBottom: 12,
-    letterSpacing: -0.3,
   },
-  notesBody: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#000',
-    fontWeight: '400',
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#fff',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 100,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  addLink: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#5856D6',
   },
   todoList: {
-    paddingHorizontal: 24,
+    gap: 12,
+  },
+  todoItemWrapper: {
+    // Wrapper for swipeable
   },
   todoItem: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 20,
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 2,
+    gap: 16,
+  },
+  todoItemCompleted: {
+    opacity: 0.6,
   },
   checkboxContainer: {
-    marginRight: 14,
-    marginTop: 2,
     width: 24,
     height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkboxUnchecked: {
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#5856D6', // Purple/Blue outline
+    borderColor: '#E5E5EA',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxUnchecked: {
+    borderColor: '#5856D6',
   },
   checkboxChecked: {
-    // No border for checked state in the image design, just the check icon naturally usually content-bound?
-    // Actually the mock shows a checkmark. Let's assume it's just the icon.
-    // Or maybe a faint border? Let's go with no border to match "clean" look or kept layout.
-    // Making it consistent container size.
+    backgroundColor: '#5856D6',
+    borderColor: '#5856D6',
   },
   todoText: {
     flex: 1,
     fontSize: 16,
     color: '#000',
-    lineHeight: 24,
-    fontWeight: '400',
+    fontWeight: '500',
   },
   todoTextChecked: {
-    color: '#C7C7CC',
+    color: '#8E8E93',
+    textDecorationLine: 'line-through',
+  },
+  emptyStateCard: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    borderStyle: 'dashed',
+    borderWidth: 2,
+    borderColor: '#E5E5EA',
+  },
+  emptyText: {
+    fontSize: 15,
+    color: '#8E8E93',
+    fontWeight: '500',
+  },
+  emptyAddButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#F2F2F7',
+    borderRadius: 100,
+  },
+  emptyAddText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#000',
+  },
+  habitsSection: {
+    marginBottom: 24,
+  },
+  sectionHeaderPadding: {
+    paddingHorizontal: 20,
+  },
+  habitsScrollContent: {
+    paddingHorizontal: 20,
+    gap: 12,
+    paddingBottom: 4,
+  },
+  emptyHabitsContainer: {
+    paddingHorizontal: 20,
+  },
+  // Habit Card Styles
+  habitCard: {
+    width: 130,
+    height: 130,
+    borderRadius: 24,
+    padding: 16,
+    justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  habitCardIncomplete: {
+    backgroundColor: '#fff',
+  },
+  habitCardCompleted: {
+    backgroundColor: '#000',
+  },
+  habitCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  habitEmoji: {
+    fontSize: 28,
+  },
+  habitCardStreak: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: '#FFF9E6',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 100,
+  },
+  habitCardStreakCompleted: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  habitCardStreakText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FF9500',
+  },
+  habitCardStreakTextCompleted: {
+    color: '#FFD60A',
+  },
+  habitCardName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
+    marginTop: 4,
+  },
+  habitCardNameCompleted: {
+    color: '#fff',
+  },
+  habitStatusIcon: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#E5E5EA',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  habitStatusIconCompleted: {
+    backgroundColor: '#fff',
+    borderColor: '#fff',
   },
   bottomBar: {
     flexDirection: 'row',
@@ -693,9 +945,6 @@ const styles = StyleSheet.create({
   bottomTab: {
     padding: 8,
   },
-  bottomTabActive: {
-    opacity: 1,
-  },
   fab: {
     width: 52,
     height: 52,
@@ -703,7 +952,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F2F2F7',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -16, // Float slightly up
+    marginTop: -16,
   },
   // Calendar Modal Styles
   modalOverlay: {
@@ -714,7 +963,7 @@ const styles = StyleSheet.create({
   },
   calendarModal: {
     backgroundColor: '#fff',
-    borderRadius: 20,
+    borderRadius: 24,
     padding: 20,
     width: SCREEN_WIDTH - 40,
     maxWidth: 380,
@@ -760,12 +1009,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   calendarDaySelected: {
-    backgroundColor: '#5856D6',
+    backgroundColor: '#000',
     borderRadius: 20,
   },
   calendarDayToday: {
     borderWidth: 2,
-    borderColor: '#5856D6',
+    borderColor: '#000',
     borderRadius: 20,
   },
   calendarDayText: {
@@ -778,7 +1027,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   calendarDayTextToday: {
-    color: '#5856D6',
+    color: '#000',
     fontWeight: '700',
   },
   todayButton: {
@@ -791,11 +1040,11 @@ const styles = StyleSheet.create({
   todayButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#5856D6',
+    color: '#000',
   },
   addOptionsModal: {
     backgroundColor: '#fff',
-    borderRadius: 20,
+    borderRadius: 24,
     padding: 24,
     width: SCREEN_WIDTH - 80,
     maxWidth: 300,
@@ -812,7 +1061,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 20,
     backgroundColor: '#F2F2F7',
-    borderRadius: 12,
+    borderRadius: 16,
     marginBottom: 12,
   },
   addOptionText: {
@@ -820,180 +1069,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#000',
     textAlign: 'center',
-  },
-  // New styles for enhanced daily notes
-  notesInputSection: {
-    paddingHorizontal: 24,
-    marginBottom: 24,
-  },
-  sectionLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#8E8E93',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 12,
-  },
-  notesInput: {
-    fontSize: 16,
-    color: '#000',
-    lineHeight: 24,
-  },
-  sectionContainer: {
-    paddingHorizontal: 24,
-    marginBottom: 24,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  addLink: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#5856D6',
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#C7C7CC',
-    fontStyle: 'italic',
-  },
-  habitsSection: {
-    marginBottom: 24,
-  },
-  sectionHeaderPadding: {
-    paddingHorizontal: 24,
-  },
-  habitsScrollContent: {
-    paddingHorizontal: 24,
-    gap: 12,
-    paddingBottom: 4, // for shadow
-  },
-  emptyHabitsContainer: {
-    paddingHorizontal: 24,
-  },
-  // Habit Card Styles
-  habitCard: {
-    width: 120,
-    height: 120,
-    borderRadius: 24,
-    padding: 16,
-    justifyContent: 'space-between',
-    // Shadows
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  habitCardIncomplete: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#F2F2F7',
-  },
-  habitCardCompleted: {
-    backgroundColor: '#000', // Stark contrast
-    borderWidth: 1,
-    borderColor: '#000',
-  },
-  habitCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  habitEmoji: {
-    fontSize: 24,
-  },
-  habitCardStreak: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    backgroundColor: '#FFF9E6',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 100,
-  },
-  habitCardStreakCompleted: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  habitCardStreakText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#FF9500',
-  },
-  habitCardStreakTextCompleted: {
-    color: '#FFD60A',
-  },
-  habitCardName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#000',
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  habitCardNameCompleted: {
-    color: '#fff',
-  },
-  habitStatusIcon: {
-    position: 'absolute',
-    bottom: 16,
-    right: 16,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#E5E5EA',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  habitStatusIconCompleted: {
-    backgroundColor: '#fff',
-    borderColor: '#fff',
-  },
-  // Legacy List Styles (kept for safety or other lists)
-  habitsList: {
-    gap: 8,
-  },
-  habitItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: '#F9F9F9',
-    borderRadius: 12,
-  },
-  habitCheckbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    borderColor: '#5856D6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  habitCheckboxCompleted: {
-    backgroundColor: '#5856D6',
-    borderColor: '#5856D6',
-  },
-  habitText: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#000',
-  },
-  habitTextCompleted: {
-    color: '#8E8E93',
-  },
-  miniStreak: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-  },
-  miniStreakText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FF9500',
   },
 });
