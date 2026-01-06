@@ -684,14 +684,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 32,
-    paddingVertical: 8,
+    paddingTop: 12,
+    paddingBottom: 28,
     backgroundColor: '#fff',
     borderTopWidth: 1,
     borderTopColor: '#F2F2F7',
-    paddingBottom: 20,
   },
   bottomTab: {
-    padding: 4,
+    padding: 8,
   },
   bottomTabActive: {
     opacity: 1,
