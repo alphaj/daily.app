@@ -1,10 +1,13 @@
 import { useRouter } from 'expo-router';
 import {
-  ArrowLeft,
   Plus,
   ChevronRight,
   Trophy,
   Target,
+  Home,
+  Brain,
+  FolderKanban,
+  Clock,
 } from 'lucide-react-native';
 import React, { useRef, useCallback } from 'react';
 import {
@@ -15,7 +18,7 @@ import {
   ScrollView,
   Animated,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useProjects } from '@/contexts/ProjectContext';
 import type { Project } from '@/types/project';
@@ -151,6 +154,7 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
 
 export default function ProjectsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { activeProjects, completedProjects, getProjectProgress, isLoading } = useProjects();
 
   const handleAddProject = useCallback(() => {
@@ -167,13 +171,7 @@ export default function ProjectsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Pressable 
-          style={styles.backButton} 
-          onPress={() => router.back()}
-          hitSlop={10}
-        >
-          <ArrowLeft size={24} color="#000" strokeWidth={1.5} />
-        </Pressable>
+        <View style={styles.headerSpacer} />
         <Text style={styles.headerTitle}>Projects</Text>
         <Pressable 
           style={styles.addButton}
@@ -224,6 +222,27 @@ export default function ProjectsScreen() {
           )}
         </ScrollView>
       )}
+
+      {/* Bottom Bar */}
+      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+        <Pressable style={styles.bottomTab} onPress={() => router.replace('/')}>
+          <Home size={24} color="#000" strokeWidth={1.5} />
+        </Pressable>
+        <Pressable style={styles.bottomTab} onPress={() => router.replace('/brain-dump')}>
+          <Brain size={24} color="#000" strokeWidth={1.5} />
+        </Pressable>
+
+        <Pressable style={styles.fab} onPress={handleAddProject}>
+          <Plus size={28} color="#000" strokeWidth={1.5} />
+        </Pressable>
+
+        <Pressable style={[styles.bottomTab, styles.bottomTabActive]}>
+          <FolderKanban size={24} color="#5856D6" strokeWidth={1.5} />
+        </Pressable>
+        <Pressable style={styles.bottomTab} onPress={() => router.replace('/later')}>
+          <Clock size={24} color="#000" strokeWidth={1.5} />
+        </Pressable>
+      </View>
     </SafeAreaView>
   );
 }
@@ -243,8 +262,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
   },
-  backButton: {
-    padding: 4,
+  headerSpacer: {
+    width: 32,
   },
   headerTitle: {
     fontSize: 18,
@@ -428,5 +447,30 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
+  },
+  bottomBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 32,
+    paddingTop: 16,
+    backgroundColor: '#fff',
+    borderTopWidth: 0.5,
+    borderTopColor: '#E5E5EA',
+  },
+  bottomTab: {
+    padding: 8,
+  },
+  bottomTabActive: {
+    opacity: 1,
+  },
+  fab: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#F2F2F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -16,
   },
 });
