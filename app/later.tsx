@@ -10,6 +10,7 @@ import {
   Trash2,
   RotateCcw,
   X,
+  GripVertical,
 } from 'lucide-react-native';
 import React, { useState, useRef, useCallback } from 'react';
 import {
@@ -24,30 +25,79 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  PanResponder,
+  LayoutChangeEvent,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useLater } from '@/contexts/LaterContext';
 import { AREA_CONFIG, type LaterArea, type LaterItem } from '@/types/later';
-import SwipeableRow from '@/components/SwipeableRow';
+
+const PADDING = 20;
 
 const AREAS = Object.keys(AREA_CONFIG) as LaterArea[];
 
-function LaterItemCard({
+function DraggableLaterCard({
   item,
-  onArchive,
-  onDelete,
+  index,
+  onPress,
+  onDragStart,
+  onDragEnd,
+  isDragging,
+  draggedOverIndex,
+  pan,
 }: {
   item: LaterItem;
-  onArchive: (id: string) => void;
-  onDelete: (id: string) => void;
+  index: number;
+  onPress: () => void;
+  onDragStart: (index: number) => void;
+  onDragEnd: () => void;
+  isDragging: boolean;
+  draggedOverIndex: number | null;
+  pan: Animated.ValueXY;
 }) {
   const config = AREA_CONFIG[item.area];
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const [isDraggingState, setIsDraggingState] = useState(false);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        // Only trigger if moving vertically significantly
+        return Math.abs(gestureState.dy) > 10;
+      },
+      onPanResponderGrant: () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        setIsDraggingState(true);
+        onDragStart(index);
+        pan.setOffset({
+          x: 0,
+          y: 0,
+        });
+      },
+      onPanResponderMove: Animated.event([null, { dy: pan.y }], {
+        useNativeDriver: false,
+      }),
+      onPanResponderRelease: () => {
+        setIsDraggingState(false);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        Animated.spring(pan, {
+          toValue: { x: 0, y: 0 },
+          useNativeDriver: true,
+          speed: 20,
+          bounciness: 8,
+        }).start();
+        pan.flattenOffset();
+        onDragEnd();
+      },
+    })
+  ).current;
 
   const handlePressIn = () => {
+    if (isDraggingState) return;
     Animated.spring(scaleAnim, {
-      toValue: 0.98,
+      toValue: 0.96,
       useNativeDriver: true,
       speed: 20,
     }).start();
@@ -61,47 +111,67 @@ function LaterItemCard({
     }).start();
   };
 
-  const handlePress = () => {
-    Haptics.selectionAsync();
-  };
-
-  const handleArchive = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    onArchive(item.id);
-  };
+  const showSpacerAbove = draggedOverIndex !== null && draggedOverIndex === index && !isDraggingState;
+  const showSpacerBelow = draggedOverIndex !== null && draggedOverIndex === index + 1 && !isDraggingState;
 
   return (
-    <SwipeableRow onDelete={() => onDelete(item.id)}>
-      <Animated.View style={[styles.cardWrapper, { transform: [{ scale: scaleAnim }] }]}>
+    <>
+      {showSpacerAbove && <View style={styles.dropSpacer} />}
+      <Animated.View
+        style={[
+          styles.cardWrapper,
+          {
+            transform: [
+              { scale: scaleAnim },
+              { translateY: isDraggingState ? pan.y : 0 },
+            ],
+            zIndex: isDraggingState ? 100 : 1,
+          },
+          isDraggingState && styles.cardDragging,
+        ]}
+      >
         <Pressable
-            style={styles.itemCard}
-            onPress={handlePress}
-            onPressIn={handlePressIn}
-            onPressOut={handlePressOut}
-            onLongPress={handleArchive}
-            delayLongPress={500}
+          style={styles.card}
+          onPress={onPress}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          // Enable long press to drag
+          onLongPress={() => {
+            // This is handled by PanResponder on the wrapper or handle
+            // But if we want whole card draggable:
+            // For now, let's use a specific handle or just the card itself
+          }}
+          delayLongPress={200}
         >
-          <View style={styles.itemHeader}>
-            <View style={[styles.areaBadge, { backgroundColor: config.color + '15' }]}>
-              <Text style={styles.areaEmoji}>{config.emoji}</Text>
-              <Text style={[styles.areaLabel, { color: config.color }]}>{config.label}</Text>
+          <View style={styles.cardContent}>
+            <View style={styles.cardHeader}>
+              <View style={[styles.areaBadge, { backgroundColor: config.color + '15' }]}>
+                <Text style={styles.areaEmoji}>{config.emoji}</Text>
+                <Text style={[styles.areaLabel, { color: config.color }]}>{config.label}</Text>
+              </View>
             </View>
+            
+            <Text style={styles.cardTitle}>{item.title}</Text>
+            
+            {item.note && (
+              <Text style={styles.cardNote} numberOfLines={2}>
+                {item.note}
+              </Text>
+            )}
           </View>
           
-          <Text style={styles.itemTitle}>{item.title}</Text>
-          
-          {item.note && (
-            <Text style={styles.itemNote} numberOfLines={2}>
-              {item.note}
-            </Text>
-          )}
+          {/* Drag Handle */}
+          <View style={styles.dragHandle} {...panResponder.panHandlers}>
+            <GripVertical size={20} color="#E5E5EA" />
+          </View>
         </Pressable>
       </Animated.View>
-    </SwipeableRow>
+      {showSpacerBelow && <View style={styles.dropSpacer} />}
+    </>
   );
 }
 
-function ArchivedItemCard({
+function ArchivedItemRow({
   item,
   onRestore,
   onDelete,
@@ -113,7 +183,7 @@ function ArchivedItemCard({
   const config = AREA_CONFIG[item.area];
 
   return (
-    <View style={styles.archivedCard}>
+    <View style={styles.archivedRow}>
       <View style={styles.archivedContent}>
         <View style={[styles.archivedIcon, { backgroundColor: config.color + '15' }]}>
             <Text style={{ fontSize: 14 }}>{config.emoji}</Text>
@@ -149,27 +219,56 @@ function ArchivedItemCard({
 export default function LaterScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { activeItems, archivedItems, addItem, archiveItem, deleteItem, restoreItem } = useLater();
+  const { activeItems, archivedItems, addItem, archiveItem, deleteItem, restoreItem, updateItem, reorderItems } = useLater();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showArchive, setShowArchive] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [newNote, setNewNote] = useState('');
+  const [editingItem, setEditingItem] = useState<LaterItem | null>(null);
+
+  // Drag and Drop State
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+  const [draggedOverIndex, setDraggedOverIndex] = useState<number | null>(null);
+  const taskLayoutsRef = useRef<{ y: number; height: number }[]>([]);
+  const pan = useRef(new Animated.ValueXY()).current;
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  // Form State
+  const [title, setTitle] = useState('');
+  const [note, setNote] = useState('');
   const [selectedArea, setSelectedArea] = useState<LaterArea>('personal');
 
   const handleAddPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setTitle('');
+    setNote('');
+    setSelectedArea('personal');
+    setEditingItem(null);
+    setShowAddModal(true);
+  };
+
+  const handleEditPress = (item: LaterItem) => {
+    if (draggingIndex !== null) return;
+    Haptics.selectionAsync();
+    setTitle(item.title);
+    setNote(item.note || '');
+    setSelectedArea(item.area);
+    setEditingItem(item);
     setShowAddModal(true);
   };
 
   const handleSave = () => {
-    if (!newTitle.trim()) return;
+    if (!title.trim()) return;
     
-    addItem(newTitle.trim(), selectedArea, newNote.trim() || undefined);
+    if (editingItem) {
+      updateItem(editingItem.id, {
+        title: title.trim(),
+        note: note.trim() || undefined,
+        area: selectedArea,
+      });
+    } else {
+      addItem(title.trim(), selectedArea, note.trim() || undefined);
+    }
+
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    
-    setNewTitle('');
-    setNewNote('');
-    setSelectedArea('personal');
     setShowAddModal(false);
   };
 
@@ -188,15 +287,98 @@ export default function LaterScreen() {
     );
   }, [deleteItem]);
 
-  const groupedItems = AREAS.reduce((acc, area) => {
-    const items = activeItems.filter(item => item.area === area);
-    if (items.length > 0) {
-      acc[area] = items;
+  const handleArchive = (id: string) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    archiveItem(id);
+    if (editingItem?.id === id) {
+      setShowAddModal(false);
     }
-    return acc;
-  }, {} as Record<LaterArea, LaterItem[]>);
+  };
 
-  const hasItems = activeItems.length > 0;
+  // Drag and Drop Logic
+  const handleDragStart = useCallback((index: number) => {
+    setDraggingIndex(index);
+  }, []);
+
+  const handleDragRelease = useCallback(() => {
+    setDraggingIndex(null);
+  }, []);
+
+  const handleTaskLayout = useCallback((index: number, event: LayoutChangeEvent) => {
+    const { y, height } = event.nativeEvent.layout;
+    taskLayoutsRef.current[index] = { y, height };
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    if (draggingIndex === null || draggedOverIndex === null) {
+      setDraggingIndex(null);
+      setDraggedOverIndex(null);
+      return;
+    }
+
+    if (draggingIndex !== draggedOverIndex && draggedOverIndex !== draggingIndex + 1) {
+      const newItems = [...activeItems];
+      const [movedItem] = newItems.splice(draggingIndex, 1);
+      // Adjust index if we moved from top to bottom
+      const insertIndex = draggedOverIndex > draggingIndex ? draggedOverIndex - 1 : draggedOverIndex;
+      newItems.splice(insertIndex, 0, movedItem);
+      
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      reorderItems(newItems.map(t => t.id));
+    }
+
+    setDraggingIndex(null);
+    setDraggedOverIndex(null);
+  }, [draggingIndex, draggedOverIndex, activeItems, reorderItems]);
+
+  React.useEffect(() => {
+    if (draggingIndex === null) {
+      setDraggedOverIndex(null);
+    }
+  }, [draggingIndex]);
+
+  const updateDraggedOverIndex = useCallback((dragY: number) => {
+    if (draggingIndex === null) return;
+
+    const draggedTaskY = taskLayoutsRef.current[draggingIndex]?.y || 0;
+    const absoluteDragY = draggedTaskY + dragY;
+
+    let newIndex = draggingIndex;
+    for (let i = 0; i < activeItems.length; i++) {
+      const layout = taskLayoutsRef.current[i];
+      if (!layout) continue;
+
+      const taskMiddle = layout.y + layout.height / 2;
+      if (absoluteDragY < taskMiddle) {
+        newIndex = i;
+        break;
+      }
+      newIndex = i + 1;
+    }
+
+    if (newIndex !== draggedOverIndex) {
+      setDraggedOverIndex(newIndex);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  }, [draggingIndex, activeItems.length, draggedOverIndex]);
+
+  React.useEffect(() => {
+    if (draggingIndex !== null) {
+      const listener = pan.y.addListener(({ value }) => {
+        updateDraggedOverIndex(value);
+      });
+      return () => {
+        pan.y.removeListener(listener);
+      };
+    }
+  }, [draggingIndex, updateDraggedOverIndex, pan.y]);
+
+  React.useEffect(() => {
+    if (draggingIndex === null && draggedOverIndex !== null) {
+      handleDragEnd();
+    }
+  }, [draggingIndex, draggedOverIndex, handleDragEnd]);
+
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -212,12 +394,13 @@ export default function LaterScreen() {
       </View>
 
       <ScrollView
+        ref={scrollViewRef}
         style={styles.content}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 120, paddingHorizontal: 20 }}
-        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingBottom: 120 }}
+        scrollEnabled={draggingIndex === null}
       >
-        {!hasItems && !showArchive ? (
+        {activeItems.length === 0 && !showArchive ? (
           <View style={styles.emptyState}>
             <View style={styles.emptyIconContainer}>
               <Clock size={48} color="#C7C7CC" strokeWidth={1} />
@@ -232,75 +415,62 @@ export default function LaterScreen() {
             </Pressable>
           </View>
         ) : (
-          <>
-            {/* Active Items by Area */}
-            {Object.entries(groupedItems).map(([area, items]) => {
-              const config = AREA_CONFIG[area as LaterArea];
-              return (
-                <View key={area} style={styles.areaSection}>
-                  <View style={styles.areaSectionHeader}>
-                    <Text style={styles.areaSectionEmoji}>{config.emoji}</Text>
-                    <Text style={[styles.areaSectionTitle, { color: config.color }]}>
-                      {config.label}
-                    </Text>
-                    <View style={[styles.countBadge, { backgroundColor: config.color + '15' }]}>
-                        <Text style={[styles.countText, { color: config.color }]}>{items.length}</Text>
-                    </View>
-                  </View>
-                  <View style={styles.itemsList}>
-                    {items.map(item => (
-                        <LaterItemCard
+          <View style={styles.scrollContent}>
+            {/* Draggable List */}
+            <View style={styles.listContainer}>
+              {activeItems.map((item, index) => (
+                <View 
+                    key={item.id} 
+                    onLayout={(e) => handleTaskLayout(index, e)}
+                    style={{ zIndex: draggingIndex === index ? 100 : 1 }}
+                >
+                  <DraggableLaterCard
+                    item={item}
+                    index={index}
+                    onPress={() => handleEditPress(item)}
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragRelease}
+                    isDragging={draggingIndex === index}
+                    draggedOverIndex={draggedOverIndex}
+                    pan={pan}
+                  />
+                </View>
+              ))}
+            </View>
+
+            {/* Archive Section */}
+            {archivedItems.length > 0 && (
+              <View style={styles.archiveSection}>
+                <Pressable
+                  style={styles.archiveToggle}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setShowArchive(!showArchive);
+                  }}
+                >
+                  <Archive size={16} color="#8E8E93" strokeWidth={2} />
+                  <Text style={styles.archiveToggleText}>
+                    {showArchive ? 'Hide' : 'Show'} Archived ({archivedItems.length})
+                  </Text>
+                </Pressable>
+
+                {showArchive && (
+                  <View style={styles.archivedList}>
+                    {archivedItems.map(item => (
+                      <ArchivedItemRow
                         key={item.id}
                         item={item}
-                        onArchive={archiveItem}
+                        onRestore={restoreItem}
                         onDelete={handleDelete}
-                        />
+                      />
                     ))}
                   </View>
-                </View>
-              );
-            })}
-
-            {/* Archive Toggle */}
-            {archivedItems.length > 0 && (
-                <View style={styles.archiveSection}>
-                     <Pressable
-                        style={styles.archiveToggle}
-                        onPress={() => {
-                        Haptics.selectionAsync();
-                        setShowArchive(!showArchive);
-                        }}
-                    >
-                        <Archive size={16} color="#8E8E93" strokeWidth={2} />
-                        <Text style={styles.archiveToggleText}>
-                        {showArchive ? 'Hide' : 'Show'} Archived ({archivedItems.length})
-                        </Text>
-                    </Pressable>
-
-                    {showArchive && (
-                        <View style={styles.archivedList}>
-                            {archivedItems.map(item => (
-                            <ArchivedItemCard
-                                key={item.id}
-                                item={item}
-                                onRestore={restoreItem}
-                                onDelete={handleDelete}
-                            />
-                            ))}
-                        </View>
-                    )}
-                </View>
+                )}
+              </View>
             )}
-          </>
+          </View>
         )}
       </ScrollView>
-
-      {/* Floating Add Button */}
-      {hasItems && (
-        <Pressable style={styles.fab} onPress={handleAddPress}>
-          <Plus size={28} color="#fff" strokeWidth={2} />
-        </Pressable>
-      )}
 
       {/* Bottom Bar */}
       <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 20) }]}>
@@ -311,9 +481,8 @@ export default function LaterScreen() {
           <Brain size={24} color="#000" strokeWidth={1.5} />
         </Pressable>
 
-        <Pressable style={styles.bottomFabPlaceholder} onPress={handleAddPress}>
-            {/* Placeholder for center alignment if needed, or use specific add logic */}
-             <Plus size={24} color="#000" strokeWidth={2} />
+        <Pressable style={styles.fab} onPress={handleAddPress}>
+            <Plus size={28} color="#000" strokeWidth={1.5} />
         </Pressable>
 
         <Pressable style={styles.bottomTab} onPress={() => router.replace('/projects')}>
@@ -323,16 +492,8 @@ export default function LaterScreen() {
           <Clock size={24} color="#5856D6" strokeWidth={1.5} />
         </Pressable>
       </View>
-      
-      {/* Center FAB override for consistency with other pages */}
-      <View pointerEvents="box-none" style={[styles.centerFabContainer, { bottom: Math.max(insets.bottom, 20) + 12 }]}>
-         <Pressable style={styles.centerFab} onPress={handleAddPress}>
-            <Plus size={28} color="#000" strokeWidth={1.5} />
-         </Pressable>
-      </View>
 
-
-      {/* Add Modal */}
+      {/* Add/Edit Modal */}
       <Modal
         visible={showAddModal}
         transparent
@@ -346,7 +507,9 @@ export default function LaterScreen() {
           <Pressable style={styles.modalOverlay} onPress={() => setShowAddModal(false)} />
           <View style={[styles.addModal, { paddingBottom: Math.max(insets.bottom, 20) }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Park an idea</Text>
+              <Text style={styles.modalTitle}>
+                {editingItem ? 'Edit Idea' : 'Park an idea'}
+              </Text>
               <Pressable
                 style={styles.modalClose}
                 onPress={() => setShowAddModal(false)}
@@ -360,17 +523,17 @@ export default function LaterScreen() {
               style={styles.modalInput}
               placeholder="What's on your mind?"
               placeholderTextColor="#C7C7CC"
-              value={newTitle}
-              onChangeText={setNewTitle}
-              autoFocus
+              value={title}
+              onChangeText={setTitle}
+              autoFocus={!editingItem}
             />
 
             <TextInput
               style={[styles.modalInput, styles.modalNoteInput]}
               placeholder="Add a note (optional)"
               placeholderTextColor="#C7C7CC"
-              value={newNote}
-              onChangeText={setNewNote}
+              value={note}
+              onChangeText={setNote}
               multiline
             />
 
@@ -405,13 +568,30 @@ export default function LaterScreen() {
               })}
             </ScrollView>
 
-            <Pressable
-              style={[styles.saveButton, !newTitle.trim() && styles.saveButtonDisabled]}
-              onPress={handleSave}
-              disabled={!newTitle.trim()}
-            >
-              <Text style={styles.saveButtonText}>Save for later</Text>
-            </Pressable>
+            <View style={styles.modalFooter}>
+                {editingItem && (
+                    <Pressable
+                        style={styles.archiveButton}
+                        onPress={() => handleArchive(editingItem.id)}
+                    >
+                        <Archive size={20} color="#FF3B30" strokeWidth={2} />
+                    </Pressable>
+                )}
+                
+                <Pressable
+                style={[
+                    styles.saveButton, 
+                    !title.trim() && styles.saveButtonDisabled,
+                    editingItem ? { flex: 1 } : { width: '100%' }
+                ]}
+                onPress={handleSave}
+                disabled={!title.trim()}
+                >
+                <Text style={styles.saveButtonText}>
+                    {editingItem ? 'Update' : 'Save for later'}
+                </Text>
+                </Pressable>
+            </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -430,7 +610,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 24,
     paddingVertical: 16,
-    paddingBottom: 16,
+    paddingBottom: 24,
   },
   headerTitle: {
     fontSize: 34,
@@ -453,10 +633,159 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
+  scrollContent: {
+    paddingHorizontal: PADDING,
+  },
+  listContainer: {
+    gap: 12,
+  },
+  cardWrapper: {
+    marginBottom: 0,
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  cardDragging: {
+    zIndex: 1000,
+    elevation: 8,
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    transform: [{ scale: 1.02 }],
+  },
+  dropSpacer: {
+    height: 80, // Approx card height
+    borderRadius: 20,
+    backgroundColor: '#E5E5EA',
+    borderWidth: 2,
+    borderColor: '#C7C7CC',
+    borderStyle: 'dashed',
+    marginBottom: 12,
+  },
+  cardContent: {
+    flex: 1,
+  },
+  dragHandle: {
+    padding: 10,
+    marginRight: -10,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  areaBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  areaEmoji: {
+    fontSize: 10,
+  },
+  areaLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  cardTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#000',
+    lineHeight: 22,
+    marginBottom: 4,
+  },
+  cardNote: {
+    fontSize: 14,
+    color: '#8E8E93',
+    lineHeight: 20,
+  },
+  // Archive
+  archiveSection: {
+    marginTop: 32,
+    marginBottom: 20,
+  },
+  archiveToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+  },
+  archiveToggleText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#8E8E93',
+  },
+  archivedList: {
+    marginTop: 16,
+    gap: 10,
+  },
+  archivedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#EAEAEE',
+    borderRadius: 16,
+    padding: 12,
+  },
+  archivedContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  archivedIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  archivedTitle: {
+    fontSize: 15,
+    color: '#8E8E93',
+    flex: 1,
+    fontWeight: '500',
+    textDecorationLine: 'line-through',
+  },
+  archivedActions: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingLeft: 12,
+  },
+  archivedAction: {
+    padding: 6,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+  },
+  // Empty State
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 60,
+    paddingHorizontal: 20,
   },
   emptyIconContainer: {
     width: 80,
@@ -499,147 +828,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#fff',
   },
-  areaSection: {
-    marginBottom: 24,
-  },
-  areaSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-    paddingLeft: 4,
-  },
-  areaSectionEmoji: {
-    fontSize: 18,
-  },
-  areaSectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  countBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  countText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  itemsList: {
-    gap: 12,
-  },
-  cardWrapper: {
-    marginBottom: 0,
-  },
-  itemCard: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  itemHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  areaBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  areaEmoji: {
-    fontSize: 10,
-  },
-  areaLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-  },
-  itemTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#000',
-    lineHeight: 22,
-    marginBottom: 4,
-  },
-  itemNote: {
-    fontSize: 14,
-    color: '#8E8E93',
-    lineHeight: 20,
-  },
-  archiveSection: {
-    marginTop: 16,
-    marginBottom: 32,
-  },
-  archiveToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
-  },
-  archiveToggleText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#8E8E93',
-  },
-  archivedList: {
-    marginTop: 16,
-    gap: 10,
-  },
-  archivedCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F9F9F9',
-    borderRadius: 16,
-    padding: 12,
-  },
-  archivedContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  archivedIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  archivedTitle: {
-    fontSize: 15,
-    color: '#8E8E93',
-    flex: 1,
-    fontWeight: '500',
-    textDecorationLine: 'line-through',
-  },
-  archivedActions: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingLeft: 12,
-  },
-  archivedAction: {
-    padding: 6,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-  },
   // Bottom Bar
   bottomBar: {
     flexDirection: 'row',
@@ -657,48 +845,14 @@ const styles = StyleSheet.create({
   bottomTabActive: {
     opacity: 1,
   },
-  bottomFabPlaceholder: {
-     width: 52,
-     height: 52,
-     opacity: 0, // Hidden but takes space
-  },
-  centerFabContainer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 100,
-  },
-  centerFab: {
+  fab: {
     width: 52,
     height: 52,
     borderRadius: 26,
     backgroundColor: '#F2F2F7',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  // Floating Add Button (when scrolling)
-  fab: {
-    position: 'absolute',
-    right: 20,
-    bottom: 100,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#000',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-    zIndex: 100,
+    marginTop: -16,
   },
   // Modal
   modalContainer: {
@@ -781,6 +935,19 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#000',
+  },
+  modalFooter: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+  },
+  archiveButton: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: '#FFE5E5',
+      alignItems: 'center',
+      justifyContent: 'center',
   },
   saveButton: {
     backgroundColor: '#000',

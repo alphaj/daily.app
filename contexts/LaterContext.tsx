@@ -35,12 +35,18 @@ export const [LaterProvider, useLater] = createContextHook(() => {
   }, [itemsQuery.data]);
 
   const addItem = (title: string, area: LaterArea, note?: string) => {
+    // New items go to the top (lowest order)
+    const minOrder = items.length > 0 
+      ? Math.min(...items.map(i => i.order ?? 0)) 
+      : 0;
+
     const newItem: LaterItem = {
       id: Date.now().toString(),
       title,
       note,
       area,
       createdAt: new Date().toISOString(),
+      order: minOrder - 1,
     };
     const updated = [newItem, ...items];
     setItems(updated);
@@ -82,8 +88,26 @@ export const [LaterProvider, useLater] = createContextHook(() => {
     console.log('[LaterContext] Restored item:', id);
   };
 
-  const activeItems = items.filter(item => !item.archivedAt);
-  const archivedItems = items.filter(item => item.archivedAt);
+  const reorderItems = (reorderedIds: string[]) => {
+    const updated = items.map(item => {
+      const newIndex = reorderedIds.indexOf(item.id);
+      if (newIndex !== -1) {
+        return { ...item, order: newIndex };
+      }
+      return item;
+    });
+    setItems(updated);
+    syncMutation.mutate(updated);
+    console.log('[LaterContext] Reordered items');
+  };
+
+  const activeItems = items
+    .filter(item => !item.archivedAt)
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    
+  const archivedItems = items
+    .filter(item => item.archivedAt)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const getItemsByArea = (area: LaterArea) => activeItems.filter(item => item.area === area);
 
@@ -96,6 +120,7 @@ export const [LaterProvider, useLater] = createContextHook(() => {
     archiveItem,
     deleteItem,
     restoreItem,
+    reorderItems,
     getItemsByArea,
     isLoading: itemsQuery.isLoading,
   };

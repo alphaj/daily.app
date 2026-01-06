@@ -7,6 +7,7 @@ export interface LaterItem {
   area: LaterArea;
   createdAt: string;
   archivedAt?: string;
+  order?: number;
 }
 
 export const AREA_CONFIG: Record<LaterArea, { label: string; emoji: string; color: string }> = {
