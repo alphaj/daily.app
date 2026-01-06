@@ -17,6 +17,8 @@ import {
   TextInput,
   Alert,
   Animated,
+  PanResponder,
+  LayoutChangeEvent,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -32,6 +34,10 @@ function RoadmapTask({
   projectColor,
   onToggle,
   onDelete,
+  onDragStart,
+  isDragging,
+  draggedOverIndex,
+  pan,
   isFirst,
   isLast,
 }: {
@@ -41,12 +47,50 @@ function RoadmapTask({
   projectColor: string;
   onToggle: () => void;
   onDelete: () => void;
+  onDragStart: (index: number) => void;
+  isDragging: boolean;
+  draggedOverIndex: number | null;
+  pan: Animated.ValueXY;
   isFirst: boolean;
   isLast: boolean;
 }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const [isDraggingState, setIsDraggingState] = useState(false);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        return Math.abs(gestureState.dy) > 5;
+      },
+      onPanResponderGrant: () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        setIsDraggingState(true);
+        onDragStart(index);
+        pan.setOffset({
+          x: 0,
+          y: 0,
+        });
+      },
+      onPanResponderMove: Animated.event([null, { dy: pan.y }], {
+        useNativeDriver: false,
+      }),
+      onPanResponderRelease: () => {
+        setIsDraggingState(false);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        Animated.spring(pan, {
+          toValue: { x: 0, y: 0 },
+          useNativeDriver: true,
+          speed: 20,
+          bounciness: 8,
+        }).start();
+        pan.flattenOffset();
+      },
+    })
+  ).current;
 
   const handlePress = () => {
+    if (isDraggingState) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Animated.sequence([
       Animated.timing(scaleAnim, {
@@ -75,8 +119,24 @@ function RoadmapTask({
     );
   };
 
+  const showSpacerAbove = draggedOverIndex !== null && draggedOverIndex === index && !isDraggingState;
+  const showSpacerBelow = draggedOverIndex !== null && draggedOverIndex === index + 1 && !isDraggingState;
+
   return (
-    <Animated.View style={[styles.taskRow, { transform: [{ scale: scaleAnim }] }]}>
+    <>
+      {showSpacerAbove && <View style={styles.dropSpacer} />}
+      <Animated.View 
+        style={[
+          styles.taskRow, 
+          { 
+            transform: [
+              { scale: scaleAnim },
+              { translateY: isDraggingState ? pan.y : 0 },
+            ] 
+          },
+          isDraggingState && styles.taskRowDragging,
+        ]}
+      >
       <View style={styles.timelineContainer}>
         {!isFirst && (
           <View style={[styles.timelineLineTop, task.completed && { backgroundColor: projectColor }]} />
@@ -109,11 +169,13 @@ function RoadmapTask({
             {task.title}
           </Text>
         </View>
-        <View style={styles.taskActions}>
-          <GripVertical size={18} color="#D1D1D6" />
+        <View style={styles.taskActions} {...panResponder.panHandlers}>
+          <GripVertical size={18} color={isDraggingState ? projectColor : "#D1D1D6"} />
         </View>
       </Pressable>
     </Animated.View>
+    {showSpacerBelow && <View style={styles.dropSpacer} />}
+    </>
   );
 }
 
@@ -138,11 +200,16 @@ function EmptyTasksState({ onAdd }: { onAdd: () => void }) {
 export default function ProjectDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { getProject, addTask, deleteTask, toggleTask, deleteProject, getProjectProgress } = useProjects();
+  const { getProject, addTask, deleteTask, toggleTask, deleteProject, getProjectProgress, reorderTasks } = useProjects();
 
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [isAddingTask, setIsAddingTask] = useState(false);
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+  const [draggedOverIndex, setDraggedOverIndex] = useState<number | null>(null);
   const inputRef = useRef<TextInput>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const taskLayoutsRef = useRef<{ y: number; height: number }[]>([]);
+  const pan = useRef(new Animated.ValueXY()).current;
 
   const project = getProject(id || '');
   
@@ -203,6 +270,84 @@ export default function ProjectDetailScreen() {
     setTimeout(() => inputRef.current?.focus(), 100);
   };
 
+  const handleDragStart = useCallback((index: number) => {
+    setDraggingIndex(index);
+  }, []);
+
+  const handleTaskLayout = useCallback((index: number, event: LayoutChangeEvent) => {
+    const { y, height } = event.nativeEvent.layout;
+    taskLayoutsRef.current[index] = { y, height };
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    if (draggingIndex === null || draggedOverIndex === null || !id) {
+      setDraggingIndex(null);
+      setDraggedOverIndex(null);
+      return;
+    }
+
+    if (draggingIndex !== draggedOverIndex && draggedOverIndex !== draggingIndex + 1) {
+      const newTasks = [...sortedTasks];
+      const [movedTask] = newTasks.splice(draggingIndex, 1);
+      const insertIndex = draggedOverIndex > draggingIndex ? draggedOverIndex - 1 : draggedOverIndex;
+      newTasks.splice(insertIndex, 0, movedTask);
+      
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      reorderTasks(id, newTasks.map(t => t.id));
+    }
+
+    setDraggingIndex(null);
+    setDraggedOverIndex(null);
+  }, [draggingIndex, draggedOverIndex, sortedTasks, id, reorderTasks]);
+
+  React.useEffect(() => {
+    if (draggingIndex === null) {
+      setDraggedOverIndex(null);
+    }
+  }, [draggingIndex]);
+
+  const updateDraggedOverIndex = useCallback((dragY: number) => {
+    if (draggingIndex === null) return;
+
+    const draggedTaskY = taskLayoutsRef.current[draggingIndex]?.y || 0;
+    const absoluteDragY = draggedTaskY + dragY;
+
+    let newIndex = draggingIndex;
+    for (let i = 0; i < sortedTasks.length; i++) {
+      const layout = taskLayoutsRef.current[i];
+      if (!layout) continue;
+
+      const taskMiddle = layout.y + layout.height / 2;
+      if (absoluteDragY < taskMiddle) {
+        newIndex = i;
+        break;
+      }
+      newIndex = i + 1;
+    }
+
+    if (newIndex !== draggedOverIndex) {
+      setDraggedOverIndex(newIndex);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  }, [draggingIndex, sortedTasks.length, draggedOverIndex]);
+
+  React.useEffect(() => {
+    if (draggingIndex !== null) {
+      const listener = pan.y.addListener(({ value }) => {
+        updateDraggedOverIndex(value);
+      });
+      return () => {
+        pan.y.removeListener(listener);
+      };
+    }
+  }, [draggingIndex, updateDraggedOverIndex, pan.y]);
+
+  React.useEffect(() => {
+    if (draggingIndex === null && draggedOverIndex !== null) {
+      handleDragEnd();
+    }
+  }, [draggingIndex, draggedOverIndex, handleDragEnd]);
+
   if (!project) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -230,10 +375,12 @@ export default function ProjectDetailScreen() {
       </View>
 
       <ScrollView 
+        ref={scrollViewRef}
         style={styles.content}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        scrollEnabled={draggingIndex === null}
       >
         <View style={styles.projectHeader}>
           <View style={[styles.projectIconContainer, { backgroundColor: `${project.color}15` }]}>
@@ -279,17 +426,22 @@ export default function ProjectDetailScreen() {
           ) : (
             <View style={styles.roadmap}>
               {sortedTasks.map((task, index) => (
-                <RoadmapTask
-                  key={task.id}
-                  task={task}
-                  index={index}
-                  totalTasks={sortedTasks.length}
-                  projectColor={project.color}
-                  onToggle={() => handleToggleTask(task.id)}
-                  onDelete={() => handleDeleteTask(task.id)}
-                  isFirst={index === 0}
-                  isLast={index === sortedTasks.length - 1 && !isAddingTask}
-                />
+                <View key={task.id} onLayout={(e) => handleTaskLayout(index, e)}>
+                  <RoadmapTask
+                    task={task}
+                    index={index}
+                    totalTasks={sortedTasks.length}
+                    projectColor={project.color}
+                    onToggle={() => handleToggleTask(task.id)}
+                    onDelete={() => handleDeleteTask(task.id)}
+                    onDragStart={handleDragStart}
+                    isDragging={draggingIndex === index}
+                    draggedOverIndex={draggedOverIndex}
+                    pan={pan}
+                    isFirst={index === 0}
+                    isLast={index === sortedTasks.length - 1 && !isAddingTask}
+                  />
+                </View>
               ))}
               
               {isAddingTask && (
@@ -593,5 +745,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5E5EA',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  taskRowDragging: {
+    zIndex: 1000,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  dropSpacer: {
+    height: TASK_HEIGHT,
+    marginLeft: 40,
+    marginRight: 0,
+    marginBottom: 12,
+    borderRadius: 14,
+    backgroundColor: '#E5E5EA',
+    borderWidth: 2,
+    borderColor: '#C7C7CC',
+    borderStyle: 'dashed',
   },
 });
