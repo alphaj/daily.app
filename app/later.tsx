@@ -302,7 +302,9 @@ export default function LaterScreen() {
           <Brain size={24} color="#000" strokeWidth={1.5} />
         </Pressable>
 
-        <View style={styles.fabPlaceholder} />
+        <Pressable style={styles.fab} onPress={handleAddPress}>
+          <Plus size={24} color="#000" strokeWidth={2} />
+        </Pressable>
 
         <Pressable style={styles.bottomTab} onPress={() => router.push('/projects')}>
           <FolderKanban size={24} color="#000" strokeWidth={1.5} />
@@ -642,9 +644,14 @@ const styles = StyleSheet.create({
   bottomTabActive: {
     opacity: 1,
   },
-  fabPlaceholder: {
+  fab: {
     width: 52,
     height: 52,
+    borderRadius: 26,
+    backgroundColor: '#F2F2F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -16,
   },
   modalContainer: {
     flex: 1,
