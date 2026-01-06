@@ -28,7 +28,7 @@ import {
     KeyboardAvoidingView,
     Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useBrainDump } from '@/contexts/BrainDumpContext';
 import { useTodos } from '@/contexts/TodoContext';
@@ -129,6 +129,7 @@ function DumpItem({
 
 export default function BrainDumpScreen() {
     const router = useRouter();
+    const insets = useSafeAreaInsets();
     const { items, addItem, deleteItem, togglePin, archiveItem, getPinnedItems } = useBrainDump();
     const { addTodo } = useTodos();
     const { addHabit } = useHabits();
@@ -263,7 +264,7 @@ export default function BrainDumpScreen() {
                 </ScrollView>
 
                 {/* Bottom Bar */}
-                <View style={styles.bottomBar}>
+                <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 20) }]}>
                     <Pressable style={styles.bottomTab} onPress={() => router.replace('/')}>
                         <Home size={24} color="#000" strokeWidth={1.5} />
                     </Pressable>
@@ -463,14 +464,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 32,
-        paddingVertical: 8,
+        paddingTop: 16,
         backgroundColor: '#fff',
-        borderTopWidth: 1,
-        borderTopColor: '#F2F2F7',
-        paddingBottom: 20,
+        borderTopWidth: 0.5,
+        borderTopColor: '#E5E5EA',
     },
     bottomTab: {
-        padding: 4,
+        padding: 8,
     },
     bottomTabActive: {
         opacity: 1,
