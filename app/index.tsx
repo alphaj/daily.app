@@ -25,7 +25,7 @@ import {
   Animated,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useTodos } from '@/contexts/TodoContext';
 import { useHabits } from '@/contexts/HabitContext';
@@ -281,6 +281,7 @@ function HabitCard({
 
 export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { getTodosForDate, toggleTodo, deleteTodo } = useTodos();
   const { habits, toggleHabitCompletion, isCompletedToday, deleteHabit } = useHabits();
   const { getNoteForDate, updateNoteForDate } = useNotes();
@@ -487,7 +488,7 @@ export default function HomeScreen() {
       </ScrollView>
 
       {/* Bottom Bar */}
-      <View style={styles.bottomBar}>
+      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 20) }]}>
         <Pressable style={[styles.bottomTab, styles.bottomTabActive]}>
           <Home size={24} color="#5856D6" strokeWidth={1.5} />
         </Pressable>
@@ -684,11 +685,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 32,
-    paddingTop: 12,
-    paddingBottom: 28,
+    paddingTop: 16,
     backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#F2F2F7',
+    borderTopWidth: 0.5,
+    borderTopColor: '#E5E5EA',
   },
   bottomTab: {
     padding: 8,
