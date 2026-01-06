@@ -12,7 +12,7 @@ import {
   Home,
   Brain,
 } from 'lucide-react-native';
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,8 @@ import {
   Dimensions,
   Modal,
   TextInput,
+  Animated,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -29,6 +31,7 @@ import { useTodos } from '@/contexts/TodoContext';
 import { useHabits } from '@/contexts/HabitContext';
 import { useNotes } from '@/contexts/NoteContext';
 import type { Todo } from '@/types/todo';
+import type { Habit } from '@/types/habit';
 import { format, addDays, startOfWeek, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths } from 'date-fns';
 import SwipeableRow from '@/components/SwipeableRow';
 
@@ -192,50 +195,93 @@ function CalendarModal({
   );
 }
 
-function HabitCheckItem({
+function HabitCard({
   habit,
   isCompleted,
   onToggle,
   onDelete
 }: {
-  habit: any;
+  habit: Habit;
   isCompleted: boolean;
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    Animated.sequence([
+      Animated.timing(scaleAnim, {
+        toValue: 0.95,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
     onToggle(habit.id);
   };
 
-  const handleDelete = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    onDelete(habit.id);
+  const handleLongPress = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    Alert.alert(
+      "Delete Habit",
+      `Are you sure you want to delete "${habit.name}"?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Delete", 
+          style: "destructive", 
+          onPress: () => onDelete(habit.id) 
+        }
+      ]
+    );
   };
 
   return (
-    <SwipeableRow onDelete={handleDelete}>
-      <Pressable style={styles.habitItem} onPress={handlePress}>
-        <View style={[styles.habitCheckbox, isCompleted && styles.habitCheckboxCompleted]}>
-          {isCompleted && <Check size={14} color="#fff" strokeWidth={3} />}
+    <Pressable onPress={handlePress} onLongPress={handleLongPress} delayLongPress={500}>
+      <Animated.View 
+        style={[
+          styles.habitCard, 
+          isCompleted ? styles.habitCardCompleted : styles.habitCardIncomplete,
+          { transform: [{ scale: scaleAnim }] }
+        ]}
+      >
+        <View style={styles.habitCardHeader}>
+          <Text style={styles.habitEmoji}>{habit.emoji || '⚡️'}</Text>
+          {habit.currentStreak > 0 && (
+            <View style={[styles.habitCardStreak, isCompleted && styles.habitCardStreakCompleted]}>
+              <Flame size={10} color={isCompleted ? "#FFD60A" : "#FF9500"} fill={isCompleted ? "#FFD60A" : "#FF9500"} />
+              <Text style={[styles.habitCardStreakText, isCompleted && styles.habitCardStreakTextCompleted]}>
+                {habit.currentStreak}
+              </Text>
+            </View>
+          )}
         </View>
-        <Text style={[styles.habitText, isCompleted && styles.habitTextCompleted]}>
+        
+        <Text 
+          style={[styles.habitCardName, isCompleted && styles.habitCardNameCompleted]}
+          numberOfLines={2}
+        >
           {habit.name}
         </Text>
-        {habit.currentStreak > 0 && (
-          <View style={styles.miniStreak}>
-            <Flame size={12} color="#FF9500" />
-            <Text style={styles.miniStreakText}>{habit.currentStreak}</Text>
-          </View>
-        )}
-      </Pressable>
-    </SwipeableRow>
+        
+        <View style={[styles.habitStatusIcon, isCompleted && styles.habitStatusIconCompleted]}>
+            {isCompleted ? <Check size={14} color="#000" strokeWidth={4} /> : null}
+        </View>
+      </Animated.View>
+    </Pressable>
   );
 }
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { getTodosForDate, toggleTodo, addTodo, deleteTodo } = useTodos();
+  const { getTodosForDate, toggleTodo, deleteTodo } = useTodos();
   const { habits, toggleHabitCompletion, isCompletedToday, deleteHabit } = useHabits();
   const { getNoteForDate, updateNoteForDate } = useNotes();
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -404,28 +450,39 @@ export default function HomeScreen() {
         </View>
 
         {/* Habits Section */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionLabel}>Habits</Text>
-            <Pressable onPress={() => router.push('/add-habit')}>
-              <Text style={styles.addLink}>+ Add</Text>
-            </Pressable>
+        <View style={styles.habitsSection}>
+          <View style={styles.sectionHeaderPadding}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionLabel}>Habits</Text>
+              <Pressable onPress={() => router.push('/add-habit')}>
+                <Text style={styles.addLink}>+ Add</Text>
+              </Pressable>
+            </View>
           </View>
-          <View style={styles.habitsList}>
-            {habits.length === 0 ? (
+          
+          {habits.length === 0 ? (
+            <View style={styles.emptyHabitsContainer}>
               <Text style={styles.emptyText}>No habits yet</Text>
-            ) : (
-              habits.map(habit => (
-                <HabitCheckItem
+            </View>
+          ) : (
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.habitsScrollContent}
+              decelerationRate="fast"
+              snapToInterval={132} // card width (120) + gap (12)
+            >
+              {habits.map(habit => (
+                <HabitCard
                   key={habit.id}
                   habit={habit}
                   isCompleted={isCompletedToday(habit)}
                   onToggle={toggleHabitCompletion}
                   onDelete={deleteHabit}
                 />
-              ))
-            )}
-          </View>
+              ))}
+            </ScrollView>
+          )}
         </View>
       </ScrollView>
 
@@ -802,6 +859,99 @@ const styles = StyleSheet.create({
     color: '#C7C7CC',
     fontStyle: 'italic',
   },
+  habitsSection: {
+    marginBottom: 24,
+  },
+  sectionHeaderPadding: {
+    paddingHorizontal: 24,
+  },
+  habitsScrollContent: {
+    paddingHorizontal: 24,
+    gap: 12,
+    paddingBottom: 4, // for shadow
+  },
+  emptyHabitsContainer: {
+    paddingHorizontal: 24,
+  },
+  // Habit Card Styles
+  habitCard: {
+    width: 120,
+    height: 120,
+    borderRadius: 24,
+    padding: 16,
+    justifyContent: 'space-between',
+    // Shadows
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  habitCardIncomplete: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#F2F2F7',
+  },
+  habitCardCompleted: {
+    backgroundColor: '#000', // Stark contrast
+    borderWidth: 1,
+    borderColor: '#000',
+  },
+  habitCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  habitEmoji: {
+    fontSize: 24,
+  },
+  habitCardStreak: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: '#FFF9E6',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 100,
+  },
+  habitCardStreakCompleted: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  habitCardStreakText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FF9500',
+  },
+  habitCardStreakTextCompleted: {
+    color: '#FFD60A',
+  },
+  habitCardName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#000',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  habitCardNameCompleted: {
+    color: '#fff',
+  },
+  habitStatusIcon: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#E5E5EA',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  habitStatusIconCompleted: {
+    backgroundColor: '#fff',
+    borderColor: '#fff',
+  },
+  // Legacy List Styles (kept for safety or other lists)
   habitsList: {
     gap: 8,
   },
