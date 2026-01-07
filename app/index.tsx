@@ -37,6 +37,7 @@ import type { Habit } from '@/types/habit';
 import { format, addDays, startOfWeek, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths } from 'date-fns';
 import SwipeableRow from '@/components/SwipeableRow';
 import { CelebrationOverlay } from '@/components/CelebrationOverlay';
+import { AddOptionsModal } from '@/components/AddOptionsModal';
 import { ReflectionModal } from '@/components/ReflectionModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -317,9 +318,7 @@ export default function HomeScreen() {
     toggleHabitCompletion,
     isCompletedToday,
     deleteHabit,
-    getAllHabitsCompleted,
     getCelebrationPhrase,
-    getStreakAtRiskHabits,
   } = useHabits();
   const { getNoteForDate, updateNoteForDate } = useNotes();
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -626,24 +625,12 @@ export default function HomeScreen() {
       />
 
       {/* Add Options Modal */}
-      <Modal
+      <AddOptionsModal
         visible={addOptionsVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setAddOptionsVisible(false)}
-      >
-        <Pressable style={styles.modalOverlay} onPress={() => setAddOptionsVisible(false)}>
-          <View style={styles.addOptionsModal}>
-            <Text style={styles.addOptionsTitle}>What would you like to add?</Text>
-            <Pressable style={styles.addOptionButton} onPress={handleAddTask}>
-              <Text style={styles.addOptionText}>📝 Task</Text>
-            </Pressable>
-            <Pressable style={styles.addOptionButton} onPress={handleAddHabit}>
-              <Text style={styles.addOptionText}>⚡ Habit</Text>
-            </Pressable>
-          </View>
-        </Pressable>
-      </Modal>
+        onClose={() => setAddOptionsVisible(false)}
+        onAddTask={handleAddTask}
+        onAddHabit={handleAddHabit}
+      />
 
       {/* Celebration Overlay */}
       <CelebrationOverlay
@@ -1110,33 +1097,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#000',
-  },
-  addOptionsModal: {
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    padding: 24,
-    width: SCREEN_WIDTH - 80,
-    maxWidth: 300,
-    alignItems: 'center',
-  },
-  addOptionsTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#000',
-    marginBottom: 20,
-  },
-  addOptionButton: {
-    width: '100%',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    backgroundColor: '#F2F2F7',
-    borderRadius: 16,
-    marginBottom: 12,
-  },
-  addOptionText: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#000',
-    textAlign: 'center',
   },
 });
