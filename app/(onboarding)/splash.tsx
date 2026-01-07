@@ -89,54 +89,14 @@ export default function SplashScreen() {
 
                     {/* Decorative Elements Layer */}
                     <View style={styles.decorationsContainer}>
-                        {/* Bowl - Top Left */}
-                        <Animated.View style={[
-                            styles.bowlContainer,
-                            { transform: [{ translateY: floatAnim1 }] }
-                        ]}>
-                            <Image
-                                source={require('@/assets/images/splash/bowl.png')}
-                                style={styles.bowlImage}
-                                contentFit="contain"
-                            />
-                        </Animated.View>
-
                         {/* Raccoon - Top Right */}
                         <Animated.View style={[
                             styles.raccoonContainer,
                             { transform: [{ translateY: floatAnim2 }] }
                         ]}>
-                            <View style={styles.arrowContainer}>
-                                <Text style={styles.cuteText}>With Cute{"\n"}raccoon</Text>
-                                {/* Arrow can be an SVG or just implied by position for now, or text decoration */}
-                            </View>
                             <Image
                                 source={require('@/assets/images/splash/raccoon.png')}
                                 style={styles.raccoonImage}
-                                contentFit="contain"
-                            />
-                        </Animated.View>
-
-                        {/* Water - Mid Left */}
-                        <Animated.View style={[
-                            styles.waterContainer,
-                            { transform: [{ translateY: floatAnim2 }] }
-                        ]}>
-                            <Image
-                                source={require('@/assets/images/splash/water.png')}
-                                style={styles.waterImage}
-                                contentFit="contain"
-                            />
-                        </Animated.View>
-
-                        {/* Fasting - Mid Right */}
-                        <Animated.View style={[
-                            styles.fastingContainer,
-                            { transform: [{ translateY: floatAnim1 }] }
-                        ]}>
-                            <Image
-                                source={require('@/assets/images/splash/fasting.png')}
-                                style={styles.fastingImage}
                                 contentFit="contain"
                             />
                         </Animated.View>
@@ -204,17 +164,6 @@ const styles = StyleSheet.create({
         height: '60%', // Top half of screen for images
         zIndex: 1,
     },
-    bowlContainer: {
-        position: 'absolute',
-        top: '10%',
-        left: -20,
-        width: 180,
-        height: 180,
-    },
-    bowlImage: {
-        width: '100%',
-        height: '100%',
-    },
     raccoonContainer: {
         position: 'absolute',
         top: '15%',
@@ -227,40 +176,6 @@ const styles = StyleSheet.create({
         width: 120,
         height: 120,
         borderRadius: 60, // Make it circular-ish if needed
-    },
-    arrowContainer: {
-        position: 'absolute',
-        left: -80,
-        top: 40,
-        transform: [{ rotate: '-10deg' }],
-    },
-    cuteText: {
-        fontFamily: 'System', // Use a handwritten font if available
-        fontSize: 14,
-        color: '#64748B',
-        textAlign: 'center',
-    },
-    waterContainer: {
-        position: 'absolute',
-        top: '40%',
-        left: 10,
-        width: 100,
-        height: 100,
-    },
-    waterImage: {
-        width: '100%',
-        height: '100%',
-    },
-    fastingContainer: {
-        position: 'absolute',
-        top: '45%',
-        right: 10,
-        width: 90,
-        height: 90,
-    },
-    fastingImage: {
-        width: '100%',
-        height: '100%',
     },
     mainContent: {
         flex: 1,
