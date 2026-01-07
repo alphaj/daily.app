@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
-import { User, AuthState, LoginCredentials, SignupCredentials, AuthResponse } from '@/types/auth';
+import { User, AuthState, LoginCredentials, SignupCredentials } from '@/types/auth';
 import { trpc } from '@/lib/trpc';
 
 const TOKEN_KEY = 'daily_auth_token';
@@ -52,11 +52,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const loginMutation = trpc.auth.login.useMutation();
     const verifyMutation = trpc.auth.verifyToken.useMutation();
 
-    useEffect(() => {
-        loadStoredAuth();
+    const clearAuth = useCallback(async () => {
+        await Promise.all([
+            deleteSecureItem(TOKEN_KEY),
+            deleteSecureItem(USER_KEY),
+        ]);
+        setState({
+            user: null,
+            token: null,
+            isAuthenticated: false,
+            isLoading: false,
+        });
     }, []);
 
-    const loadStoredAuth = async () => {
+    const loadStoredAuth = useCallback(async () => {
         try {
             const [token, userJson] = await Promise.all([
                 getSecureItem(TOKEN_KEY),
@@ -78,8 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         });
                         return;
                     }
-                } catch (error) {
-                    // Token invalid, clear storage
+                } catch {
                     await clearAuth();
                 }
             }
@@ -88,20 +96,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         setState(prev => ({ ...prev, isLoading: false }));
-    };
+    }, [clearAuth, verifyMutation]);
 
-    const clearAuth = async () => {
-        await Promise.all([
-            deleteSecureItem(TOKEN_KEY),
-            deleteSecureItem(USER_KEY),
-        ]);
-        setState({
-            user: null,
-            token: null,
-            isAuthenticated: false,
-            isLoading: false,
-        });
-    };
+    useEffect(() => {
+        loadStoredAuth();
+    }, [loadStoredAuth]);
 
     const saveAuth = async (user: User, token: string) => {
         await Promise.all([
@@ -117,12 +116,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const signup = async (credentials: SignupCredentials): Promise<{ success: boolean; error?: string }> => {
+        console.log('[auth] signup start', { email: credentials.email });
         try {
             const result = await signupMutation.mutateAsync(credentials);
+            console.log('[auth] signup success', { userId: result.user?.id, email: result.user?.email });
             await saveAuth(result.user, result.token);
             return { success: true };
         } catch (error: any) {
-            const message = error.message || 'Signup failed';
+            const trpcMessage = error?.data?.zodError
+                ? 'Please double-check your email and password.'
+                : (error?.message as string | undefined);
+
+            const message = trpcMessage || 'Signup failed';
+            console.log('[auth] signup error', {
+                message,
+                name: error?.name,
+                code: error?.data?.code,
+                cause: error?.cause,
+            });
+
             return { success: false, error: message };
         }
     };
