@@ -41,9 +41,6 @@ export default function EmailScreen() {
         }, 500);
     };
 
-    const handleLoginPress = () => {
-        router.push('/(onboarding)/login');
-    };
 
     return (
         <SafeAreaView style={styles.container}>
@@ -58,7 +55,7 @@ export default function EmailScreen() {
 
                 {/* Content */}
                 <View style={styles.content}>
-                    <Text style={styles.title}>What's your{'\n'}email?</Text>
+                    <Text style={styles.title}>{"What's your\nemail?"}</Text>
 
                     {/* Email Input */}
                     <View style={styles.inputContainer}>
@@ -89,9 +86,7 @@ export default function EmailScreen() {
                         {isLoading ? (
                             <ActivityIndicator color="#FFF" />
                         ) : (
-                            <Text style={styles.continueButtonText}>
-                                {isLoading ? 'Checking...' : 'Checking...'}
-                            </Text>
+                            <Text style={styles.continueButtonText}>Continue</Text>
                         )}
                     </TouchableOpacity>
 
