@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function SplashScreen() {
     const router = useRouter();
@@ -74,6 +74,7 @@ export default function SplashScreen() {
     }, [fadeAnim, slideAnim, floatAnim1, floatAnim2]);
 
     const handleGetStarted = () => {
+        console.log('Get started pressed');
         router.push('/(onboarding)/email');
     };
 
@@ -161,8 +162,9 @@ const styles = StyleSheet.create({
         top: 0,
         left: 0,
         right: 0,
-        height: '60%', // Top half of screen for images
+        height: '60%',
         zIndex: 1,
+        pointerEvents: 'none',
     },
     raccoonContainer: {
         position: 'absolute',
