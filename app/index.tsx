@@ -469,19 +469,31 @@ export default function HomeScreen() {
               style={[
                 styles.dayItem,
                 isSelected && styles.dayItemSelected,
-                !isSelected && isTodayDate && styles.dayItemToday
               ]}
               onPress={() => {
                 Haptics.selectionAsync();
                 setSelectedDate(date);
               }}
             >
-              <Text style={[styles.dayName, isSelected && styles.dayNameSelected]}>
+              <Text 
+                style={[
+                  styles.dayName, 
+                  isSelected && styles.dayNameSelected,
+                  !isSelected && isTodayDate && styles.dayNameToday
+                ]}
+              >
                 {format(date, 'EEE')}
               </Text>
-              <Text style={[styles.dayNumber, isSelected && styles.dayNumberSelected]}>
+              <Text 
+                style={[
+                  styles.dayNumber, 
+                  isSelected && styles.dayNumberSelected,
+                  !isSelected && isTodayDate && styles.dayNumberToday
+                ]}
+              >
                 {format(date, 'd')}
               </Text>
+              {/* Little dot for today if needed, or just color the text. Let's stick to text color for now. */}
             </Pressable>
           );
         })}
@@ -705,40 +717,45 @@ const styles = StyleSheet.create({
   dayItem: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    width: 44,
-    borderRadius: 14,
-    gap: 4,
-    backgroundColor: '#fff', // White background for days
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
+    paddingVertical: 10,
+    width: 48,
+    borderRadius: 16,
+    gap: 2,
   },
   dayItemSelected: {
-    backgroundColor: '#000', // Selected is black
+    backgroundColor: '#000',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   dayItemToday: {
-    borderWidth: 1,
-    borderColor: '#5856D6',
+    // Removed border style
   },
   dayName: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '600',
     color: '#8E8E93',
     textTransform: 'uppercase',
   },
   dayNameSelected: {
-    // Usually white on black.
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: 'rgba(255, 255, 255, 0.6)',
+  },
+  dayNameToday: {
+    color: '#007AFF',
+    fontWeight: '700',
   },
   dayNumber: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 17,
+    fontWeight: '600',
     color: '#000',
   },
   dayNumberSelected: {
     color: '#fff',
+  },
+  dayNumberToday: {
+    color: '#007AFF',
   },
   content: {
     flex: 1,
