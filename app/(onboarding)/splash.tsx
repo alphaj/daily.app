@@ -89,7 +89,7 @@ export default function SplashScreen() {
                 <View style={[styles.content, { paddingTop: insets.top, paddingBottom: insets.bottom + 20 }]}>
 
                     {/* Decorative Elements Layer */}
-                    <View style={styles.decorationsContainer}>
+                    <View style={styles.decorationsContainer} pointerEvents="none">
                         {/* Raccoon - Top Right */}
                         <Animated.View style={[
                             styles.raccoonContainer,
@@ -104,38 +104,46 @@ export default function SplashScreen() {
                     </View>
 
                     {/* Main Content */}
-                    <Animated.View style={[
-                        styles.mainContent,
-                        {
-                            opacity: fadeAnim,
-                            transform: [{ translateY: slideAnim }]
-                        }
-                    ]}>
+                    <Animated.View 
+                        style={[
+                            styles.mainContent,
+                            {
+                                opacity: fadeAnim,
+                                transform: [{ translateY: slideAnim }]
+                            }
+                        ]}
+                        pointerEvents="none"
+                    >
                         <Text style={styles.title}>
                             Build{"\n"}better{"\n"}habits{"\n"}daily
                         </Text>
                     </Animated.View>
 
                     {/* Buttons */}
-                    <Animated.View style={[
-                        styles.buttonContainer,
-                        { opacity: fadeAnim }
-                    ]}>
-                        <TouchableOpacity
-                            style={styles.getStartedButton}
-                            onPress={handleGetStarted}
-                            activeOpacity={0.9}
-                        >
-                            <Text style={styles.getStartedButtonText}>Get started</Text>
-                        </TouchableOpacity>
+                    <View style={styles.buttonContainer}>
+                        <Animated.View style={{ opacity: fadeAnim }}>
+                            <TouchableOpacity
+                                style={styles.getStartedButton}
+                                onPress={handleGetStarted}
+                                activeOpacity={0.8}
+                            >
+                                <Text style={styles.getStartedButtonText}>Get started</Text>
+                            </TouchableOpacity>
+                        </Animated.View>
 
-                        <TouchableOpacity
-                            style={styles.loginButton}
-                            onPress={() => router.push('/(onboarding)/login')}
-                        >
-                            <Text style={styles.loginButtonText}>I already have an account</Text>
-                        </TouchableOpacity>
-                    </Animated.View>
+                        <Animated.View style={{ opacity: fadeAnim }}>
+                            <TouchableOpacity
+                                style={styles.loginButton}
+                                onPress={() => {
+                                    console.log('Login pressed');
+                                    router.push('/(onboarding)/login');
+                                }}
+                                activeOpacity={0.8}
+                            >
+                                <Text style={styles.loginButtonText}>I already have an account</Text>
+                            </TouchableOpacity>
+                        </Animated.View>
+                    </View>
 
                 </View>
             </ImageBackground>
@@ -163,8 +171,6 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         height: '60%',
-        zIndex: 1,
-        pointerEvents: 'none',
     },
     raccoonContainer: {
         position: 'absolute',
@@ -180,11 +186,10 @@ const styles = StyleSheet.create({
         borderRadius: 60, // Make it circular-ish if needed
     },
     mainContent: {
-        flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        marginTop: SCREEN_HEIGHT * 0.35, // Push title down below images
-        zIndex: 2,
+        marginTop: SCREEN_HEIGHT * 0.35,
+        flex: 1,
     },
     title: {
         fontSize: 64,
@@ -197,7 +202,6 @@ const styles = StyleSheet.create({
     buttonContainer: {
         paddingHorizontal: 24,
         gap: 16,
-        zIndex: 2,
     },
     getStartedButton: {
         backgroundColor: '#1F2937', // Dark color from screenshot
