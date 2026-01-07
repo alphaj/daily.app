@@ -111,7 +111,7 @@ export default function SplashScreen() {
                         }
                     ]}>
                         <Text style={styles.title}>
-                            Reach{"\n"}your{"\n"}weight{"\n"}goals
+                            Build{"\n"}better{"\n"}habits{"\n"}daily
                         </Text>
                     </Animated.View>
 
