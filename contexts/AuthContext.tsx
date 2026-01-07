@@ -136,11 +136,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             await saveAuth(result.user, result.token);
             return { success: true };
         } catch (error: any) {
+            console.log('[auth] signup error full:', JSON.stringify(error, null, 2));
+            
+            // Handle network/parsing errors
+            if (error?.message?.includes('JSON Parse error') || error?.message?.includes('Unexpected character')) {
+                console.log('[auth] Network or server error detected');
+                return { success: false, error: 'Unable to connect to server. Please try again.' };
+            }
+            
+            // Handle tRPC errors
             const trpcMessage = error?.data?.zodError
                 ? 'Please double-check your email and password.'
                 : (error?.message as string | undefined);
 
-            const message = trpcMessage || 'Signup failed';
+            const message = trpcMessage || 'Signup failed. Please try again.';
             console.log('[auth] signup error', {
                 message,
                 name: error?.name,
@@ -158,7 +167,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             await saveAuth(result.user, result.token);
             return { success: true };
         } catch (error: any) {
-            const message = error.message || 'Login failed';
+            console.log('[auth] login error full:', JSON.stringify(error, null, 2));
+            
+            // Handle network/parsing errors
+            if (error?.message?.includes('JSON Parse error') || error?.message?.includes('Unexpected character')) {
+                return { success: false, error: 'Unable to connect to server. Please try again.' };
+            }
+            
+            const message = error.message || 'Login failed. Please try again.';
             return { success: false, error: message };
         }
     };
