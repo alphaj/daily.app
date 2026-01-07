@@ -53,7 +53,7 @@ export default function PasswordScreen() {
 
                 {/* Content */}
                 <View style={styles.content}>
-                    <Text style={styles.title}>What's your{'\n'}password?</Text>
+                    <Text style={styles.title}>{"What's your\npassword?"}</Text>
 
                     {/* Password Input */}
                     <View style={styles.inputContainer}>
@@ -126,9 +126,11 @@ const styles = StyleSheet.create({
         marginTop: 8,
     },
     input: {
-        fontSize: 28, // Large input text
+        fontSize: 28,
         fontWeight: '700',
-        color: '#C7C7CC', // Placeholder color gray
+        color: '#000',
+        paddingVertical: 8,
+        paddingHorizontal: 0,
     },
     errorText: {
         marginTop: 16,

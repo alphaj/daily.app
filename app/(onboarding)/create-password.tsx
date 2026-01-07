@@ -136,7 +136,9 @@ const styles = StyleSheet.create({
     input: {
         fontSize: 28,
         fontWeight: '700',
-        color: '#C7C7CC', // Placeholder gray
+        color: '#000',
+        paddingVertical: 8,
+        paddingHorizontal: 0,
     },
     errorText: {
         marginTop: 16,
