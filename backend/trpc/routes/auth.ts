@@ -1,14 +1,13 @@
 import * as z from "zod";
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
+import { SignJWT, jwtVerify } from "jose";
 
 import { createTRPCRouter, publicProcedure } from "../create-context";
 
-// In-memory user storage (replace with database in production)
 const users: Map<string, { id: string; email: string; passwordHash: string; createdAt: string }> = new Map();
 
-// JWT secret (should be in environment variable in production)
-const JWT_SECRET = process.env.JWT_SECRET || "daily-app-secret-key-change-in-production";
+const JWT_SECRET = new TextEncoder().encode(
+    process.env.JWT_SECRET || "daily-app-secret-key-change-in-production"
+);
 const JWT_EXPIRES_IN = "7d";
 
 const signupSchema = z.object({
@@ -25,8 +24,25 @@ const verifyTokenSchema = z.object({
     token: z.string(),
 });
 
-function generateToken(userId: string, email: string): string {
-    return jwt.sign({ userId, email }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+async function hashPassword(password: string): Promise<string> {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function verifyPassword(password: string, hash: string): Promise<boolean> {
+    const passwordHash = await hashPassword(password);
+    return passwordHash === hash;
+}
+
+async function generateToken(userId: string, email: string): Promise<string> {
+    return new SignJWT({ userId, email })
+        .setProtectedHeader({ alg: "HS256" })
+        .setIssuedAt()
+        .setExpirationTime(JWT_EXPIRES_IN)
+        .sign(JWT_SECRET);
 }
 
 function generateId(): string {
@@ -39,23 +55,19 @@ export const authRouter = createTRPCRouter({
         .mutation(async ({ input }) => {
             const { email, password } = input;
 
-            // Check if user already exists
             const existingUser = Array.from(users.values()).find(u => u.email === email);
             if (existingUser) {
                 throw new Error("Email already registered");
             }
 
-            // Hash password
-            const passwordHash = await bcrypt.hash(password, 12);
+            const passwordHash = await hashPassword(password);
 
-            // Create user
             const id = generateId();
             const createdAt = new Date().toISOString();
 
             users.set(id, { id, email, passwordHash, createdAt });
 
-            // Generate JWT token
-            const token = generateToken(id, email);
+            const token = await generateToken(id, email);
 
             return {
                 user: { id, email, createdAt },
@@ -68,20 +80,17 @@ export const authRouter = createTRPCRouter({
         .mutation(async ({ input }) => {
             const { email, password } = input;
 
-            // Find user by email
             const user = Array.from(users.values()).find(u => u.email === email);
             if (!user) {
                 throw new Error("Invalid email or password");
             }
 
-            // Verify password
-            const isValid = await bcrypt.compare(password, user.passwordHash);
+            const isValid = await verifyPassword(password, user.passwordHash);
             if (!isValid) {
                 throw new Error("Invalid email or password");
             }
 
-            // Generate JWT token
-            const token = generateToken(user.id, email);
+            const token = await generateToken(user.id, email);
 
             return {
                 user: { id: user.id, email: user.email, createdAt: user.createdAt },
@@ -91,10 +100,11 @@ export const authRouter = createTRPCRouter({
 
     verifyToken: publicProcedure
         .input(verifyTokenSchema)
-        .mutation(({ input }) => {
+        .mutation(async ({ input }) => {
             try {
-                const decoded = jwt.verify(input.token, JWT_SECRET) as { userId: string; email: string };
-                const user = users.get(decoded.userId);
+                const { payload } = await jwtVerify(input.token, JWT_SECRET);
+                const userId = payload.userId as string;
+                const user = users.get(userId);
 
                 if (!user) {
                     return { valid: false };
@@ -104,7 +114,7 @@ export const authRouter = createTRPCRouter({
                     valid: true,
                     user: { id: user.id, email: user.email, createdAt: user.createdAt },
                 };
-            } catch (error) {
+            } catch {
                 return { valid: false };
             }
         }),
