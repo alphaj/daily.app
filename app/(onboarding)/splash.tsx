@@ -5,76 +5,73 @@ import {
     StyleSheet,
     Animated,
     TouchableOpacity,
+    ImageBackground,
+    Dimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { CheckCircle, Zap, Calendar } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
+import { StatusBar } from 'expo-status-bar';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function SplashScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
-    
-    const logoScale = useRef(new Animated.Value(0.3)).current;
-    const logoOpacity = useRef(new Animated.Value(0)).current;
-    const titleOpacity = useRef(new Animated.Value(0)).current;
-    const titleTranslate = useRef(new Animated.Value(30)).current;
-    const subtitleOpacity = useRef(new Animated.Value(0)).current;
-    const featuresOpacity = useRef(new Animated.Value(0)).current;
-    const buttonOpacity = useRef(new Animated.Value(0)).current;
-    const buttonTranslate = useRef(new Animated.Value(40)).current;
+
+    // Animations
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const slideAnim = useRef(new Animated.Value(30)).current;
+    const floatAnim1 = useRef(new Animated.Value(0)).current;
+    const floatAnim2 = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
-        Animated.sequence([
-            Animated.parallel([
-                Animated.spring(logoScale, {
-                    toValue: 1,
-                    friction: 8,
-                    tension: 40,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(logoOpacity, {
-                    toValue: 1,
-                    duration: 400,
-                    useNativeDriver: true,
-                }),
-            ]),
-            Animated.parallel([
-                Animated.timing(titleOpacity, {
-                    toValue: 1,
-                    duration: 400,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(titleTranslate, {
-                    toValue: 0,
-                    duration: 400,
-                    useNativeDriver: true,
-                }),
-            ]),
-            Animated.timing(subtitleOpacity, {
+        // Entrance animation
+        Animated.parallel([
+            Animated.timing(fadeAnim, {
                 toValue: 1,
-                duration: 300,
+                duration: 800,
                 useNativeDriver: true,
             }),
-            Animated.timing(featuresOpacity, {
-                toValue: 1,
-                duration: 400,
+            Animated.timing(slideAnim, {
+                toValue: 0,
+                duration: 800,
                 useNativeDriver: true,
-            }),
-            Animated.parallel([
-                Animated.timing(buttonOpacity, {
-                    toValue: 1,
-                    duration: 300,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(buttonTranslate, {
-                    toValue: 0,
-                    duration: 300,
-                    useNativeDriver: true,
-                }),
-            ]),
+            })
         ]).start();
-    }, [logoScale, logoOpacity, titleOpacity, titleTranslate, subtitleOpacity, featuresOpacity, buttonOpacity, buttonTranslate]);
+
+        // Floating animations for elements
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(floatAnim1, {
+                    toValue: 10,
+                    duration: 2000,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(floatAnim1, {
+                    toValue: 0,
+                    duration: 2000,
+                    useNativeDriver: true,
+                }),
+            ])
+        ).start();
+
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(floatAnim2, {
+                    toValue: -8,
+                    duration: 2500,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(floatAnim2, {
+                    toValue: 0,
+                    duration: 2500,
+                    useNativeDriver: true,
+                }),
+            ])
+        ).start();
+
+    }, [fadeAnim, slideAnim, floatAnim1, floatAnim2]);
 
     const handleGetStarted = () => {
         router.push('/(onboarding)/email');
@@ -82,100 +79,105 @@ export default function SplashScreen() {
 
     return (
         <View style={styles.container}>
-            <LinearGradient
-                colors={['#0A0A0A', '#1A1A2E', '#16213E']}
-                style={StyleSheet.absoluteFill}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-            />
-            
-            <View style={[styles.content, { paddingTop: insets.top + 60 }]}>
-                <Animated.View
-                    style={[
-                        styles.logoContainer,
-                        {
-                            opacity: logoOpacity,
-                            transform: [{ scale: logoScale }],
-                        },
-                    ]}
-                >
-                    <View style={styles.logoCircle}>
-                        <View style={styles.logoInner}>
-                            <Text style={styles.logoText}>D</Text>
-                        </View>
-                    </View>
-                </Animated.View>
-
-                <Animated.View
-                    style={{
-                        opacity: titleOpacity,
-                        transform: [{ translateY: titleTranslate }],
-                    }}
-                >
-                    <Text style={styles.title}>Daily</Text>
-                </Animated.View>
-
-                <Animated.Text style={[styles.subtitle, { opacity: subtitleOpacity }]}>
-                    Your mindful productivity companion
-                </Animated.Text>
-
-                <Animated.View style={[styles.featuresContainer, { opacity: featuresOpacity }]}>
-                    <View style={styles.featureRow}>
-                        <View style={styles.featureItem}>
-                            <View style={styles.featureIcon}>
-                                <CheckCircle size={24} color="#4ADE80" strokeWidth={2} />
-                            </View>
-                            <Text style={styles.featureText}>Track habits</Text>
-                        </View>
-                        <View style={styles.featureItem}>
-                            <View style={styles.featureIcon}>
-                                <Zap size={24} color="#FBBF24" strokeWidth={2} />
-                            </View>
-                            <Text style={styles.featureText}>Brain dump</Text>
-                        </View>
-                        <View style={styles.featureItem}>
-                            <View style={styles.featureIcon}>
-                                <Calendar size={24} color="#60A5FA" strokeWidth={2} />
-                            </View>
-                            <Text style={styles.featureText}>Plan days</Text>
-                        </View>
-                    </View>
-                </Animated.View>
-            </View>
-
-            <Animated.View
-                style={[
-                    styles.bottomContainer,
-                    {
-                        paddingBottom: insets.bottom + 24,
-                        opacity: buttonOpacity,
-                        transform: [{ translateY: buttonTranslate }],
-                    },
-                ]}
+            <StatusBar style="dark" />
+            <ImageBackground
+                source={require('@/assets/images/splash/bg.png')}
+                style={styles.background}
+                resizeMode="cover"
             >
-                <TouchableOpacity
-                    style={styles.getStartedButton}
-                    onPress={handleGetStarted}
-                    activeOpacity={0.9}
-                >
-                    <LinearGradient
-                        colors={['#3B82F6', '#2563EB']}
-                        style={styles.buttonGradient}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                    >
-                        <Text style={styles.getStartedText}>Get Started</Text>
-                    </LinearGradient>
-                </TouchableOpacity>
+                <View style={[styles.content, { paddingTop: insets.top, paddingBottom: insets.bottom + 20 }]}>
 
-                <TouchableOpacity
-                    style={styles.loginButton}
-                    onPress={() => router.push('/(onboarding)/login')}
-                    activeOpacity={0.7}
-                >
-                    <Text style={styles.loginText}>I already have an account</Text>
-                </TouchableOpacity>
-            </Animated.View>
+                    {/* Decorative Elements Layer */}
+                    <View style={styles.decorationsContainer}>
+                        {/* Bowl - Top Left */}
+                        <Animated.View style={[
+                            styles.bowlContainer,
+                            { transform: [{ translateY: floatAnim1 }] }
+                        ]}>
+                            <Image
+                                source={require('@/assets/images/splash/bowl.png')}
+                                style={styles.bowlImage}
+                                contentFit="contain"
+                            />
+                        </Animated.View>
+
+                        {/* Raccoon - Top Right */}
+                        <Animated.View style={[
+                            styles.raccoonContainer,
+                            { transform: [{ translateY: floatAnim2 }] }
+                        ]}>
+                            <View style={styles.arrowContainer}>
+                                <Text style={styles.cuteText}>With Cute{"\n"}raccoon</Text>
+                                {/* Arrow can be an SVG or just implied by position for now, or text decoration */}
+                            </View>
+                            <Image
+                                source={require('@/assets/images/splash/raccoon.png')}
+                                style={styles.raccoonImage}
+                                contentFit="contain"
+                            />
+                        </Animated.View>
+
+                        {/* Water - Mid Left */}
+                        <Animated.View style={[
+                            styles.waterContainer,
+                            { transform: [{ translateY: floatAnim2 }] }
+                        ]}>
+                            <Image
+                                source={require('@/assets/images/splash/water.png')}
+                                style={styles.waterImage}
+                                contentFit="contain"
+                            />
+                        </Animated.View>
+
+                        {/* Fasting - Mid Right */}
+                        <Animated.View style={[
+                            styles.fastingContainer,
+                            { transform: [{ translateY: floatAnim1 }] }
+                        ]}>
+                            <Image
+                                source={require('@/assets/images/splash/fasting.png')}
+                                style={styles.fastingImage}
+                                contentFit="contain"
+                            />
+                        </Animated.View>
+                    </View>
+
+                    {/* Main Content */}
+                    <Animated.View style={[
+                        styles.mainContent,
+                        {
+                            opacity: fadeAnim,
+                            transform: [{ translateY: slideAnim }]
+                        }
+                    ]}>
+                        <Text style={styles.title}>
+                            Reach{"\n"}your{"\n"}weight{"\n"}goals
+                        </Text>
+                    </Animated.View>
+
+                    {/* Buttons */}
+                    <Animated.View style={[
+                        styles.buttonContainer,
+                        { opacity: fadeAnim }
+                    ]}>
+                        <TouchableOpacity
+                            style={styles.getStartedButton}
+                            onPress={handleGetStarted}
+                            activeOpacity={0.9}
+                        >
+                            <Text style={styles.getStartedButtonText}>Get started</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.loginButton}
+                            onPress={() => router.push('/(onboarding)/login')}
+                        >
+                            <Text style={styles.loginButtonText}>I already have an account</Text>
+                        </TouchableOpacity>
+                    </Animated.View>
+
+                </View>
+            </ImageBackground>
         </View>
     );
 }
@@ -183,111 +185,126 @@ export default function SplashScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0A0A0A',
+        backgroundColor: '#E0F2FE', // Fallback color
+    },
+    background: {
+        flex: 1,
+        width: '100%',
+        height: '100%',
     },
     content: {
         flex: 1,
+        justifyContent: 'space-between',
+    },
+    decorationsContainer: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: '60%', // Top half of screen for images
+        zIndex: 1,
+    },
+    bowlContainer: {
+        position: 'absolute',
+        top: '10%',
+        left: -20,
+        width: 180,
+        height: 180,
+    },
+    bowlImage: {
+        width: '100%',
+        height: '100%',
+    },
+    raccoonContainer: {
+        position: 'absolute',
+        top: '15%',
+        right: -10,
+        width: 160,
+        height: 160,
         alignItems: 'center',
-        paddingHorizontal: 24,
     },
-    logoContainer: {
-        marginBottom: 24,
-    },
-    logoCircle: {
+    raccoonImage: {
         width: 120,
         height: 120,
-        borderRadius: 60,
-        backgroundColor: 'rgba(59, 130, 246, 0.15)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 2,
-        borderColor: 'rgba(59, 130, 246, 0.3)',
+        borderRadius: 60, // Make it circular-ish if needed
     },
-    logoInner: {
+    arrowContainer: {
+        position: 'absolute',
+        left: -80,
+        top: 40,
+        transform: [{ rotate: '-10deg' }],
+    },
+    cuteText: {
+        fontFamily: 'System', // Use a handwritten font if available
+        fontSize: 14,
+        color: '#64748B',
+        textAlign: 'center',
+    },
+    waterContainer: {
+        position: 'absolute',
+        top: '40%',
+        left: 10,
+        width: 100,
+        height: 100,
+    },
+    waterImage: {
+        width: '100%',
+        height: '100%',
+    },
+    fastingContainer: {
+        position: 'absolute',
+        top: '45%',
+        right: 10,
         width: 90,
         height: 90,
-        borderRadius: 45,
-        backgroundColor: '#3B82F6',
-        alignItems: 'center',
-        justifyContent: 'center',
-        shadowColor: '#3B82F6',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.5,
-        shadowRadius: 20,
-        elevation: 15,
     },
-    logoText: {
-        fontSize: 48,
-        fontWeight: '700',
-        color: '#FFFFFF',
-        letterSpacing: -2,
+    fastingImage: {
+        width: '100%',
+        height: '100%',
+    },
+    mainContent: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: SCREEN_HEIGHT * 0.35, // Push title down below images
+        zIndex: 2,
     },
     title: {
-        fontSize: 52,
+        fontSize: 64,
         fontWeight: '800',
-        color: '#FFFFFF',
-        letterSpacing: -1.5,
-        marginBottom: 12,
-    },
-    subtitle: {
-        fontSize: 18,
-        color: 'rgba(255, 255, 255, 0.6)',
+        color: '#1e293b',
         textAlign: 'center',
-        marginBottom: 48,
-        letterSpacing: 0.3,
+        lineHeight: 64,
+        letterSpacing: -2,
     },
-    featuresContainer: {
-        width: '100%',
-    },
-    featureRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-    },
-    featureItem: {
-        alignItems: 'center',
-    },
-    featureIcon: {
-        width: 56,
-        height: 56,
-        borderRadius: 16,
-        backgroundColor: 'rgba(255, 255, 255, 0.08)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 10,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
-    },
-    featureText: {
-        fontSize: 14,
-        color: 'rgba(255, 255, 255, 0.7)',
-        fontWeight: '500',
-    },
-    bottomContainer: {
+    buttonContainer: {
         paddingHorizontal: 24,
+        gap: 16,
+        zIndex: 2,
     },
     getStartedButton: {
-        borderRadius: 16,
-        overflow: 'hidden',
-        marginBottom: 16,
-    },
-    buttonGradient: {
+        backgroundColor: '#1F2937', // Dark color from screenshot
         paddingVertical: 18,
+        borderRadius: 30,
         alignItems: 'center',
-        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 4,
     },
-    getStartedText: {
+    getStartedButtonText: {
         color: '#FFFFFF',
         fontSize: 18,
-        fontWeight: '700',
-        letterSpacing: 0.3,
+        fontWeight: '600',
     },
     loginButton: {
-        paddingVertical: 14,
+        paddingVertical: 10,
         alignItems: 'center',
     },
-    loginText: {
-        color: 'rgba(255, 255, 255, 0.5)',
-        fontSize: 15,
+    loginButtonText: {
+        color: '#4B5563',
+        fontSize: 16,
         fontWeight: '500',
     },
 });
