@@ -12,6 +12,7 @@ export default function OnboardingLayout() {
                     contentStyle: { backgroundColor: '#FFFFFF' },
                 }}
             >
+                <Stack.Screen name="splash" />
                 <Stack.Screen name="email" />
                 <Stack.Screen name="login" />
                 <Stack.Screen name="notifications" />

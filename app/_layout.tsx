@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { HabitProvider } from "@/contexts/HabitContext";
 import { TodoProvider } from "@/contexts/TodoContext";
@@ -29,12 +29,12 @@ function RootLayoutNav() {
 
     if (!isAuthenticated && !inOnboarding) {
       // User not authenticated, redirect to signup
-      router.replace('/(onboarding)/email');
+      router.replace('/(onboarding)/splash');
     } else if (isAuthenticated && inOnboarding) {
       // User is authenticated but in onboarding, redirect to home
       router.replace('/');
     }
-  }, [isLoading, isAuthenticated, segments]);
+  }, [isLoading, isAuthenticated, segments, router]);
 
   useEffect(() => {
     if (!isLoading) {
