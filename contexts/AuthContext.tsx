@@ -1,11 +1,19 @@
 import React, { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react';
 import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { User, AuthState, LoginCredentials, SignupCredentials } from '@/types/auth';
-import { trpc } from '@/lib/trpc';
 
 const TOKEN_KEY = 'daily_auth_token';
 const USER_KEY = 'daily_auth_user';
+const USERS_DB_KEY = 'daily_users_db';
+
+interface StoredUser {
+    id: string;
+    email: string;
+    passwordHash: string;
+    createdAt: string;
+}
 
 interface AuthContextType extends AuthState {
     signup: (credentials: SignupCredentials) => Promise<{ success: boolean; error?: string }>;
@@ -40,6 +48,38 @@ async function deleteSecureItem(key: string): Promise<void> {
     await SecureStore.deleteItemAsync(key);
 }
 
+async function hashPassword(password: string): Promise<string> {
+    const str = password + 'daily-app-salt';
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+    }
+    return Math.abs(hash).toString(16);
+}
+
+function generateToken(): string {
+    return `token_${Date.now()}_${Math.random().toString(36).substr(2, 16)}`;
+}
+
+function generateId(): string {
+    return `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+async function getUsersDb(): Promise<StoredUser[]> {
+    try {
+        const data = await AsyncStorage.getItem(USERS_DB_KEY);
+        return data ? JSON.parse(data) : [];
+    } catch {
+        return [];
+    }
+}
+
+async function saveUsersDb(users: StoredUser[]): Promise<void> {
+    await AsyncStorage.setItem(USERS_DB_KEY, JSON.stringify(users));
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [state, setState] = useState<AuthState>({
         user: null,
@@ -47,11 +87,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: false,
         isLoading: true,
     });
-
-    const signupMutation = trpc.auth.signup.useMutation();
-    const loginMutation = trpc.auth.login.useMutation();
-    const verifyMutation = trpc.auth.verifyToken.useMutation();
-    const verifyMutateAsync = verifyMutation.mutateAsync;
 
     const clearAuth = useCallback(async () => {
         await Promise.all([
@@ -75,41 +110,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             if (token && userJson) {
                 const user = JSON.parse(userJson) as User;
-
-                // Verify token is still valid
-                try {
-                    const result = await verifyMutateAsync({ token });
-                    if (result.valid) {
-                        setState({
-                            user,
-                            token,
-                            isAuthenticated: true,
-                            isLoading: false,
-                        });
-                        return;
-                    }
-                } catch (verifyError) {
-                    console.log('[auth] token verification failed:', verifyError);
-                    // Token invalid or server error - just clear and continue without auth
-                }
+                console.log('[auth] loaded stored auth for user:', user.email);
+                setState({
+                    user,
+                    token,
+                    isAuthenticated: true,
+                    isLoading: false,
+                });
+                return;
             }
         } catch (error) {
-            console.error('Failed to load auth:', error);
+            console.error('[auth] Failed to load auth:', error);
         }
 
-        // Clear any invalid stored auth and set loading false
-        await Promise.all([
-            deleteSecureItem(TOKEN_KEY),
-            deleteSecureItem(USER_KEY),
-        ]).catch(() => {});
-        
         setState({
             user: null,
             token: null,
             isAuthenticated: false,
             isLoading: false,
         });
-    }, [verifyMutateAsync]);
+    }, []);
 
     useEffect(() => {
         loadStoredAuth();
@@ -131,51 +151,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const signup = async (credentials: SignupCredentials): Promise<{ success: boolean; error?: string }> => {
         console.log('[auth] signup start', { email: credentials.email });
         try {
-            const result = await signupMutation.mutateAsync(credentials);
-            console.log('[auth] signup success', { userId: result.user?.id, email: result.user?.email });
-            await saveAuth(result.user, result.token);
+            const users = await getUsersDb();
+            
+            const existingUser = users.find(u => u.email.toLowerCase() === credentials.email.toLowerCase());
+            if (existingUser) {
+                console.log('[auth] signup failed - email already registered');
+                return { success: false, error: 'Email already registered' };
+            }
+
+            const passwordHash = await hashPassword(credentials.password);
+            const id = generateId();
+            const createdAt = new Date().toISOString();
+
+            const newUser: StoredUser = { id, email: credentials.email, passwordHash, createdAt };
+            users.push(newUser);
+            await saveUsersDb(users);
+
+            const token = generateToken();
+            const user: User = { id, email: credentials.email, createdAt };
+
+            console.log('[auth] signup success', { userId: id, email: credentials.email });
+            await saveAuth(user, token);
             return { success: true };
         } catch (error: any) {
-            console.log('[auth] signup error full:', JSON.stringify(error, null, 2));
-            
-            // Handle network/parsing errors
-            if (error?.message?.includes('JSON Parse error') || error?.message?.includes('Unexpected character')) {
-                console.log('[auth] Network or server error detected');
-                return { success: false, error: 'Unable to connect to server. Please try again.' };
-            }
-            
-            // Handle tRPC errors
-            const trpcMessage = error?.data?.zodError
-                ? 'Please double-check your email and password.'
-                : (error?.message as string | undefined);
-
-            const message = trpcMessage || 'Signup failed. Please try again.';
-            console.log('[auth] signup error', {
-                message,
-                name: error?.name,
-                code: error?.data?.code,
-                cause: error?.cause,
-            });
-
-            return { success: false, error: message };
+            console.log('[auth] signup error:', error);
+            return { success: false, error: 'Signup failed. Please try again.' };
         }
     };
 
     const login = async (credentials: LoginCredentials): Promise<{ success: boolean; error?: string }> => {
+        console.log('[auth] login start', { email: credentials.email });
         try {
-            const result = await loginMutation.mutateAsync(credentials);
-            await saveAuth(result.user, result.token);
+            const users = await getUsersDb();
+            
+            const storedUser = users.find(u => u.email.toLowerCase() === credentials.email.toLowerCase());
+            if (!storedUser) {
+                console.log('[auth] login failed - user not found');
+                return { success: false, error: 'Invalid email or password' };
+            }
+
+            const passwordHash = await hashPassword(credentials.password);
+            if (passwordHash !== storedUser.passwordHash) {
+                console.log('[auth] login failed - invalid password');
+                return { success: false, error: 'Invalid email or password' };
+            }
+
+            const token = generateToken();
+            const user: User = { id: storedUser.id, email: storedUser.email, createdAt: storedUser.createdAt };
+
+            console.log('[auth] login success', { userId: user.id, email: user.email });
+            await saveAuth(user, token);
             return { success: true };
         } catch (error: any) {
-            console.log('[auth] login error full:', JSON.stringify(error, null, 2));
-            
-            // Handle network/parsing errors
-            if (error?.message?.includes('JSON Parse error') || error?.message?.includes('Unexpected character')) {
-                return { success: false, error: 'Unable to connect to server. Please try again.' };
-            }
-            
-            const message = error.message || 'Login failed. Please try again.';
-            return { success: false, error: message };
+            console.log('[auth] login error:', error);
+            return { success: false, error: 'Login failed. Please try again.' };
         }
     };
 
