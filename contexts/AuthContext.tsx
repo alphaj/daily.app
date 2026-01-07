@@ -51,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const signupMutation = trpc.auth.signup.useMutation();
     const loginMutation = trpc.auth.login.useMutation();
     const verifyMutation = trpc.auth.verifyToken.useMutation();
+    const verifyMutateAsync = verifyMutation.mutateAsync;
 
     const clearAuth = useCallback(async () => {
         await Promise.all([
@@ -77,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
                 // Verify token is still valid
                 try {
-                    const result = await verifyMutation.mutateAsync({ token });
+                    const result = await verifyMutateAsync({ token });
                     if (result.valid) {
                         setState({
                             user,
@@ -87,16 +88,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         });
                         return;
                     }
-                } catch {
-                    await clearAuth();
+                } catch (verifyError) {
+                    console.log('[auth] token verification failed:', verifyError);
+                    // Token invalid or server error - just clear and continue without auth
                 }
             }
         } catch (error) {
             console.error('Failed to load auth:', error);
         }
 
-        setState(prev => ({ ...prev, isLoading: false }));
-    }, [clearAuth, verifyMutation]);
+        // Clear any invalid stored auth and set loading false
+        await Promise.all([
+            deleteSecureItem(TOKEN_KEY),
+            deleteSecureItem(USER_KEY),
+        ]).catch(() => {});
+        
+        setState({
+            user: null,
+            token: null,
+            isAuthenticated: false,
+            isLoading: false,
+        });
+    }, [verifyMutateAsync]);
 
     useEffect(() => {
         loadStoredAuth();
