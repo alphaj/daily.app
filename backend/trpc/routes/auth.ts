@@ -6,7 +6,7 @@ import { createTRPCRouter, publicProcedure } from "../create-context";
 const users: Map<string, { id: string; email: string; passwordHash: string; createdAt: string }> = new Map();
 
 const JWT_SECRET = new TextEncoder().encode(
-    process.env.JWT_SECRET || "daily-app-secret-key-change-in-production"
+    process.env.JWT_SECRET || "daily-app-secret-key-2026"
 );
 const JWT_EXPIRES_IN = "7d";
 
