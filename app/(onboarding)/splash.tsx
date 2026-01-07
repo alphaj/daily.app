@@ -104,7 +104,7 @@ export default function SplashScreen() {
                     </View>
 
                     {/* Main Content */}
-                    <Animated.View 
+                    <Animated.View
                         style={[
                             styles.mainContent,
                             {
@@ -120,24 +120,36 @@ export default function SplashScreen() {
                     </Animated.View>
 
                     {/* Buttons */}
-                    <View style={styles.buttonContainer}>
-                        <Animated.View style={{ opacity: fadeAnim }}>
+                    <View style={styles.buttonContainer} pointerEvents="box-none">
+                        <Animated.View style={{ opacity: fadeAnim }} pointerEvents="box-none">
                             <TouchableOpacity
                                 style={styles.getStartedButton}
-                                onPress={handleGetStarted}
+                                onPress={() => {
+                                    console.log('[DEBUG] Get started button onPress triggered');
+                                    console.log('[DEBUG] Router object:', router);
+                                    try {
+                                        router.push('/(onboarding)/email');
+                                        console.log('[DEBUG] router.push called successfully');
+                                    } catch (error) {
+                                        console.error('[DEBUG] Error during navigation:', error);
+                                    }
+                                }}
+                                onPressIn={() => console.log('[DEBUG] Get started button onPressIn')}
+                                onPressOut={() => console.log('[DEBUG] Get started button onPressOut')}
                                 activeOpacity={0.8}
                             >
                                 <Text style={styles.getStartedButtonText}>Get started</Text>
                             </TouchableOpacity>
                         </Animated.View>
 
-                        <Animated.View style={{ opacity: fadeAnim }}>
+                        <Animated.View style={{ opacity: fadeAnim }} pointerEvents="box-none">
                             <TouchableOpacity
                                 style={styles.loginButton}
                                 onPress={() => {
-                                    console.log('Login pressed');
+                                    console.log('[DEBUG] Login button pressed');
                                     router.push('/(onboarding)/login');
                                 }}
+                                onPressIn={() => console.log('[DEBUG] Login button onPressIn')}
                                 activeOpacity={0.8}
                             >
                                 <Text style={styles.loginButtonText}>I already have an account</Text>
