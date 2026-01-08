@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
-import { X } from 'lucide-react-native';
-import React, { useState } from 'react';
+import { X, Mic, Square } from 'lucide-react-native';
+import React, { useState, useRef } from 'react';
 import {
     View,
     Text,
@@ -9,15 +9,153 @@ import {
     TextInput,
     KeyboardAvoidingView,
     Platform,
+    ActivityIndicator,
+    Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import { Audio } from 'expo-av';
 import { useTodos } from '@/contexts/TodoContext';
 
 export default function AddTodoScreen() {
     const router = useRouter();
     const { addTodo } = useTodos();
     const [title, setTitle] = useState('');
+    const [isRecording, setIsRecording] = useState(false);
+    const [isTranscribing, setIsTranscribing] = useState(false);
+    const recordingRef = useRef<Audio.Recording | null>(null);
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const audioChunksRef = useRef<Blob[]>([]);
+    const pulseAnim = useRef(new Animated.Value(1)).current;
+
+    const startPulse = () => {
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(pulseAnim, {
+                    toValue: 1.2,
+                    duration: 500,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(pulseAnim, {
+                    toValue: 1,
+                    duration: 500,
+                    useNativeDriver: true,
+                }),
+            ])
+        ).start();
+    };
+
+    const stopPulse = () => {
+        pulseAnim.stopAnimation();
+        pulseAnim.setValue(1);
+    };
+
+    const startRecording = async () => {
+        try {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            
+            if (Platform.OS === 'web') {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const mediaRecorder = new MediaRecorder(stream);
+                mediaRecorderRef.current = mediaRecorder;
+                audioChunksRef.current = [];
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunksRef.current.push(event.data);
+                };
+                
+                mediaRecorder.start();
+            } else {
+                await Audio.requestPermissionsAsync();
+                await Audio.setAudioModeAsync({
+                    allowsRecordingIOS: true,
+                    playsInSilentModeIOS: true,
+                });
+                
+                const recording = new Audio.Recording();
+                await recording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+                await recording.startAsync();
+                recordingRef.current = recording;
+            }
+            
+            setIsRecording(true);
+            startPulse();
+        } catch (error) {
+            console.log('Error starting recording:', error);
+        }
+    };
+
+    const stopRecording = async () => {
+        try {
+            stopPulse();
+            setIsRecording(false);
+            setIsTranscribing(true);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            
+            let formData = new FormData();
+            
+            if (Platform.OS === 'web') {
+                const mediaRecorder = mediaRecorderRef.current;
+                if (mediaRecorder) {
+                    await new Promise<void>((resolve) => {
+                        mediaRecorder.onstop = () => resolve();
+                        mediaRecorder.stop();
+                    });
+                    
+                    mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                    
+                    const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                    formData.append('audio', audioBlob, 'recording.webm');
+                }
+            } else {
+                const recording = recordingRef.current;
+                if (recording) {
+                    await recording.stopAndUnloadAsync();
+                    await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+                    
+                    const uri = recording.getURI();
+                    if (uri) {
+                        const uriParts = uri.split('.');
+                        const fileType = uriParts[uriParts.length - 1];
+                        
+                        const audioFile = {
+                            uri,
+                            name: 'recording.' + fileType,
+                            type: 'audio/' + fileType,
+                        };
+                        
+                        formData.append('audio', audioFile as unknown as Blob);
+                    }
+                }
+                recordingRef.current = null;
+            }
+            
+            const response = await fetch('https://toolkit.rork.com/stt/transcribe/', {
+                method: 'POST',
+                body: formData,
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.text) {
+                    setTitle(prev => prev ? `${prev} ${data.text}` : data.text);
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                }
+            }
+        } catch (error) {
+            console.log('Error stopping recording:', error);
+        } finally {
+            setIsTranscribing(false);
+        }
+    };
+
+    const handleVoicePress = () => {
+        if (isRecording) {
+            stopRecording();
+        } else {
+            startRecording();
+        }
+    };
 
     const handleSave = () => {
         if (title.trim()) {
@@ -62,16 +200,36 @@ export default function AddTodoScreen() {
                 <View style={styles.content}>
                     <View style={styles.section}>
                         <Text style={styles.label}>What do you need to do today?</Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="e.g. Call mom, Buy groceries"
-                            placeholderTextColor="#C7C7CC"
-                            value={title}
-                            onChangeText={setTitle}
-                            autoFocus
-                            returnKeyType="done"
-                            onSubmitEditing={handleSave}
-                        />
+                        <View style={styles.inputRow}>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="e.g. Call mom, Buy groceries"
+                                placeholderTextColor="#C7C7CC"
+                                value={title}
+                                onChangeText={setTitle}
+                                autoFocus
+                                returnKeyType="done"
+                                onSubmitEditing={handleSave}
+                            />
+                            <Pressable
+                                style={[
+                                    styles.voiceButton,
+                                    isRecording && styles.voiceButtonRecording,
+                                ]}
+                                onPress={handleVoicePress}
+                                disabled={isTranscribing}
+                            >
+                                {isTranscribing ? (
+                                    <ActivityIndicator size="small" color="#fff" />
+                                ) : isRecording ? (
+                                    <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+                                        <Square size={20} color="#fff" fill="#fff" />
+                                    </Animated.View>
+                                ) : (
+                                    <Mic size={20} color="#fff" />
+                                )}
+                            </Pressable>
+                        </View>
                     </View>
                 </View>
             </KeyboardAvoidingView>
@@ -133,7 +291,13 @@ const styles = StyleSheet.create({
         color: '#000',
         fontWeight: '500',
     },
+    inputRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
     input: {
+        flex: 1,
         backgroundColor: '#fff',
         borderRadius: 12,
         padding: 16,
@@ -141,5 +305,16 @@ const styles = StyleSheet.create({
         color: '#000',
         borderWidth: 1,
         borderColor: '#E5E5EA',
+    },
+    voiceButton: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: '#007AFF',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    voiceButtonRecording: {
+        backgroundColor: '#FF3B30',
     },
 });
