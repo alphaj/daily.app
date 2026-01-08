@@ -1,10 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import createContextHook from '@nkzw/create-context-hook';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import type { DailyNote } from '@/types/note';
 
 const STORAGE_KEY = 'daily_notes';
+const DEBOUNCE_MS = 500;
 
 function getDateKey(date: Date): string {
     return date.toISOString().split('T')[0];
@@ -13,6 +14,8 @@ function getDateKey(date: Date): string {
 export const [NoteProvider, useNotes] = createContextHook(() => {
     const queryClient = useQueryClient();
     const [notes, setNotes] = useState<Record<string, DailyNote>>({});
+    const [isSaving, setIsSaving] = useState(false);
+    const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const notesQuery = useQuery({
         queryKey: ['notes'],
@@ -29,6 +32,7 @@ export const [NoteProvider, useNotes] = createContextHook(() => {
         },
         onSuccess: (notes) => {
             queryClient.setQueryData(['notes'], notes);
+            setIsSaving(false);
         }
     });
 
@@ -43,6 +47,13 @@ export const [NoteProvider, useNotes] = createContextHook(() => {
         return notes[key]?.content || '';
     }, [notes]);
 
+    const hasNoteForDate = useCallback((date: Date): boolean => {
+        const key = getDateKey(date);
+        return !!notes[key]?.content && notes[key].content.trim().length > 0;
+    }, [notes]);
+
+    const { mutate: saveNotes } = saveMutation;
+
     const updateNoteForDate = useCallback((date: Date, content: string) => {
         const key = getDateKey(date);
         const updated = {
@@ -54,13 +65,23 @@ export const [NoteProvider, useNotes] = createContextHook(() => {
             }
         };
         setNotes(updated);
-        saveMutation.mutate(updated);
-    }, [notes, saveMutation]);
+        setIsSaving(true);
+
+        if (debounceTimerRef.current) {
+            clearTimeout(debounceTimerRef.current);
+        }
+
+        debounceTimerRef.current = setTimeout(() => {
+            saveNotes(updated);
+        }, DEBOUNCE_MS);
+    }, [notes, saveNotes]);
 
     return {
         notes,
         isLoading: notesQuery.isLoading,
+        isSaving,
         getNoteForDate,
+        hasNoteForDate,
         updateNoteForDate,
     };
 });

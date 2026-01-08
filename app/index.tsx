@@ -110,11 +110,13 @@ function CalendarModal({
   onClose,
   selectedDate,
   onSelectDate,
+  hasNoteForDate,
 }: {
   visible: boolean;
   onClose: () => void;
   selectedDate: Date;
   onSelectDate: (date: Date) => void;
+  hasNoteForDate: (date: Date) => boolean;
 }) {
   const [currentMonth, setCurrentMonth] = React.useState(selectedDate);
 
@@ -191,6 +193,7 @@ function CalendarModal({
 
               const isSelected = isSameDay(date, selectedDate);
               const isToday = isSameDay(date, new Date());
+              const hasNote = hasNoteForDate(date);
 
               return (
                 <Pressable
@@ -211,6 +214,9 @@ function CalendarModal({
                   >
                     {format(date, 'd')}
                   </Text>
+                  {hasNote && !isSelected && (
+                    <View style={styles.calendarNoteDot} />
+                  )}
                 </Pressable>
               );
             })}
@@ -320,7 +326,7 @@ export default function HomeScreen() {
     deleteHabit,
     getCelebrationPhrase,
   } = useHabits();
-  const { getNoteForDate, updateNoteForDate } = useNotes();
+  const { getNoteForDate, updateNoteForDate, hasNoteForDate, isSaving } = useNotes();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [calendarModalVisible, setCalendarModalVisible] = useState(false);
   const [addOptionsVisible, setAddOptionsVisible] = useState(false);
@@ -462,6 +468,7 @@ export default function HomeScreen() {
         {weekDays.map((date, index) => {
           const isSelected = isSameDay(date, selectedDate);
           const isTodayDate = isSameDay(date, new Date());
+          const hasNote = hasNoteForDate(date);
 
           return (
             <Pressable
@@ -493,7 +500,9 @@ export default function HomeScreen() {
               >
                 {format(date, 'd')}
               </Text>
-              {/* Little dot for today if needed, or just color the text. Let's stick to text color for now. */}
+              {hasNote && !isSelected && (
+                <View style={styles.noteDot} />
+              )}
             </Pressable>
           );
         })}
@@ -517,17 +526,30 @@ export default function HomeScreen() {
         <View style={styles.sectionContainer}>
           <View style={styles.notesCard}>
             <View style={styles.cardHeader}>
-              <PenLine size={18} color="#5856D6" />
-              <Text style={styles.cardTitle}>Daily Note</Text>
+              <View style={styles.cardHeaderLeft}>
+                <PenLine size={18} color="#5856D6" />
+                <Text style={styles.cardTitle}>Daily Note</Text>
+              </View>
+              <View style={styles.saveIndicator}>
+                {isSaving ? (
+                  <Text style={styles.savingText}>Saving...</Text>
+                ) : noteText.length > 0 ? (
+                  <Text style={styles.savedText}>Saved</Text>
+                ) : null}
+              </View>
             </View>
             <TextInput
               style={styles.notesInput}
-              placeholder="What's on your mind today?"
+              placeholder={isToday ? "How was your day? What are you grateful for?" : "What happened on this day?"}
               placeholderTextColor="#C7C7CC"
               multiline
               value={noteText}
               onChangeText={handleNoteChange}
+              textAlignVertical="top"
             />
+            {noteText.length > 0 && (
+              <Text style={styles.characterCount}>{noteText.length} characters</Text>
+            )}
           </View>
         </View>
 
@@ -634,6 +656,7 @@ export default function HomeScreen() {
         onClose={() => setCalendarModalVisible(false)}
         selectedDate={selectedDate}
         onSelectDate={setSelectedDate}
+        hasNoteForDate={hasNoteForDate}
       />
 
       {/* Add Options Modal */}
@@ -791,23 +814,66 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 12,
     elevation: 2,
+    minHeight: 180,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
     marginBottom: 12,
+  },
+  cardHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   cardTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: '#000',
   },
+  saveIndicator: {
+    minWidth: 60,
+    alignItems: 'flex-end',
+  },
+  savingText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#FF9500',
+  },
+  savedText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#34C759',
+  },
   notesInput: {
     fontSize: 16,
     color: '#000',
     lineHeight: 24,
-    minHeight: 40,
+    minHeight: 80,
+    maxHeight: 200,
+  },
+  characterCount: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#8E8E93',
+    marginTop: 8,
+    textAlign: 'right',
+  },
+  noteDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#5856D6',
+    marginTop: 2,
+  },
+  calendarNoteDot: {
+    position: 'absolute',
+    bottom: 4,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#5856D6',
   },
   sectionHeader: {
     flexDirection: 'row',
