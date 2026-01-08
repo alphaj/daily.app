@@ -49,14 +49,16 @@ async function deleteSecureItem(key: string): Promise<void> {
 }
 
 async function hashPassword(password: string): Promise<string> {
-    const str = password + 'daily-app-salt';
+    const str = password.trim() + 'daily-app-salt';
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
         const char = str.charCodeAt(i);
         hash = ((hash << 5) - hash) + char;
         hash = hash & hash;
     }
-    return Math.abs(hash).toString(16);
+    const result = Math.abs(hash).toString(16);
+    console.log('[auth] hash generated for password length:', password.length, 'hash:', result);
+    return result;
 }
 
 function generateToken(): string {
@@ -70,8 +72,11 @@ function generateId(): string {
 async function getUsersDb(): Promise<StoredUser[]> {
     try {
         const data = await AsyncStorage.getItem(USERS_DB_KEY);
-        return data ? JSON.parse(data) : [];
-    } catch {
+        const users = data ? JSON.parse(data) : [];
+        console.log('[auth] getUsersDb - found', users.length, 'users:', users.map((u: StoredUser) => u.email));
+        return users;
+    } catch (error) {
+        console.error('[auth] getUsersDb error:', error);
         return [];
     }
 }
@@ -149,11 +154,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const signup = async (credentials: SignupCredentials): Promise<{ success: boolean; error?: string }> => {
-        console.log('[auth] signup start', { email: credentials.email });
+        const normalizedEmail = credentials.email.toLowerCase().trim();
+        console.log('[auth] signup start', { email: normalizedEmail });
         try {
             const users = await getUsersDb();
             
-            const existingUser = users.find(u => u.email.toLowerCase() === credentials.email.toLowerCase());
+            const existingUser = users.find(u => u.email.toLowerCase().trim() === normalizedEmail);
             if (existingUser) {
                 console.log('[auth] signup failed - email already registered');
                 return { success: false, error: 'Email already registered' };
@@ -163,14 +169,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const id = generateId();
             const createdAt = new Date().toISOString();
 
-            const newUser: StoredUser = { id, email: credentials.email, passwordHash, createdAt };
+            const newUser: StoredUser = { id, email: normalizedEmail, passwordHash, createdAt };
             users.push(newUser);
             await saveUsersDb(users);
+            
+            console.log('[auth] saved user with hash:', passwordHash);
 
             const token = generateToken();
-            const user: User = { id, email: credentials.email, createdAt };
+            const user: User = { id, email: normalizedEmail, createdAt };
 
-            console.log('[auth] signup success', { userId: id, email: credentials.email });
+            console.log('[auth] signup success', { userId: id, email: normalizedEmail });
             await saveAuth(user, token);
             return { success: true };
         } catch (error: any) {
@@ -183,16 +191,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log('[auth] login start', { email: credentials.email });
         try {
             const users = await getUsersDb();
+            const normalizedEmail = credentials.email.toLowerCase().trim();
             
-            const storedUser = users.find(u => u.email.toLowerCase() === credentials.email.toLowerCase());
+            const storedUser = users.find(u => u.email.toLowerCase().trim() === normalizedEmail);
             if (!storedUser) {
-                console.log('[auth] login failed - user not found');
+                console.log('[auth] login failed - user not found for email:', normalizedEmail);
+                console.log('[auth] available emails:', users.map(u => u.email.toLowerCase()));
                 return { success: false, error: 'Invalid email or password' };
             }
 
+            console.log('[auth] found user, comparing passwords...');
+            console.log('[auth] stored hash:', storedUser.passwordHash);
+            
             const passwordHash = await hashPassword(credentials.password);
+            console.log('[auth] input hash:', passwordHash);
+            
             if (passwordHash !== storedUser.passwordHash) {
-                console.log('[auth] login failed - invalid password');
+                console.log('[auth] login failed - password mismatch');
                 return { success: false, error: 'Invalid email or password' };
             }
 
