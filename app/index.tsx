@@ -417,21 +417,18 @@ export default function HomeScreen() {
 
       {/* Header */}
       <View style={styles.header}>
-        <Pressable style={styles.iconButton} onPress={handleCalendarPress}>
-          <Calendar size={24} color="#000" strokeWidth={1.5} />
-        </Pressable>
-
-        <View style={styles.headerCenter}>
-          <Text style={styles.logoText}>daily.app</Text>
+        <View style={styles.headerCenter} pointerEvents="box-none">
+          <Text style={styles.logoText}>DAILY.APP</Text>
           <View style={styles.dateNav}>
             <Pressable
-              hitSlop={10}
+              hitSlop={20}
               onPress={() => {
                 Haptics.selectionAsync();
                 setSelectedDate(addDays(selectedDate, -1));
               }}
+              style={styles.navArrow}
             >
-              <ChevronLeft size={20} color="#000" />
+              <ChevronLeft size={24} color="#000" strokeWidth={2.5} />
             </Pressable>
             <Pressable
               onPress={() => {
@@ -442,16 +439,21 @@ export default function HomeScreen() {
               <Text style={styles.headerDateText}>{isToday ? 'Today' : format(selectedDate, 'MMM d')}</Text>
             </Pressable>
             <Pressable
-              hitSlop={10}
+              hitSlop={20}
               onPress={() => {
                 Haptics.selectionAsync();
                 setSelectedDate(addDays(selectedDate, 1));
               }}
+              style={styles.navArrow}
             >
-              <ChevronRight size={20} color="#000" />
+              <ChevronRight size={24} color="#000" strokeWidth={2.5} />
             </Pressable>
           </View>
         </View>
+
+        <Pressable style={styles.iconButton} onPress={handleCalendarPress}>
+          <Calendar size={24} color="#000" strokeWidth={1.5} />
+        </Pressable>
 
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <Pressable style={styles.iconButton} onPress={() => router.push('/paywall')}>
@@ -698,27 +700,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 12,
     backgroundColor: '#F2F2F7',
+    position: 'relative',
+    height: 60,
   },
   iconButton: {
-    padding: 8,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#fff',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
   },
   headerCenter: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 4,
+    zIndex: 1,
+    gap: 2,
   },
   logoText: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 10,
+    fontWeight: '800',
     color: '#8E8E93',
-    letterSpacing: -0.5,
+    letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
   dateNav: {
@@ -726,8 +741,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
+  navArrow: {
+    opacity: 0.4,
+    padding: 4,
+  },
   headerDateText: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
     color: '#000',
   },
