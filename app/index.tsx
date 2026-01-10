@@ -26,6 +26,7 @@ import {
   TextInput,
   Animated,
   Alert,
+  Image,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -34,7 +35,7 @@ import { useHabits } from '@/contexts/HabitContext';
 import { useNotes } from '@/contexts/NoteContext';
 import type { Todo } from '@/types/todo';
 import type { Habit } from '@/types/habit';
-import { format, addDays, startOfWeek, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths } from 'date-fns';
+import { format, addDays, subDays, startOfWeek, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths } from 'date-fns';
 import SwipeableRow from '@/components/SwipeableRow';
 import { CelebrationOverlay } from '@/components/CelebrationOverlay';
 import { AddOptionsModal } from '@/components/AddOptionsModal';
@@ -357,9 +358,11 @@ export default function HomeScreen() {
     updateNoteForDate(selectedDate, text);
   }, [selectedDate, updateNoteForDate]);
 
-  // Calendar Strip Data
-  const startOfCurrentWeek = startOfWeek(selectedDate, { weekStartsOn: 0 });
-  const weekDays = Array.from({ length: 7 }).map((_, i) => addDays(startOfCurrentWeek, i));
+  // Calendar Strip Data - generate 60 days (30 before and 30 after today for continuous scrolling)
+  const today = new Date();
+  const calendarDays = Array.from({ length: 61 }).map((_, i) => subDays(today, 30 - i));
+  const selectedDayIndex = calendarDays.findIndex(d => isSameDay(d, selectedDate));
+  const calendarScrollRef = useRef<ScrollView>(null);
 
   const handleAddPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -465,11 +468,24 @@ export default function HomeScreen() {
         </Pressable>
       </View>
 
-      {/* Calendar Strip */}
-      <View style={styles.calendarStrip}>
-        {weekDays.map((date, index) => {
+      {/* Calendar Strip - Scrollable */}
+      <ScrollView
+        ref={calendarScrollRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.calendarStripScroll}
+        contentContainerStyle={styles.calendarStripContent}
+        onLayout={() => {
+          // Auto-scroll to selected date on mount
+          const dayWidth = 56; // width of day item + margins
+          const scrollToIndex = selectedDayIndex >= 0 ? selectedDayIndex : 30; // default to today (index 30)
+          const scrollX = scrollToIndex * dayWidth - (SCREEN_WIDTH / 2) + (dayWidth / 2);
+          calendarScrollRef.current?.scrollTo({ x: Math.max(0, scrollX), animated: false });
+        }}
+      >
+        {calendarDays.map((date: Date, index: number) => {
           const isSelected = isSameDay(date, selectedDate);
-          const isTodayDate = isSameDay(date, new Date());
+          const isTodayDate = isSameDay(date, today);
           const hasNote = hasNoteForDate(date);
 
           return (
@@ -508,7 +524,7 @@ export default function HomeScreen() {
             </Pressable>
           );
         })}
-      </View>
+      </ScrollView>
 
       <ScrollView
         style={styles.content}
@@ -531,7 +547,7 @@ export default function HomeScreen() {
               <ListTodo size={20} color="#000" />
               <Text style={styles.sectionLabel}>Tasks</Text>
             </View>
-            <Pressable onPress={handleAddPress} style={styles.addButton}>
+            <Pressable onPress={() => router.push('/add-todo')} style={styles.addButton}>
               <Plus size={16} color="#5856D6" strokeWidth={2.5} />
               <Text style={styles.addLink}>Add</Text>
             </Pressable>
@@ -558,7 +574,11 @@ export default function HomeScreen() {
           <View style={styles.sectionHeaderPadding}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleRow}>
-                <Flame size={20} color="#FF9500" />
+                <Image
+                  source={require('../assets/images/custom-habit-icon.png')}
+                  style={{ width: 24, height: 24 }}
+                  resizeMode="contain"
+                />
                 <Text style={styles.sectionLabel}>Habits</Text>
               </View>
               <Pressable onPress={() => router.push('/add-habit')} style={styles.addButton}>
@@ -748,6 +768,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
   },
+  calendarStripScroll: {
+    maxHeight: 100,
+  },
+  calendarStripContent: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 8,
+  },
   dayItem: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -902,6 +930,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     color: '#000',
+    letterSpacing: -0.5,
   },
   addButton: {
     flexDirection: 'row',
@@ -915,6 +944,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
+    elevation: 1,
   },
   addLink: {
     fontSize: 14,
@@ -971,28 +1001,31 @@ const styles = StyleSheet.create({
   },
   emptyStateCard: {
     backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 24,
+    borderRadius: 24,
+    padding: 32, // Increased padding
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
-    borderStyle: 'dashed',
-    borderWidth: 2,
-    borderColor: '#E5E5EA',
+    gap: 16,
+    // Replaced dashed border with Shadow
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
   },
   emptyText: {
-    fontSize: 15,
+    fontSize: 16,
     color: '#8E8E93',
     fontWeight: '500',
   },
   emptyAddButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
     backgroundColor: '#F2F2F7',
     borderRadius: 100,
   },
   emptyAddText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
     color: '#000',
   },

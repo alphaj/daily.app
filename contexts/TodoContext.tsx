@@ -43,7 +43,7 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
     }, [todosQuery.data]);
 
     // Add a new todo for a specific date
-    const addTodo = useCallback((title: string, date?: Date) => {
+    const addTodo = useCallback((title: string, date?: Date, priority?: 'low' | 'medium' | 'high') => {
         const dueDate = date ? getDateKey(date) : getToday();
         const newTodo: Todo = {
             id: Date.now().toString(),
@@ -51,6 +51,7 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
             completed: false,
             createdAt: new Date().toISOString(),
             dueDate,
+            priority,
         };
         const updated = [...todos, newTodo];
         setTodos(updated);

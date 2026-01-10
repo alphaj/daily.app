@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { X, Mic, Square, ChevronLeft } from 'lucide-react-native';
+import { X, Mic, Square, ChevronLeft, Calendar, Flag, ChevronRight } from 'lucide-react-native';
 import React, { useState, useRef } from 'react';
 import {
     View,
@@ -16,17 +16,27 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Audio } from 'expo-av';
 import { useTodos } from '@/contexts/TodoContext';
+import { format, isToday, isTomorrow, addDays } from 'date-fns';
+import { DatePickerModal } from '@/components/DatePickerModal';
+import { PriorityPickerModal } from '@/components/PriorityPickerModal';
 
 export default function AddTodoScreen() {
     const router = useRouter();
     const { addTodo } = useTodos();
     const [title, setTitle] = useState('');
+    const [priority, setPriority] = useState<'low' | 'medium' | 'high' | undefined>(undefined);
+    const [dueDate, setDueDate] = useState<Date | null>(new Date());
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const [showPriorityPicker, setShowPriorityPicker] = useState(false);
+
     const [isRecording, setIsRecording] = useState(false);
     const [isTranscribing, setIsTranscribing] = useState(false);
     const recordingRef = useRef<Audio.Recording | null>(null);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
     const pulseAnim = useRef(new Animated.Value(1)).current;
+
+    // ... (keep existing pulse/recording functions unchanged) ...
 
     const startPulse = () => {
         Animated.loop(
@@ -158,16 +168,53 @@ export default function AddTodoScreen() {
     };
 
     const handleSave = () => {
+        console.log('[AddTodo] handleSave called', { title, dueDate, priority });
         if (title.trim()) {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            addTodo(title.trim());
-            router.back();
+            console.log('[AddTodo] title is valid, adding todo...');
+            try {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                addTodo(title.trim(), dueDate || new Date(), priority);
+                console.log('[AddTodo] todo added, navigating back...');
+                router.back();
+            } catch (error) {
+                console.error('[AddTodo] Error in handleSave:', error);
+            }
+        } else {
+            console.log('[AddTodo] title is empty, not saving');
         }
     };
 
     const handleCancel = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        router.back();
+        if (router.canGoBack()) {
+            router.back();
+        } else {
+            router.replace('/');
+        }
+    };
+
+    const openPriorityPicker = () => {
+        Haptics.selectionAsync();
+        setShowPriorityPicker(true);
+    };
+
+    const openDatePicker = () => {
+        Haptics.selectionAsync();
+        setShowDatePicker(true);
+    };
+
+    const getPriorityColor = () => {
+        switch (priority) {
+            case 'high': return '#FF3B30';
+            case 'medium': return '#FF9500';
+            case 'low': return '#34C759';
+            default: return '#8E8E93';
+        }
+    };
+
+    const getPriorityLabel = () => {
+        if (!priority) return 'None';
+        return priority.charAt(0).toUpperCase() + priority.slice(1);
     };
 
     return (
@@ -182,7 +229,10 @@ export default function AddTodoScreen() {
                     </Pressable>
                     <Text style={styles.headerTitle}>New Task</Text>
                     <Pressable
-                        style={styles.saveButton}
+                        style={[
+                            styles.saveButton,
+                            !title.trim() && styles.saveButtonDisabled,
+                        ]}
                         onPress={handleSave}
                         disabled={!title.trim()}
                     >
@@ -220,19 +270,68 @@ export default function AddTodoScreen() {
                                 disabled={isTranscribing}
                             >
                                 {isTranscribing ? (
-                                    <ActivityIndicator size="small" color="#fff" />
+                                    <ActivityIndicator size="small" color={isRecording ? "#fff" : "#007AFF"} />
                                 ) : isRecording ? (
                                     <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-                                        <Square size={20} color="#fff" fill="#fff" />
+                                        <Square size={16} color="#fff" fill="#fff" />
                                     </Animated.View>
                                 ) : (
-                                    <Mic size={20} color="#fff" />
+                                    <Mic size={20} color="#007AFF" />
                                 )}
+                            </Pressable>
+                        </View>
+                    </View>
+
+                    <View style={styles.section}>
+                        <Text style={styles.label}>Details</Text>
+                        <View style={styles.detailsCard}>
+                            <Pressable style={styles.detailRow} onPress={openDatePicker}>
+                                <View style={styles.detailLeft}>
+                                    <View style={[styles.iconContainer, { backgroundColor: '#007AFF' }]}>
+                                        <Calendar size={18} color="#fff" />
+                                    </View>
+                                    <Text style={styles.detailLabel}>Due Date</Text>
+                                </View>
+                                <View style={styles.detailRight}>
+                                    <Text style={styles.detailValue}>
+                                        {!dueDate ? 'No Date' : isToday(dueDate) ? 'Today' : isTomorrow(dueDate) ? 'Tomorrow' : format(dueDate, 'MMM d')}
+                                    </Text>
+                                    <ChevronRight size={16} color="#C7C7CC" />
+                                </View>
+                            </Pressable>
+
+                            <View style={styles.separator} />
+
+                            <Pressable style={styles.detailRow} onPress={openPriorityPicker}>
+                                <View style={styles.detailLeft}>
+                                    <View style={[styles.iconContainer, { backgroundColor: getPriorityColor() }]}>
+                                        <Flag size={18} color="#fff" />
+                                    </View>
+                                    <Text style={styles.detailLabel}>Priority</Text>
+                                </View>
+                                <View style={styles.detailRight}>
+                                    <Text style={styles.detailValue}>{getPriorityLabel()}</Text>
+                                    <ChevronRight size={16} color="#C7C7CC" />
+                                </View>
                             </Pressable>
                         </View>
                     </View>
                 </View>
             </KeyboardAvoidingView>
+
+            <DatePickerModal
+                visible={showDatePicker}
+                onClose={() => setShowDatePicker(false)}
+                selectedDate={dueDate}
+                onSelectDate={setDueDate}
+            />
+
+            <PriorityPickerModal
+                visible={showPriorityPicker}
+                onClose={() => setShowPriorityPicker(false)}
+                selectedPriority={priority}
+                onSelectPriority={setPriority}
+            />
         </SafeAreaView>
     );
 }
@@ -249,72 +348,150 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingVertical: 16,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
         backgroundColor: '#F2F2F7',
-        borderBottomWidth: 0.5,
-        borderBottomColor: '#C7C7CC',
     },
     closeButton: {
-        width: 44,
-        height: 44,
+        width: 40,
+        height: 40,
         justifyContent: 'center',
-        alignItems: 'flex-start',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+        borderRadius: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
     },
     headerTitle: {
         fontSize: 17,
-        fontWeight: '600',
+        fontWeight: '700',
         color: '#000',
-        letterSpacing: -0.4,
     },
     saveButton: {
-        paddingHorizontal: 12,
-        paddingVertical: 8,
+        height: 40,
+        paddingHorizontal: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#007AFF', // Filled button for "Add"
+        borderRadius: 20,
+        shadowColor: '#007AFF',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 2,
     },
     saveButtonText: {
-        fontSize: 17,
+        fontSize: 16,
         fontWeight: '600',
-        color: '#007AFF',
+        color: '#fff',
     },
     saveButtonTextDisabled: {
-        opacity: 0.3,
+        color: '#8E8E93',
+    },
+    saveButtonDisabled: {
+        backgroundColor: '#E5E5EA', // Gray when disabled
+        shadowOpacity: 0,
+        elevation: 0,
     },
     content: {
-        padding: 24,
-        gap: 28,
+        padding: 20,
+        gap: 24,
     },
     section: {
-        gap: 10,
+        gap: 8,
     },
     label: {
-        fontSize: 15,
-        color: '#000',
+        fontSize: 13,
+        textTransform: 'uppercase',
+        color: '#6e6e73',
         fontWeight: '500',
+        marginLeft: 12, // Indent slightly for section header look
+        marginBottom: 4,
     },
     inputRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
+        backgroundColor: '#fff',
+        borderRadius: 20, // Rounded unified card
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 2,
+        minHeight: 60, // Ensure good touch target
     },
     input: {
         flex: 1,
-        backgroundColor: '#fff',
-        borderRadius: 12,
-        padding: 16,
         fontSize: 17,
         color: '#000',
-        borderWidth: 1,
-        borderColor: '#E5E5EA',
+        paddingVertical: 8,
+        marginRight: 8,
     },
     voiceButton: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        backgroundColor: '#007AFF',
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#F2F2F7', // Subtle background inside card
         justifyContent: 'center',
         alignItems: 'center',
     },
     voiceButtonRecording: {
         backgroundColor: '#FF3B30',
+        shadowColor: '#FF3B30',
+    },
+    detailsCard: {
+        backgroundColor: '#fff',
+        borderRadius: 12, // Slightly tighter radius for inner items usually, keeping 16 or 12 based on pref. Screenshot looks like 12-14. Let's stick to 12.
+        paddingLeft: 16,
+        // Common grouped style shadow
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 2,
+        overflow: 'hidden', // Ensure separator doesn't bleed if we had one at bottom
+    },
+    detailRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 16, // Increased spacing
+        paddingRight: 16,
+        minHeight: 56, // Taller minimum height
+    },
+    detailLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    iconContainer: {
+        width: 30,
+        height: 30,
+        borderRadius: 7, // Smooth squircle 
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    detailLabel: {
+        fontSize: 17,
+        color: '#000',
+        fontWeight: '400', // Regular weight matches screenshot
+    },
+    detailRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    detailValue: {
+        fontSize: 17,
+        color: '#8E8E93',
+    },
+    separator: {
+        height: StyleSheet.hairlineWidth,
+        backgroundColor: '#C6C6C8',
     },
 });

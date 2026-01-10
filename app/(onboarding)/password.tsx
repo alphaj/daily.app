@@ -86,7 +86,7 @@ export default function PasswordScreen() {
                         {isLoading ? (
                             <ActivityIndicator color="#FFF" />
                         ) : (
-                            <Text style={styles.loginButtonText}>Continue</Text>
+                            <Text style={styles.loginButtonText}>Log in</Text>
                         )}
                     </TouchableOpacity>
                 </View>
