@@ -6,9 +6,8 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { HabitProvider } from "@/contexts/HabitContext";
 import { TodoProvider } from "@/contexts/TodoContext";
 import { NoteProvider } from "@/contexts/NoteContext";
-import { BrainDumpProvider } from "@/contexts/BrainDumpContext";
+import { InboxProvider } from "@/contexts/InboxContext";
 import { ProjectProvider } from "@/contexts/ProjectContext";
-import { LaterProvider } from "@/contexts/LaterContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { trpc, trpcClient } from "@/lib/trpc";
 
@@ -51,14 +50,14 @@ function RootLayoutNav() {
       <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="habits" options={{ headerShown: false, animation: 'none' }} />
-      <Stack.Screen name="brain-dump" options={{ headerShown: false }} />
+      <Stack.Screen name="inbox" options={{ headerShown: false, animation: 'none' }} />
       <Stack.Screen name="menu" options={{ headerShown: false }} />
       <Stack.Screen name="add-habit" options={{ presentation: "modal", headerShown: false }} />
       <Stack.Screen name="add-todo" options={{ presentation: "modal", headerShown: false }} />
       <Stack.Screen name="projects" options={{ headerShown: false }} />
       <Stack.Screen name="add-project" options={{ presentation: "modal", headerShown: false }} />
       <Stack.Screen name="project/[id]" options={{ headerShown: false }} />
-      <Stack.Screen name="later" options={{ headerShown: false, animation: 'none' }} />
+
       <Stack.Screen
         name="paywall"
         options={{
@@ -77,15 +76,13 @@ function AuthWrapper() {
       <HabitProvider>
         <TodoProvider>
           <NoteProvider>
-            <BrainDumpProvider>
+            <InboxProvider>
               <ProjectProvider>
-                <LaterProvider>
-                  <GestureHandlerRootView style={{ flex: 1 }}>
-                    <RootLayoutNav />
-                  </GestureHandlerRootView>
-                </LaterProvider>
+                <GestureHandlerRootView style={{ flex: 1 }}>
+                  <RootLayoutNav />
+                </GestureHandlerRootView>
               </ProjectProvider>
-            </BrainDumpProvider>
+            </InboxProvider>
           </NoteProvider>
         </TodoProvider>
       </HabitProvider>

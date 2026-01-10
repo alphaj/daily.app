@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { X } from 'lucide-react-native';
+import { X, ChevronLeft } from 'lucide-react-native';
 import React, { useState, useCallback } from 'react';
 import {
   View,
@@ -32,7 +32,7 @@ export default function AddProjectScreen() {
 
   const handleCreate = useCallback(() => {
     if (!name.trim()) return;
-    
+
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const projectId = addProject(name.trim(), description.trim(), selectedColor, selectedIcon);
     router.replace(`/project/${projectId}` as const);
@@ -52,16 +52,16 @@ export default function AddProjectScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View style={styles.header}>
           <Pressable style={styles.closeButton} onPress={handleClose} hitSlop={10}>
-            <X size={24} color="#000" strokeWidth={1.5} />
+            <ChevronLeft size={24} color="#000" strokeWidth={1.5} />
           </Pressable>
           <Text style={styles.headerTitle}>New Project</Text>
-          <Pressable 
+          <Pressable
             style={[styles.createButton, !isValid && styles.createButtonDisabled]}
             onPress={handleCreate}
             disabled={!isValid}
@@ -72,7 +72,7 @@ export default function AddProjectScreen() {
           </Pressable>
         </View>
 
-        <ScrollView 
+        <ScrollView
           style={styles.content}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -164,7 +164,7 @@ export default function AddProjectScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#F2F2F7', // System Gray 6
   },
   keyboardView: {
     flex: 1,
@@ -175,22 +175,27 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
+    // Removed border as the background provides separation now
   },
   closeButton: {
     padding: 4,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 17,
+    fontWeight: '600',
     color: '#000',
   },
   createButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     backgroundColor: '#000',
-    borderRadius: 20,
+    borderRadius: 100,
   },
   createButtonDisabled: {
     backgroundColor: '#E5E5EA',
@@ -205,84 +210,107 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingTop: 24,
   },
   previewCard: {
-    backgroundColor: '#FAFAFA',
-    borderRadius: 20,
-    overflow: 'hidden',
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    // iOS Card Shadow
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
     marginBottom: 32,
+    alignItems: 'center',
+    padding: 24,
   },
   previewAccent: {
-    height: 4,
-    width: '100%',
+    display: 'none', // Removed this
   },
   previewContent: {
-    padding: 20,
+    alignItems: 'center',
+    width: '100%',
   },
   previewIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
+    width: 64,
+    height: 64,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   previewIcon: {
-    fontSize: 24,
+    fontSize: 32,
   },
   previewName: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '700',
     color: '#000',
-    marginBottom: 4,
+    marginBottom: 8,
+    textAlign: 'center',
   },
   previewDescription: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#8E8E93',
+    textAlign: 'center',
+    paddingHorizontal: 16,
   },
   inputSection: {
     marginBottom: 28,
   },
   inputLabel: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#8E8E93',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: 12,
+    marginBottom: 10,
+    // marginLeft: 4, // Removed to align with input
   },
   textInput: {
     fontSize: 17,
     color: '#000',
-    backgroundColor: '#F9F9F9',
-    borderRadius: 12,
+    backgroundColor: '#fff',
+    borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
   },
   textInputMultiline: {
-    minHeight: 80,
+    minHeight: 100,
     textAlignVertical: 'top',
+    paddingTop: 14,
   },
   iconGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 12,
   },
   iconOption: {
     width: 52,
     height: 52,
-    borderRadius: 14,
-    backgroundColor: '#F9F9F9',
+    borderRadius: 20, // Increased radius for squircle look
+    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
     borderWidth: 2,
     borderColor: 'transparent',
   },
   iconOptionSelected: {
     backgroundColor: '#fff',
-    borderWidth: 2,
+    borderColor: '#000', // Will be overridden by inline style with dynamic color
+    transform: [{ scale: 1.05 }],
   },
   iconText: {
     fontSize: 24,
@@ -296,10 +324,15 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    borderWidth: 3,
+    borderWidth: 4,
     borderColor: 'transparent',
   },
   colorOptionSelected: {
-    borderColor: '#000',
+    borderColor: '#fff', // White border to verify selection
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
 });

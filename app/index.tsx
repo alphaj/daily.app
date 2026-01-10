@@ -39,6 +39,8 @@ import SwipeableRow from '@/components/SwipeableRow';
 import { CelebrationOverlay } from '@/components/CelebrationOverlay';
 import { AddOptionsModal } from '@/components/AddOptionsModal';
 import { ReflectionModal } from '@/components/ReflectionModal';
+import { BottomNavBar } from '@/components/BottomNavBar';
+import { DailySummaryModal, useDailySummary } from '@/components/DailySummaryModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -337,6 +339,9 @@ export default function HomeScreen() {
   const [showReflection, setShowReflection] = useState(false);
   const [reflectionHabit, setReflectionHabit] = useState<Habit | null>(null);
 
+  // Daily summary hook
+  const { shouldShow: showDailySummary, markShown: dismissDailySummary } = useDailySummary();
+
   // Get tasks for the selected date
   const todosForDate = getTodosForDate(selectedDate);
 
@@ -484,18 +489,18 @@ export default function HomeScreen() {
                 setSelectedDate(date);
               }}
             >
-              <Text 
+              <Text
                 style={[
-                  styles.dayName, 
+                  styles.dayName,
                   isSelected && styles.dayNameSelected,
                   !isSelected && isTodayDate && styles.dayNameToday
                 ]}
               >
                 {format(date, 'EEE')}
               </Text>
-              <Text 
+              <Text
                 style={[
-                  styles.dayNumber, 
+                  styles.dayNumber,
                   isSelected && styles.dayNumberSelected,
                   !isSelected && isTodayDate && styles.dayNumberToday
                 ]}
@@ -522,37 +527,6 @@ export default function HomeScreen() {
             {dayName.toUpperCase()} {isToday && <Text style={{ color: '#5856D6' }}>• TODAY</Text>}
           </Text>
           <Text style={styles.mainDate}>{formattedSelectedDate}</Text>
-        </View>
-
-        {/* Notes Input */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.notesCard}>
-            <View style={styles.cardHeader}>
-              <View style={styles.cardHeaderLeft}>
-                <PenLine size={18} color="#5856D6" />
-                <Text style={styles.cardTitle}>Daily Note</Text>
-              </View>
-              <View style={styles.saveIndicator}>
-                {isSaving ? (
-                  <Text style={styles.savingText}>Saving...</Text>
-                ) : noteText.length > 0 ? (
-                  <Text style={styles.savedText}>Saved</Text>
-                ) : null}
-              </View>
-            </View>
-            <TextInput
-              style={styles.notesInput}
-              placeholder={isToday ? "How was your day? What are you grateful for?" : "What happened on this day?"}
-              placeholderTextColor="#C7C7CC"
-              multiline
-              value={noteText}
-              onChangeText={handleNoteChange}
-              textAlignVertical="top"
-            />
-            {noteText.length > 0 && (
-              <Text style={styles.characterCount}>{noteText.length} characters</Text>
-            )}
-          </View>
         </View>
 
         {/* Tasks Section */}
@@ -629,28 +603,41 @@ export default function HomeScreen() {
             </ScrollView>
           )}
         </View>
+
+        {/* Notes Input */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.notesCard}>
+            <View style={styles.cardHeader}>
+              <View style={styles.cardHeaderLeft}>
+                <PenLine size={18} color="#5856D6" />
+                <Text style={styles.cardTitle}>Daily Note</Text>
+              </View>
+              <View style={styles.saveIndicator}>
+                {isSaving ? (
+                  <Text style={styles.savingText}>Saving...</Text>
+                ) : noteText.length > 0 ? (
+                  <Text style={styles.savedText}>Saved</Text>
+                ) : null}
+              </View>
+            </View>
+            <TextInput
+              style={styles.notesInput}
+              placeholder={isToday ? "How was your day? What are you grateful for?" : "What happened on this day?"}
+              placeholderTextColor="#C7C7CC"
+              multiline
+              value={noteText}
+              onChangeText={handleNoteChange}
+              textAlignVertical="top"
+            />
+            {noteText.length > 0 && (
+              <Text style={styles.characterCount}>{noteText.length} characters</Text>
+            )}
+          </View>
+        </View>
       </ScrollView>
 
       {/* Bottom Bar */}
-      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-        <Pressable style={styles.bottomTab}>
-          <Home size={24} color="#5856D6" strokeWidth={1.5} />
-        </Pressable>
-        <Pressable style={styles.bottomTab} onPress={() => router.replace('/brain-dump')}>
-          <Brain size={24} color="#000" strokeWidth={1.5} />
-        </Pressable>
-
-        <Pressable style={styles.fab} onPress={handleAddPress}>
-          <Plus size={28} color="#000" strokeWidth={1.5} />
-        </Pressable>
-
-        <Pressable style={styles.bottomTab} onPress={() => router.replace('/projects')}>
-          <FolderKanban size={24} color="#000" strokeWidth={1.5} />
-        </Pressable>
-        <Pressable style={styles.bottomTab} onPress={() => router.replace('/later')}>
-          <Clock size={24} color="#000" strokeWidth={1.5} />
-        </Pressable>
-      </View>
+      <BottomNavBar onFabPress={handleAddPress} />
 
       {/* Calendar Modal */}
       <CalendarModal
@@ -684,6 +671,16 @@ export default function HomeScreen() {
           setShowReflection(false);
           setReflectionHabit(null);
         }}
+      />
+
+      {/* Daily Summary Modal */}
+      <DailySummaryModal
+        visible={showDailySummary}
+        onDismiss={dismissDailySummary}
+        habitsCompletedYesterday={habits.filter(h => isCompletedToday(h)).length}
+        totalHabits={habits.length}
+        tasksCompletedYesterday={todosForDate.filter(t => t.completed).length}
+        pendingTasks={todosForDate.filter(t => !t.completed).length}
       />
 
     </SafeAreaView>

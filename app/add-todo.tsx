@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { X, Mic, Square } from 'lucide-react-native';
+import { X, Mic, Square, ChevronLeft } from 'lucide-react-native';
 import React, { useState, useRef } from 'react';
 import {
     View,
@@ -53,17 +53,17 @@ export default function AddTodoScreen() {
     const startRecording = async () => {
         try {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            
+
             if (Platform.OS === 'web') {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 const mediaRecorder = new MediaRecorder(stream);
                 mediaRecorderRef.current = mediaRecorder;
                 audioChunksRef.current = [];
-                
+
                 mediaRecorder.ondataavailable = (event) => {
                     audioChunksRef.current.push(event.data);
                 };
-                
+
                 mediaRecorder.start();
             } else {
                 await Audio.requestPermissionsAsync();
@@ -71,13 +71,13 @@ export default function AddTodoScreen() {
                     allowsRecordingIOS: true,
                     playsInSilentModeIOS: true,
                 });
-                
+
                 const recording = new Audio.Recording();
                 await recording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
                 await recording.startAsync();
                 recordingRef.current = recording;
             }
-            
+
             setIsRecording(true);
             startPulse();
         } catch (error) {
@@ -91,9 +91,9 @@ export default function AddTodoScreen() {
             setIsRecording(false);
             setIsTranscribing(true);
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            
+
             let formData = new FormData();
-            
+
             if (Platform.OS === 'web') {
                 const mediaRecorder = mediaRecorderRef.current;
                 if (mediaRecorder) {
@@ -101,9 +101,9 @@ export default function AddTodoScreen() {
                         mediaRecorder.onstop = () => resolve();
                         mediaRecorder.stop();
                     });
-                    
+
                     mediaRecorder.stream.getTracks().forEach(track => track.stop());
-                    
+
                     const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
                     formData.append('audio', audioBlob, 'recording.webm');
                 }
@@ -112,29 +112,29 @@ export default function AddTodoScreen() {
                 if (recording) {
                     await recording.stopAndUnloadAsync();
                     await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
-                    
+
                     const uri = recording.getURI();
                     if (uri) {
                         const uriParts = uri.split('.');
                         const fileType = uriParts[uriParts.length - 1];
-                        
+
                         const audioFile = {
                             uri,
                             name: 'recording.' + fileType,
                             type: 'audio/' + fileType,
                         };
-                        
+
                         formData.append('audio', audioFile as unknown as Blob);
                     }
                 }
                 recordingRef.current = null;
             }
-            
+
             const response = await fetch('https://toolkit.rork.com/stt/transcribe/', {
                 method: 'POST',
                 body: formData,
             });
-            
+
             if (response.ok) {
                 const data = await response.json();
                 if (data.text) {
@@ -177,8 +177,8 @@ export default function AddTodoScreen() {
                 style={styles.keyboardView}
             >
                 <View style={styles.header}>
-                    <Pressable style={styles.closeButton} onPress={handleCancel}>
-                        <X size={28} color="#000" strokeWidth={2} />
+                    <Pressable style={[styles.closeButton, { backgroundColor: '#fff', borderRadius: 22, alignItems: 'center' }]} onPress={handleCancel}>
+                        <ChevronLeft size={24} color="#000" strokeWidth={1.5} />
                     </Pressable>
                     <Text style={styles.headerTitle}>New Task</Text>
                     <Pressable

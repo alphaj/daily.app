@@ -23,7 +23,6 @@ export default function SplashScreen() {
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(30)).current;
     const floatAnim1 = useRef(new Animated.Value(0)).current;
-    const floatAnim2 = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
         // Entrance animation
@@ -56,22 +55,9 @@ export default function SplashScreen() {
             ])
         ).start();
 
-        Animated.loop(
-            Animated.sequence([
-                Animated.timing(floatAnim2, {
-                    toValue: -8,
-                    duration: 2500,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(floatAnim2, {
-                    toValue: 0,
-                    duration: 2500,
-                    useNativeDriver: true,
-                }),
-            ])
-        ).start();
 
-    }, [fadeAnim, slideAnim, floatAnim1, floatAnim2]);
+
+    }, [fadeAnim, slideAnim, floatAnim1]);
 
     const handleGetStarted = () => {
         console.log('Get started pressed');
@@ -88,20 +74,7 @@ export default function SplashScreen() {
             >
                 <View style={[styles.content, { paddingTop: insets.top, paddingBottom: insets.bottom + 20 }]}>
 
-                    {/* Decorative Elements Layer */}
-                    <View style={styles.decorationsContainer} pointerEvents="none">
-                        {/* Raccoon - Top Right */}
-                        <Animated.View style={[
-                            styles.raccoonContainer,
-                            { transform: [{ translateY: floatAnim2 }] }
-                        ]}>
-                            <Image
-                                source={require('@/assets/images/splash/raccoon.png')}
-                                style={styles.raccoonImage}
-                                contentFit="contain"
-                            />
-                        </Animated.View>
-                    </View>
+
 
                     {/* Main Content */}
                     <Animated.View
@@ -177,26 +150,7 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'space-between',
     },
-    decorationsContainer: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: '60%',
-    },
-    raccoonContainer: {
-        position: 'absolute',
-        top: '15%',
-        right: -10,
-        width: 160,
-        height: 160,
-        alignItems: 'center',
-    },
-    raccoonImage: {
-        width: 120,
-        height: 120,
-        borderRadius: 60, // Make it circular-ish if needed
-    },
+
     mainContent: {
         justifyContent: 'center',
         alignItems: 'center',

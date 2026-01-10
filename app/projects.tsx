@@ -21,18 +21,19 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics';
 import { useProjects } from '@/contexts/ProjectContext';
 import type { Project } from '@/types/project';
+import { BottomNavBar } from '@/components/BottomNavBar';
 
 const { width } = Dimensions.get('window');
 const PADDING = 20;
 const GAP = 16;
 const COLUMN_WIDTH = (width - (PADDING * 2) - GAP) / 2;
 
-function ProjectCard({ 
-  project, 
+function ProjectCard({
+  project,
   progress,
-  onPress 
-}: { 
-  project: Project; 
+  onPress
+}: {
+  project: Project;
   progress: number;
   onPress: () => void;
 }) {
@@ -65,10 +66,10 @@ function ProjectCard({
       onPressOut={handlePressOut}
       onPress={handlePress}
     >
-      <Animated.View 
+      <Animated.View
         style={[
           styles.card,
-          { 
+          {
             transform: [{ scale: scaleAnim }],
           }
         ]}
@@ -78,8 +79,8 @@ function ProjectCard({
             <Text style={styles.icon}>{project.icon}</Text>
           </View>
           <View style={styles.progressRing}>
-            <View style={[styles.progressDot, { 
-              backgroundColor: progress === 100 ? project.color : '#E5E5EA' 
+            <View style={[styles.progressDot, {
+              backgroundColor: progress === 100 ? project.color : '#E5E5EA'
             }]} />
           </View>
         </View>
@@ -92,14 +93,14 @@ function ProjectCard({
         </View>
 
         <View style={styles.progressBarContainer}>
-          <View 
+          <View
             style={[
-              styles.progressBar, 
-              { 
+              styles.progressBar,
+              {
                 width: `${progress}%`,
-                backgroundColor: project.color 
+                backgroundColor: project.color
               }
-            ]} 
+            ]}
           />
         </View>
       </Animated.View>
@@ -107,15 +108,15 @@ function ProjectCard({
   );
 }
 
-function CompletedRow({ 
+function CompletedRow({
   project,
-  onPress 
-}: { 
+  onPress
+}: {
   project: Project;
   onPress: () => void;
 }) {
   return (
-    <Pressable 
+    <Pressable
       style={styles.completedRow}
       onPress={() => {
         Haptics.selectionAsync();
@@ -140,10 +141,10 @@ export default function ProjectsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { activeProjects, completedProjects, getProjectProgress } = useProjects();
-  
+
   // Clean, minimal layout
   // We want to emphasize the content and the progress
-  
+
   const handleAddProject = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     router.push('/add-project');
@@ -158,7 +159,7 @@ export default function ProjectsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Projects</Text>
-        <Pressable 
+        <Pressable
           style={styles.headerButton}
           onPress={handleAddProject}
           hitSlop={10}
@@ -167,7 +168,7 @@ export default function ProjectsScreen() {
         </Pressable>
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.content}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 }]}
         showsVerticalScrollIndicator={false}
@@ -192,7 +193,7 @@ export default function ProjectsScreen() {
             <View style={styles.gridContainer}>
               {activeProjects.map((project) => (
                 <View key={project.id} style={styles.gridItem}>
-                  <ProjectCard 
+                  <ProjectCard
                     project={project}
                     progress={getProjectProgress(project)}
                     onPress={() => handleProjectPress(project.id)}
@@ -207,7 +208,7 @@ export default function ProjectsScreen() {
                 <Text style={styles.sectionTitle}>Done</Text>
                 <View style={styles.completedList}>
                   {completedProjects.map((project) => (
-                    <CompletedRow 
+                    <CompletedRow
                       key={project.id}
                       project={project}
                       onPress={() => handleProjectPress(project.id)}
@@ -221,25 +222,7 @@ export default function ProjectsScreen() {
       </ScrollView>
 
       {/* Bottom Navigation */}
-      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-        <Pressable style={styles.bottomTab} onPress={() => router.replace('/')}>
-          <Home size={24} color="#000" strokeWidth={1.5} />
-        </Pressable>
-        <Pressable style={styles.bottomTab} onPress={() => router.replace('/brain-dump')}>
-          <Brain size={24} color="#000" strokeWidth={1.5} />
-        </Pressable>
-
-        <Pressable style={styles.fab} onPress={handleAddProject}>
-          <Plus size={28} color="#000" strokeWidth={1.5} />
-        </Pressable>
-
-        <Pressable style={[styles.bottomTab, styles.bottomTabActive]}>
-          <FolderKanban size={24} color="#5856D6" strokeWidth={1.5} />
-        </Pressable>
-        <Pressable style={styles.bottomTab} onPress={() => router.replace('/later')}>
-          <Clock size={24} color="#000" strokeWidth={1.5} />
-        </Pressable>
-      </View>
+      <BottomNavBar onFabPress={handleAddProject} />
     </SafeAreaView>
   );
 }

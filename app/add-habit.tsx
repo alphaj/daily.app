@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { X, Plus, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { X, Plus, ChevronDown, ChevronUp, ChevronLeft } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   View,
@@ -80,8 +80,8 @@ export default function AddHabitScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Pressable style={styles.closeButton} onPress={handleCancel}>
-            <X size={24} color="#8E8E93" strokeWidth={2} />
+          <Pressable style={[styles.closeButton, { backgroundColor: '#fff' }]} onPress={handleCancel}>
+            <ChevronLeft size={24} color="#000" strokeWidth={2} />
           </Pressable>
         </View>
 

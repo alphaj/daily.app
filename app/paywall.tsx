@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { X, Check, Sparkles, Zap, Cloud } from 'lucide-react-native';
+import { X, Check, Sparkles, Zap, Cloud, ChevronLeft } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -67,8 +67,8 @@ export default function PaywallScreen() {
                     <View style={styles.tagContainer}>
                         <Text style={styles.tagText}>Highlight</Text>
                     </View>
-                    <Pressable onPress={handleClose} style={styles.closeButton}>
-                        <X size={24} color="#000" />
+                    <Pressable onPress={handleClose} style={[styles.closeButton, { backgroundColor: '#fff' }]}>
+                        <ChevronLeft size={24} color="#000" strokeWidth={1.5} />
                     </Pressable>
                 </View>
 

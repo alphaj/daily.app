@@ -11,6 +11,7 @@ import {
     Star,
     Shield,
     LogOut,
+    FolderKanban,
 } from 'lucide-react-native';
 import React from 'react';
 import {
@@ -105,6 +106,16 @@ export default function MenuScreen() {
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 40 }}
             >
+                {/* Organize Section */}
+                <MenuSection title="Organize">
+                    <MenuItem
+                        icon={<FolderKanban size={22} color="#007AFF" />}
+                        title="Projects"
+                        subtitle="Manage your projects"
+                        onPress={() => router.push('/projects')}
+                    />
+                </MenuSection>
+
                 {/* Account Section */}
                 <MenuSection title="Account">
                     <MenuItem
@@ -182,31 +193,37 @@ export default function MenuScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: '#F2F2F7', // System Gray 6
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 16,
-        paddingVertical: 10,
+        paddingVertical: 8, // Reduced vertical padding
     },
     iconButton: {
         padding: 8,
         width: 40,
+        height: 40, // Fixed height for circular button
+        backgroundColor: '#fff', // Added background
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
     },
     headerCenter: {
         alignItems: 'center',
-        gap: 4,
+        gap: 2,
     },
     logoText: {
-        fontSize: 20,
+        fontSize: 16, // Slightly smaller
         fontWeight: '800',
         color: '#000',
-        letterSpacing: -1.0,
+        letterSpacing: -0.5,
     },
     headerTitle: {
-        fontSize: 14,
+        fontSize: 13,
         fontWeight: '500',
         color: '#8E8E93',
     },
@@ -215,34 +232,42 @@ const styles = StyleSheet.create({
     },
     section: {
         marginTop: 24,
-        paddingHorizontal: 24,
+        paddingHorizontal: 20, // Reduced padding to allow wider cards
     },
     sectionTitle: {
-        fontSize: 13,
+        fontSize: 12,
         fontWeight: '600',
         color: '#8E8E93',
         textTransform: 'uppercase',
         letterSpacing: 0.5,
-        marginBottom: 12,
-        marginLeft: 4,
+        marginBottom: 8,
+        marginLeft: 12, // Indent title slightly
     },
     sectionContent: {
-        backgroundColor: '#F2F2F7',
-        borderRadius: 16,
+        backgroundColor: '#fff', // White card
+        borderRadius: 20, // iOS Cell Radius
         overflow: 'hidden',
+        // Optional Shadow for depth
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+        elevation: 2,
     },
     menuItem: {
         flexDirection: 'row',
         alignItems: 'center',
         padding: 16,
         backgroundColor: '#fff',
-        marginBottom: 1,
+        // Separator logic is usually handled by views, but this works for simple lists in RN
+        borderBottomWidth: 0.5,
+        borderBottomColor: '#F2F2F7',
     },
     menuIcon: {
-        width: 36,
-        height: 36,
-        borderRadius: 8,
-        backgroundColor: '#F2F2F7',
+        width: 32,
+        height: 32,
+        borderRadius: 10, // Squircle
+        backgroundColor: '#F2F2F7', // Gray background for icon
         alignItems: 'center',
         justifyContent: 'center',
         marginRight: 14,
@@ -254,6 +279,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
         color: '#000',
+        marginBottom: 2,
     },
     menuTitleDanger: {
         color: '#FF3B30',
@@ -261,22 +287,21 @@ const styles = StyleSheet.create({
     menuSubtitle: {
         fontSize: 13,
         color: '#8E8E93',
-        marginTop: 2,
     },
     appInfo: {
         alignItems: 'center',
         marginTop: 40,
+        marginBottom: 40,
     },
     appInfoText: {
-        fontSize: 18,
-        fontWeight: '800',
-        color: '#000',
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#C7C7CC',
         letterSpacing: -0.5,
     },
     appVersion: {
         fontSize: 13,
-        color: '#8E8E93',
+        color: '#C7C7CC',
         marginTop: 4,
     },
-
 });
