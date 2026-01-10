@@ -148,8 +148,9 @@ export default function MenuScreen() {
                     />
                     <MenuItem
                         icon={<Shield size={22} color="#8E8E93" />}
-                        title="Privacy"
+                        title="Privacy Policy"
                         subtitle="Data & security"
+                        onPress={() => router.push('/privacy-policy')}
                     />
                 </MenuSection>
 

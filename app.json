@@ -18,10 +18,7 @@
       "bundleIdentifier": "app.rork.daily-habit-tracker-t8o4w6l",
       "infoPlist": {
         "NSFaceIDUsageDescription": "Allow $(PRODUCT_NAME) to access your Face ID biometric data.",
-        "UIBackgroundModes": [
-          "audio"
-        ],
-        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to access your microphone"
+        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to access your microphone for voice-to-text input when adding tasks, habits, and notes."
       },
       "config": {
         "usesNonExemptEncryption": false

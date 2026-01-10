@@ -57,15 +57,7 @@ function RootLayoutNav() {
       <Stack.Screen name="projects" options={{ headerShown: false }} />
       <Stack.Screen name="add-project" options={{ presentation: "modal", headerShown: false }} />
       <Stack.Screen name="project/[id]" options={{ headerShown: false }} />
-
-      <Stack.Screen
-        name="paywall"
-        options={{
-          presentation: 'modal',
-          headerShown: false,
-          gestureEnabled: true,
-        }}
-      />
+      <Stack.Screen name="privacy-policy" options={{ headerShown: false }} />
     </Stack>
   );
 }
