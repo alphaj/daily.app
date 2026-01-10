@@ -1095,6 +1095,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#000',
     marginTop: 4,
+    paddingRight: 32,
   },
   habitCardNameCompleted: {
     color: '#fff',
