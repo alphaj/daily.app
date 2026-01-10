@@ -10,20 +10,20 @@ const app = new Hono();
 app.use("*", cors());
 
 app.use(
-  "/api/trpc/*",
-  trpcServer({
-    endpoint: "/api/trpc",
-    router: appRouter,
-    createContext,
-  }),
+    "/api/trpc/*",
+    trpcServer({
+        endpoint: "/api/trpc",
+        router: appRouter,
+        createContext,
+    }),
 );
 
 app.get("/", (c) => {
-  return c.json({ status: "ok", message: "API is running" });
+    return c.json({ status: "ok", message: "API is running" });
 });
 
 app.get("/privacy-policy", (c) => {
-  const html = `<!DOCTYPE html>
+    const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -121,12 +121,12 @@ app.get("/privacy-policy", (c) => {
 
         <div class="contact-info">
             <h2>Contact Us</h2>
-            <p>Questions? Contact us at: <a href="mailto:support@daily-habit-tracker.app">support@daily-habit-tracker.app</a></p>
+            <p>Questions? Contact us at: <a href="mailto:support@dailyme.app">support@dailyme.app</a></p>
         </div>
     </div>
 </body>
 </html>`;
-  return c.html(html);
+    return c.html(html);
 });
 
 export default app;

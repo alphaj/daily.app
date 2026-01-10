@@ -15,10 +15,24 @@ interface StoredUser {
     createdAt: string;
 }
 
+// All storage keys used in the app
+const ALL_STORAGE_KEYS = [
+    'daily_habits',
+    'daily_todos',
+    'daily_notes',
+    'daily_projects',
+    'inbox_items',
+    'brain_dump_items',
+    'later_items',
+    '@daily_onboarding',
+    'inbox_migration_done',
+];
+
 interface AuthContextType extends AuthState {
     signup: (credentials: SignupCredentials) => Promise<{ success: boolean; error?: string }>;
     login: (credentials: LoginCredentials) => Promise<{ success: boolean; error?: string }>;
     logout: () => Promise<void>;
+    deleteAccount: () => Promise<void>;
     refreshAuth: () => Promise<void>;
 }
 
@@ -158,7 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log('[auth] signup start', { email: normalizedEmail });
         try {
             const users = await getUsersDb();
-            
+
             const existingUser = users.find(u => u.email.toLowerCase().trim() === normalizedEmail);
             if (existingUser) {
                 console.log('[auth] signup failed - email already registered');
@@ -172,7 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const newUser: StoredUser = { id, email: normalizedEmail, passwordHash, createdAt };
             users.push(newUser);
             await saveUsersDb(users);
-            
+
             console.log('[auth] saved user with hash:', passwordHash);
 
             const token = generateToken();
@@ -192,7 +206,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
             const users = await getUsersDb();
             const normalizedEmail = credentials.email.toLowerCase().trim();
-            
+
             const storedUser = users.find(u => u.email.toLowerCase().trim() === normalizedEmail);
             if (!storedUser) {
                 console.log('[auth] login failed - user not found for email:', normalizedEmail);
@@ -202,10 +216,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             console.log('[auth] found user, comparing passwords...');
             console.log('[auth] stored hash:', storedUser.passwordHash);
-            
+
             const passwordHash = await hashPassword(credentials.password);
             console.log('[auth] input hash:', passwordHash);
-            
+
             if (passwordHash !== storedUser.passwordHash) {
                 console.log('[auth] login failed - password mismatch');
                 return { success: false, error: 'Invalid email or password' };
@@ -227,6 +241,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await clearAuth();
     };
 
+    const deleteAccount = async () => {
+        try {
+            // Get current user to remove from users db
+            const currentUser = state.user;
+            if (currentUser) {
+                const users = await getUsersDb();
+                const updatedUsers = users.filter(u => u.id !== currentUser.id);
+                await saveUsersDb(updatedUsers);
+            }
+
+            // Clear all app data
+            await Promise.all(
+                ALL_STORAGE_KEYS.map(key => AsyncStorage.removeItem(key))
+            );
+
+            // Clear auth tokens
+            await clearAuth();
+
+            console.log('[auth] account deleted successfully');
+        } catch (error) {
+            console.error('[auth] deleteAccount error:', error);
+            throw error;
+        }
+    };
+
     const refreshAuth = async () => {
         setState(prev => ({ ...prev, isLoading: true }));
         await loadStoredAuth();
@@ -239,6 +278,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 signup,
                 login,
                 logout,
+                deleteAccount,
                 refreshAuth,
             }}
         >

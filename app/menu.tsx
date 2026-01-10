@@ -12,6 +12,7 @@ import {
     Shield,
     LogOut,
     FolderKanban,
+    Trash2,
 } from 'lucide-react-native';
 import React from 'react';
 import {
@@ -65,7 +66,7 @@ function MenuSection({ title, children }: { title?: string; children: React.Reac
 
 export default function MenuScreen() {
     const router = useRouter();
-    const { logout, user } = useAuth();
+    const { logout, deleteAccount, user } = useAuth();
 
     const handleLogout = () => {
         Alert.alert(
@@ -79,6 +80,24 @@ export default function MenuScreen() {
                     onPress: async () => {
                         await logout();
                         router.replace('/(onboarding)/email');
+                    }
+                },
+            ]
+        );
+    };
+
+    const handleDeleteAccount = () => {
+        Alert.alert(
+            'Delete Account',
+            'This will permanently delete your account and all your data including habits, tasks, notes, and projects. This action cannot be undone.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete Account',
+                    style: 'destructive',
+                    onPress: async () => {
+                        await deleteAccount();
+                        router.replace('/(onboarding)/splash');
                     }
                 },
             ]
@@ -176,6 +195,14 @@ export default function MenuScreen() {
                         icon={<LogOut size={22} color="#FF3B30" />}
                         title="Log out"
                         onPress={handleLogout}
+                        showChevron={false}
+                        danger
+                    />
+                    <MenuItem
+                        icon={<Trash2 size={22} color="#FF3B30" />}
+                        title="Delete Account"
+                        subtitle="Permanently delete all data"
+                        onPress={handleDeleteAccount}
                         showChevron={false}
                         danger
                     />
