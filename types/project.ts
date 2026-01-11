@@ -12,6 +12,8 @@ export interface Project {
   description: string;
   color: string;
   icon: string;
+  type: 'project' | 'goal';
+  deadline?: string;
   tasks: ProjectTask[];
   createdAt: string;
   completedAt?: string;

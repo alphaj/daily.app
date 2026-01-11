@@ -24,6 +24,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useProjects } from '@/contexts/ProjectContext';
 import type { ProjectTask } from '@/types/project';
+import { format } from 'date-fns';
 
 const TASK_HEIGHT = 72;
 
@@ -128,56 +129,56 @@ function RoadmapTask({
   return (
     <>
       {showSpacerAbove && <View style={styles.dropSpacer} />}
-      <Animated.View 
+      <Animated.View
         style={[
-          styles.taskRow, 
-          { 
+          styles.taskRow,
+          {
             transform: [
               { scale: scaleAnim },
               { translateY: isDraggingState ? pan.y : 0 },
-            ] 
+            ]
           },
           isDraggingState && styles.taskRowDragging,
         ]}
       >
-      <View style={styles.timelineContainer}>
-        {!isFirst && (
-          <View style={[styles.timelineLineTop, task.completed && { backgroundColor: projectColor }]} />
-        )}
+        <View style={styles.timelineContainer}>
+          {!isFirst && (
+            <View style={[styles.timelineLineTop, task.completed && { backgroundColor: projectColor }]} />
+          )}
+          <Pressable
+            style={[
+              styles.timelineNode,
+              task.completed && { backgroundColor: projectColor, borderColor: projectColor },
+            ]}
+            onPress={handlePress}
+            onLongPress={handleLongPress}
+            delayLongPress={500}
+          >
+            {task.completed && <Check size={14} color="#fff" strokeWidth={3} />}
+          </Pressable>
+          {!isLast && (
+            <View style={[styles.timelineLineBottom, task.completed && { backgroundColor: projectColor }]} />
+          )}
+        </View>
+
         <Pressable
-          style={[
-            styles.timelineNode,
-            task.completed && { backgroundColor: projectColor, borderColor: projectColor },
-          ]}
+          style={[styles.taskContent, task.completed && styles.taskContentCompleted]}
           onPress={handlePress}
           onLongPress={handleLongPress}
           delayLongPress={500}
         >
-          {task.completed && <Check size={14} color="#fff" strokeWidth={3} />}
+          <View style={styles.taskMain}>
+            <Text style={[styles.taskNumber, { color: projectColor }]}>Step {index + 1}</Text>
+            <Text style={[styles.taskTitle, task.completed && styles.taskTitleCompleted]} numberOfLines={2}>
+              {task.title}
+            </Text>
+          </View>
+          <View style={styles.taskActions} {...panResponder.panHandlers}>
+            <GripVertical size={18} color={isDraggingState ? projectColor : "#D1D1D6"} />
+          </View>
         </Pressable>
-        {!isLast && (
-          <View style={[styles.timelineLineBottom, task.completed && { backgroundColor: projectColor }]} />
-        )}
-      </View>
-
-      <Pressable
-        style={[styles.taskContent, task.completed && styles.taskContentCompleted]}
-        onPress={handlePress}
-        onLongPress={handleLongPress}
-        delayLongPress={500}
-      >
-        <View style={styles.taskMain}>
-          <Text style={[styles.taskNumber, { color: projectColor }]}>Step {index + 1}</Text>
-          <Text style={[styles.taskTitle, task.completed && styles.taskTitleCompleted]} numberOfLines={2}>
-            {task.title}
-          </Text>
-        </View>
-        <View style={styles.taskActions} {...panResponder.panHandlers}>
-          <GripVertical size={18} color={isDraggingState ? projectColor : "#D1D1D6"} />
-        </View>
-      </Pressable>
-    </Animated.View>
-    {showSpacerBelow && <View style={styles.dropSpacer} />}
+      </Animated.View>
+      {showSpacerBelow && <View style={styles.dropSpacer} />}
     </>
   );
 }
@@ -190,7 +191,7 @@ function EmptyTasksState({ onAdd }: { onAdd: () => void }) {
       </View>
       <Text style={styles.emptyTasksTitle}>Start your journey</Text>
       <Text style={styles.emptyTasksSubtitle}>
-        Add steps to create your roadmap{'\n'}toward completing this project
+        Add steps to create your roadmap
       </Text>
       <Pressable style={styles.emptyTasksButton} onPress={onAdd}>
         <Plus size={18} color="#fff" strokeWidth={2.5} />
@@ -215,7 +216,7 @@ export default function ProjectDetailScreen() {
   const pan = useRef(new Animated.ValueXY()).current;
 
   const project = getProject(id || '');
-  
+
   const sortedTasks = useMemo(() => {
     if (!project) return [];
     return [...project.tasks].sort((a, b) => a.order - b.order);
@@ -229,7 +230,7 @@ export default function ProjectDetailScreen() {
 
   const handleAddTask = useCallback(() => {
     if (!newTaskTitle.trim() || !id) return;
-    
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     addTask(id, newTaskTitle.trim());
     setNewTaskTitle('');
@@ -298,7 +299,7 @@ export default function ProjectDetailScreen() {
       const [movedTask] = newTasks.splice(draggingIndex, 1);
       const insertIndex = draggedOverIndex > draggingIndex ? draggedOverIndex - 1 : draggedOverIndex;
       newTasks.splice(insertIndex, 0, movedTask);
-      
+
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       reorderTasks(id, newTasks.map(t => t.id));
     }
@@ -381,7 +382,7 @@ export default function ProjectDetailScreen() {
         </Pressable>
       </View>
 
-      <ScrollView 
+      <ScrollView
         ref={scrollViewRef}
         style={styles.content}
         showsVerticalScrollIndicator={false}
@@ -393,18 +394,18 @@ export default function ProjectDetailScreen() {
           <View style={[styles.projectIconContainer, { backgroundColor: `${project.color}15` }]}>
             <Text style={styles.projectIcon}>{project.icon}</Text>
           </View>
-          
+
           <View style={styles.progressContainer}>
             <View style={styles.progressHeader}>
               <Text style={styles.progressLabel}>Progress</Text>
               <Text style={[styles.progressValue, { color: project.color }]}>{progress}%</Text>
             </View>
             <View style={styles.progressBar}>
-              <Animated.View 
+              <Animated.View
                 style={[
-                  styles.progressFill, 
+                  styles.progressFill,
                   { width: `${progress}%`, backgroundColor: project.color }
-                ]} 
+                ]}
               />
             </View>
             <Text style={styles.progressStats}>
@@ -416,6 +417,13 @@ export default function ProjectDetailScreen() {
         {project.description ? (
           <Text style={styles.projectDescription}>{project.description}</Text>
         ) : null}
+
+        {project.deadline && (
+          <View style={styles.deadlineBanner}>
+            <Text style={styles.deadlineBannerLabel}>Target Date</Text>
+            <Text style={styles.deadlineBannerValue}>{format(new Date(project.deadline), 'MMMM d, yyyy')}</Text>
+          </View>
+        )}
 
         <View style={styles.roadmapSection}>
           <View style={styles.roadmapHeader}>
@@ -451,7 +459,7 @@ export default function ProjectDetailScreen() {
                   />
                 </View>
               ))}
-              
+
               {isAddingTask && (
                 <View style={styles.taskRow}>
                   <View style={styles.timelineContainer}>
@@ -474,7 +482,7 @@ export default function ProjectDetailScreen() {
                       }}
                       returnKeyType="done"
                     />
-                    <Pressable 
+                    <Pressable
                       style={[
                         styles.addTaskButton,
                         newTaskTitle.trim() && { backgroundColor: project.color }
@@ -772,5 +780,26 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#C7C7CC',
     borderStyle: 'dashed',
+  },
+  deadlineBanner: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F9F9F9',
+    marginHorizontal: 24,
+    marginBottom: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 16,
+  },
+  deadlineBannerLabel: {
+    fontSize: 14,
+    color: '#8E8E93',
+    fontWeight: '500',
+  },
+  deadlineBannerValue: {
+    fontSize: 15,
+    color: '#000',
+    fontWeight: '600',
   },
 });

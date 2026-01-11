@@ -6,7 +6,9 @@ import {
   FolderKanban,
   Clock,
   Trophy,
+  Target,
 } from 'lucide-react-native';
+import { format } from 'date-fns';
 import React, { useRef } from 'react';
 import {
   View,
@@ -90,6 +92,12 @@ function ProjectCard({
           <Text style={styles.cardSubtitle}>
             {project.tasks.filter(t => t.completed).length}/{project.tasks.length} tasks
           </Text>
+          {project.deadline && (
+            <View style={styles.deadlineBadge}>
+              <Clock size={12} color="#8E8E93" />
+              <Text style={styles.deadlineText}>{format(new Date(project.deadline), 'MMM d')}</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.progressBarContainer}>
@@ -142,6 +150,9 @@ export default function ProjectsScreen() {
   const insets = useSafeAreaInsets();
   const { activeProjects, completedProjects, getProjectProgress } = useProjects();
 
+  const goals = activeProjects.filter(p => p.type === 'goal');
+  const projects = activeProjects.filter(p => p.type !== 'goal');
+
   // Clean, minimal layout
   // We want to emphasize the content and the progress
 
@@ -158,7 +169,7 @@ export default function ProjectsScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Projects</Text>
+        <Text style={styles.headerTitle}>Overview</Text>
         <Pressable
           style={styles.headerButton}
           onPress={handleAddProject}
@@ -178,29 +189,59 @@ export default function ProjectsScreen() {
             <View style={styles.emptyIconContainer}>
               <FolderKanban size={48} color="#C7C7CC" strokeWidth={1} />
             </View>
-            <Text style={styles.emptyTitle}>No Projects</Text>
+            <Text style={styles.emptyTitle}>No Projects or Goals</Text>
             <Text style={styles.emptyText}>
-              Create a project to start tracking your goals and big ideas.
+              Create a project or goal to start tracking your big ideas.
             </Text>
             <Pressable style={styles.createButton} onPress={handleAddProject}>
               <Plus size={20} color="#fff" />
-              <Text style={styles.createButtonText}>Create Project</Text>
+              <Text style={styles.createButtonText}>Create New</Text>
             </Pressable>
           </View>
         ) : (
           <>
             {/* Active Projects Grid */}
-            <View style={styles.gridContainer}>
-              {activeProjects.map((project) => (
-                <View key={project.id} style={styles.gridItem}>
-                  <ProjectCard
-                    project={project}
-                    progress={getProjectProgress(project)}
-                    onPress={() => handleProjectPress(project.id)}
-                  />
+            {/* Goals Section */}
+            {goals.length > 0 && (
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Target size={20} color="#000" />
+                  <Text style={styles.sectionTitle}>Goals</Text>
                 </View>
-              ))}
-            </View>
+                <View style={styles.gridContainer}>
+                  {goals.map((project) => (
+                    <View key={project.id} style={styles.gridItem}>
+                      <ProjectCard
+                        project={project}
+                        progress={getProjectProgress(project)}
+                        onPress={() => handleProjectPress(project.id)}
+                      />
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* Projects Section */}
+            {projects.length > 0 && (
+              <View style={[styles.section, goals.length > 0 && { marginTop: 32 }]}>
+                <View style={styles.sectionHeader}>
+                  <FolderKanban size={20} color="#000" />
+                  <Text style={styles.sectionTitle}>Projects</Text>
+                </View>
+                <View style={styles.gridContainer}>
+                  {projects.map((project) => (
+                    <View key={project.id} style={styles.gridItem}>
+                      <ProjectCard
+                        project={project}
+                        progress={getProjectProgress(project)}
+                        onPress={() => handleProjectPress(project.id)}
+                      />
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
 
             {/* Completed Projects Section */}
             {completedProjects.length > 0 && (
@@ -324,6 +365,22 @@ const styles = StyleSheet.create({
     color: '#8E8E93',
     fontWeight: '500',
   },
+  deadlineBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
+    backgroundColor: '#F2F2F7',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  deadlineText: {
+    fontSize: 12,
+    color: '#8E8E93',
+    fontWeight: '500',
+  },
   progressBarContainer: {
     height: 4,
     backgroundColor: '#F2F2F7',
@@ -342,6 +399,16 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: '#000',
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  section: {
+    marginBottom: 8,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginBottom: 16,
     paddingHorizontal: 4,
   },

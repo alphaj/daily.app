@@ -34,13 +34,15 @@ export const [ProjectProvider, useProjects] = createContextHook(() => {
     }
   }, [projectsQuery.data]);
 
-  const addProject = useCallback((name: string, description: string, color: string, icon: string) => {
+  const addProject = useCallback((name: string, description: string, color: string, icon: string, type: 'project' | 'goal' = 'project', deadline?: string) => {
     const newProject: Project = {
       id: Date.now().toString(),
       name,
       description,
       color,
       icon,
+      type,
+      deadline,
       tasks: [],
       createdAt: new Date().toISOString(),
     };
@@ -56,8 +58,8 @@ export const [ProjectProvider, useProjects] = createContextHook(() => {
     saveProjects(updated);
   }, [projects, saveProjects]);
 
-  const updateProject = useCallback((id: string, updates: Partial<Pick<Project, 'name' | 'description' | 'color' | 'icon'>>) => {
-    const updated = projects.map(p => 
+  const updateProject = useCallback((id: string, updates: Partial<Pick<Project, 'name' | 'description' | 'color' | 'icon' | 'type' | 'deadline'>>) => {
+    const updated = projects.map(p =>
       p.id === id ? { ...p, ...updates } : p
     );
     setProjects(updated);
@@ -67,8 +69,8 @@ export const [ProjectProvider, useProjects] = createContextHook(() => {
   const addTask = useCallback((projectId: string, title: string) => {
     const updated = projects.map(p => {
       if (p.id === projectId) {
-        const maxOrder = p.tasks.length > 0 
-          ? Math.max(...p.tasks.map(t => t.order)) 
+        const maxOrder = p.tasks.length > 0
+          ? Math.max(...p.tasks.map(t => t.order))
           : -1;
         const newTask: ProjectTask = {
           id: Date.now().toString(),
@@ -103,8 +105,8 @@ export const [ProjectProvider, useProjects] = createContextHook(() => {
           t.id === taskId ? { ...t, completed: !t.completed } : t
         );
         const allCompleted = updatedTasks.every(t => t.completed) && updatedTasks.length > 0;
-        return { 
-          ...p, 
+        return {
+          ...p,
           tasks: updatedTasks,
           completedAt: allCompleted ? new Date().toISOString() : undefined
         };
@@ -140,13 +142,13 @@ export const [ProjectProvider, useProjects] = createContextHook(() => {
     return Math.round((completed / project.tasks.length) * 100);
   }, []);
 
-  const activeProjects = useMemo(() => 
-    projects.filter(p => !p.completedAt).sort((a, b) => 
+  const activeProjects = useMemo(() =>
+    projects.filter(p => !p.completedAt).sort((a, b) =>
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     ), [projects]);
 
-  const completedProjects = useMemo(() => 
-    projects.filter(p => p.completedAt).sort((a, b) => 
+  const completedProjects = useMemo(() =>
+    projects.filter(p => p.completedAt).sort((a, b) =>
       new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime()
     ), [projects]);
 

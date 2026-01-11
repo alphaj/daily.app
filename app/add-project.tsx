@@ -15,6 +15,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useProjects } from '@/contexts/ProjectContext';
 import { PROJECT_COLORS, PROJECT_ICONS } from '@/types/project';
+import { format } from 'date-fns';
+import DatePickerWrapper from '@/components/DatePickerWrapper';
 
 export default function AddProjectScreen() {
   const router = useRouter();
@@ -24,6 +26,9 @@ export default function AddProjectScreen() {
   const [description, setDescription] = useState('');
   const [selectedColor, setSelectedColor] = useState<string>(PROJECT_COLORS[0]);
   const [selectedIcon, setSelectedIcon] = useState<string>(PROJECT_ICONS[0]);
+  const [type, setType] = useState<'project' | 'goal'>('project');
+  const [deadline, setDeadline] = useState<Date | undefined>(undefined);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const handleClose = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -34,9 +39,16 @@ export default function AddProjectScreen() {
     if (!name.trim()) return;
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const projectId = addProject(name.trim(), description.trim(), selectedColor, selectedIcon);
+    const projectId = addProject(
+      name.trim(),
+      description.trim(),
+      selectedColor,
+      selectedIcon,
+      type,
+      deadline?.toISOString()
+    );
     router.replace(`/project/${projectId}` as const);
-  }, [name, description, selectedColor, selectedIcon, addProject, router]);
+  }, [name, description, selectedColor, selectedIcon, type, deadline, addProject, router]);
 
   const handleColorSelect = (color: string) => {
     Haptics.selectionAsync();
@@ -60,7 +72,7 @@ export default function AddProjectScreen() {
           <Pressable style={styles.closeButton} onPress={handleClose} hitSlop={10}>
             <ChevronLeft size={24} color="#000" strokeWidth={1.5} />
           </Pressable>
-          <Text style={styles.headerTitle}>New Project</Text>
+          <Text style={styles.headerTitle}>New {type === 'project' ? 'Project' : 'Goal'}</Text>
           <Pressable
             style={[styles.createButton, !isValid && styles.createButtonDisabled]}
             onPress={handleCreate}
@@ -77,6 +89,28 @@ export default function AddProjectScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          {/* Type Toggle */}
+          <View style={styles.typeToggleContainer}>
+            <Pressable
+              style={[styles.typeOption, type === 'project' && styles.typeOptionSelected]}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setType('project');
+              }}
+            >
+              <Text style={[styles.typeOptionText, type === 'project' && styles.typeOptionTextSelected]}>Project</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.typeOption, type === 'goal' && styles.typeOptionSelected]}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setType('goal');
+              }}
+            >
+              <Text style={[styles.typeOptionText, type === 'goal' && styles.typeOptionTextSelected]}>Goal</Text>
+            </Pressable>
+          </View>
+
           <View style={styles.previewCard}>
             <View style={[styles.previewAccent, { backgroundColor: selectedColor }]} />
             <View style={styles.previewContent}>
@@ -84,13 +118,18 @@ export default function AddProjectScreen() {
                 <Text style={styles.previewIcon}>{selectedIcon}</Text>
               </View>
               <Text style={styles.previewName} numberOfLines={1}>
-                {name || 'Project Name'}
+                {name || (type === 'goal' ? 'Goal Name' : 'Project Name')}
               </Text>
               {description ? (
                 <Text style={styles.previewDescription} numberOfLines={1}>
                   {description}
                 </Text>
               ) : null}
+              {type === 'goal' && deadline && (
+                <View style={styles.previewDeadline}>
+                  <Text style={styles.previewDeadlineText}>Due {format(deadline, 'MMM d, yyyy')}</Text>
+                </View>
+              )}
             </View>
           </View>
 
@@ -98,7 +137,7 @@ export default function AddProjectScreen() {
             <Text style={styles.inputLabel}>Name</Text>
             <TextInput
               style={styles.textInput}
-              placeholder="What's your goal?"
+              placeholder={type === 'goal' ? "What do you want to achieve?" : "What's the project name?"}
               placeholderTextColor="#C7C7CC"
               value={name}
               onChangeText={setName}
@@ -111,7 +150,7 @@ export default function AddProjectScreen() {
             <Text style={styles.inputLabel}>Description (optional)</Text>
             <TextInput
               style={[styles.textInput, styles.textInputMultiline]}
-              placeholder="Brief description of your project"
+              placeholder={type === 'goal' ? "Brief description of your goal" : "Brief description of your project"}
               placeholderTextColor="#C7C7CC"
               value={description}
               onChangeText={setDescription}
@@ -119,6 +158,20 @@ export default function AddProjectScreen() {
               maxLength={100}
             />
           </View>
+
+          {/* Target Date - Only for Goals */}
+          {type === 'goal' && (
+            <View style={styles.inputSection}>
+              <Text style={styles.inputLabel}>Target Date</Text>
+              <DatePickerWrapper
+                value={deadline || new Date()}
+                onChange={(date) => setDeadline(date)}
+                minimumDate={new Date()}
+                show={showDatePicker}
+                onClose={() => setShowDatePicker(false)}
+              />
+            </View>
+          )}
 
           <View style={styles.inputSection}>
             <Text style={styles.inputLabel}>Icon</Text>
@@ -157,7 +210,7 @@ export default function AddProjectScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </SafeAreaView >
   );
 }
 
@@ -328,11 +381,65 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   colorOptionSelected: {
-    borderColor: '#fff', // White border to verify selection
+    borderColor: '#fff',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 3,
+  },
+  typeToggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#E5E5EA',
+    borderRadius: 99,
+    padding: 4,
+    marginBottom: 24,
+  },
+  typeOption: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 99,
+  },
+  typeOptionSelected: {
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  typeOptionText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#8E8E93',
+  },
+  typeOptionTextSelected: {
+    color: '#000',
+  },
+  previewDeadline: {
+    marginTop: 8,
+    backgroundColor: '#F2F2F7',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  previewDeadlineText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#000',
+  },
+  datePicker: {
+    height: 120,
+    marginTop: -10,
+  },
+  datePickerContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
+    overflow: 'hidden',
   },
 });
