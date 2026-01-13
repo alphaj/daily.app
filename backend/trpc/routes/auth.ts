@@ -30,6 +30,33 @@ const verifyTokenSchema = z.object({
   token: z.string(),
 });
 
+const requestPasswordResetSchema = z.object({
+  email: z.string().email("Invalid email address"),
+});
+
+const verifyResetCodeSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  code: z.string().length(6, "Code must be 6 digits"),
+});
+
+const resetPasswordSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  code: z.string().length(6, "Code must be 6 digits"),
+  newPassword: z.string().min(8, "Password must be at least 8 characters"),
+});
+
+interface DbPasswordReset {
+  id: string;
+  email: string;
+  code: string;
+  expiresAt: string;
+  used: boolean;
+}
+
+function generateResetCode(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
 async function hashPassword(password: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(password + "daily-app-salt-v2");
@@ -171,5 +198,114 @@ export const authRouter = createTRPCRouter({
         console.log("[auth] delete account failed:", error);
         throw new Error("Failed to delete account");
       }
+    }),
+
+  requestPasswordReset: publicProcedure
+    .input(requestPasswordResetSchema)
+    .mutation(async ({ input }) => {
+      const normalizedEmail = input.email.toLowerCase().trim();
+      console.log("[auth] password reset requested for:", normalizedEmail);
+
+      const users = await dbQuery<DbUser>(
+        `SELECT * FROM users WHERE email = "${normalizedEmail}"`
+      );
+
+      if (users.length === 0) {
+        console.log("[auth] password reset - email not found, returning success anyway");
+        return { success: true, message: "If an account exists, a reset code has been sent." };
+      }
+
+      await dbQuery(`DELETE FROM password_resets WHERE email = "${normalizedEmail}"`);
+
+      const code = generateResetCode();
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+      const resetId = `reset_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      await dbQuery(
+        `CREATE password_resets SET id = "${resetId}", email = "${normalizedEmail}", code = "${code}", expiresAt = "${expiresAt}", used = false`
+      );
+
+      console.log("[auth] password reset code generated:", code);
+
+      return { 
+        success: true, 
+        message: "If an account exists, a reset code has been sent.",
+        code: code,
+      };
+    }),
+
+  verifyResetCode: publicProcedure
+    .input(verifyResetCodeSchema)
+    .mutation(async ({ input }) => {
+      const normalizedEmail = input.email.toLowerCase().trim();
+      console.log("[auth] verifying reset code for:", normalizedEmail);
+
+      const resets = await dbQuery<DbPasswordReset>(
+        `SELECT * FROM password_resets WHERE email = "${normalizedEmail}" AND code = "${input.code}" AND used = false`
+      );
+
+      if (resets.length === 0) {
+        console.log("[auth] reset code not found or already used");
+        throw new Error("Invalid or expired code");
+      }
+
+      const reset = resets[0];
+      if (new Date(reset.expiresAt) < new Date()) {
+        console.log("[auth] reset code expired");
+        throw new Error("Code has expired. Please request a new one.");
+      }
+
+      console.log("[auth] reset code verified successfully");
+      return { valid: true };
+    }),
+
+  resetPassword: publicProcedure
+    .input(resetPasswordSchema)
+    .mutation(async ({ input }) => {
+      const normalizedEmail = input.email.toLowerCase().trim();
+      console.log("[auth] resetting password for:", normalizedEmail);
+
+      const resets = await dbQuery<DbPasswordReset>(
+        `SELECT * FROM password_resets WHERE email = "${normalizedEmail}" AND code = "${input.code}" AND used = false`
+      );
+
+      if (resets.length === 0) {
+        console.log("[auth] reset code not found or already used");
+        throw new Error("Invalid or expired code");
+      }
+
+      const reset = resets[0];
+      if (new Date(reset.expiresAt) < new Date()) {
+        console.log("[auth] reset code expired");
+        throw new Error("Code has expired. Please request a new one.");
+      }
+
+      const newPasswordHash = await hashPassword(input.newPassword);
+
+      await dbQuery(
+        `UPDATE users SET passwordHash = "${newPasswordHash}" WHERE email = "${normalizedEmail}"`
+      );
+
+      await dbQuery(
+        `UPDATE password_resets SET used = true WHERE id = "${reset.id}"`
+      );
+
+      console.log("[auth] password reset successful");
+
+      const users = await dbQuery<DbUser>(
+        `SELECT * FROM users WHERE email = "${normalizedEmail}"`
+      );
+
+      if (users.length > 0) {
+        const user = users[0];
+        const token = await generateToken(user.id, normalizedEmail);
+        return {
+          success: true,
+          user: { id: user.id, email: user.email, createdAt: user.createdAt },
+          token,
+        };
+      }
+
+      return { success: true };
     }),
 });

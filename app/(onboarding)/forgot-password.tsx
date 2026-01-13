@@ -10,33 +10,44 @@ import {
     SafeAreaView,
     ActivityIndicator,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
-import { useAuth } from '@/contexts/AuthContext';
+import { trpcClient } from '@/lib/trpc';
 
-export default function PasswordScreen() {
+export default function ForgotPasswordScreen() {
     const router = useRouter();
-    const { email } = useLocalSearchParams<{ email: string }>();
-    const { login } = useAuth();
 
-    const [password, setPassword] = useState('');
+    const [email, setEmail] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const handleLogin = async () => {
-        if (!password || !email) return;
+    const isValidEmail = (email: string) => {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    };
+
+    const handleContinue = async () => {
+        if (!isValidEmail(email)) return;
 
         setIsLoading(true);
         setError(null);
 
-        const result = await login({ email, password });
+        try {
+            const result = await trpcClient.auth.requestPasswordReset.mutate({
+                email: email.toLowerCase().trim(),
+            });
 
-        setIsLoading(false);
+            console.log('[forgot-password] reset requested:', result);
 
-        if (result.success) {
-            router.replace('/');
-        } else {
-            setError(result.error || 'Login failed');
+            router.push({
+                pathname: '/(onboarding)/reset-password',
+                params: { email: email.toLowerCase().trim() }
+            });
+        } catch (err: any) {
+            console.error('[forgot-password] error:', err);
+            setError(err.message || 'Something went wrong. Please try again.');
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -46,55 +57,48 @@ export default function PasswordScreen() {
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={styles.keyboardView}
             >
-                {/* Back Button */}
                 <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
                     <ChevronLeft size={28} color="#000" strokeWidth={1.5} />
                 </TouchableOpacity>
 
-                {/* Content */}
                 <View style={styles.content}>
-                    <Text style={styles.title}>{"What's your\npassword?"}</Text>
+                    <Text style={styles.title}>{"Reset your\npassword"}</Text>
+                    <Text style={styles.subtitle}>
+                        Enter your email and we will send you a code to reset your password.
+                    </Text>
 
-                    {/* Password Input */}
                     <View style={styles.inputContainer}>
                         <TextInput
                             style={styles.input}
-                            placeholder="Password"
+                            placeholder="you@example.com"
                             placeholderTextColor="#C7C7CC"
-                            value={password}
-                            onChangeText={setPassword}
-                            secureTextEntry={true}
-                            autoFocus={true}
+                            value={email}
+                            onChangeText={setEmail}
+                            keyboardType="email-address"
                             autoCapitalize="none"
+                            autoCorrect={false}
+                            autoComplete="email"
+                            textContentType="emailAddress"
+                            autoFocus={true}
                         />
                     </View>
 
-                    {/* Forgot Password Link */}
-                    <TouchableOpacity 
-                        style={styles.forgotButton}
-                        onPress={() => router.push('/(onboarding)/forgot-password')}
-                    >
-                        <Text style={styles.forgotText}>Forgot password?</Text>
-                    </TouchableOpacity>
-
-                    {/* Error Message */}
                     {error && (
                         <Text style={styles.errorText}>{error}</Text>
                     )}
                 </View>
 
-                {/* Bottom Section */}
                 <View style={styles.bottomContainer}>
                     <TouchableOpacity
-                        style={[styles.loginButton, !password && styles.loginButtonDisabled]}
-                        onPress={handleLogin}
-                        disabled={!password || isLoading}
+                        style={[styles.continueButton, !isValidEmail(email) && styles.continueButtonDisabled]}
+                        onPress={handleContinue}
+                        disabled={!isValidEmail(email) || isLoading}
                         activeOpacity={0.8}
                     >
                         {isLoading ? (
                             <ActivityIndicator color="#FFF" />
                         ) : (
-                            <Text style={styles.loginButtonText}>Log in</Text>
+                            <Text style={styles.continueButtonText}>Send Code</Text>
                         )}
                     </TouchableOpacity>
                 </View>
@@ -124,10 +128,16 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 36,
-        fontWeight: '900', // Matches the bold font in design
+        fontWeight: '900' as const,
         color: '#000',
         lineHeight: 44,
         letterSpacing: -0.5,
+        marginBottom: 12,
+    },
+    subtitle: {
+        fontSize: 16,
+        color: '#8E8E93',
+        lineHeight: 22,
         marginBottom: 32,
     },
     inputContainer: {
@@ -135,7 +145,7 @@ const styles = StyleSheet.create({
     },
     input: {
         fontSize: 28,
-        fontWeight: '700',
+        fontWeight: '700' as const,
         color: '#000',
         paddingVertical: 8,
         paddingHorizontal: 0,
@@ -150,28 +160,19 @@ const styles = StyleSheet.create({
         paddingHorizontal: 24,
         paddingBottom: 16,
     },
-    loginButton: {
-        backgroundColor: '#007AFF', // Vibrant blue
+    continueButton: {
+        backgroundColor: '#007AFF',
         borderRadius: 28,
         paddingVertical: 16,
         alignItems: 'center',
         justifyContent: 'center',
     },
-    loginButtonDisabled: {
+    continueButtonDisabled: {
         backgroundColor: '#E5E5EA',
     },
-    loginButtonText: {
+    continueButtonText: {
         color: '#FFFFFF',
         fontSize: 17,
-        fontWeight: '700',
-    },
-    forgotButton: {
-        marginTop: 20,
-        alignSelf: 'center',
-    },
-    forgotText: {
-        fontSize: 15,
-        color: '#007AFF',
-        fontWeight: '600',
+        fontWeight: '700' as const,
     },
 });

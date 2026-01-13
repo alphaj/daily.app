@@ -23,6 +23,8 @@ export default function OnboardingLayout() {
                 <Stack.Screen name="welcome" />
                 <Stack.Screen name="password" />
                 <Stack.Screen name="create-password" />
+                <Stack.Screen name="forgot-password" />
+                <Stack.Screen name="reset-password" />
             </Stack>
         </OnboardingProvider>
     );
