@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { X, ChevronLeft } from 'lucide-react-native';
+import { ChevronLeft, Calendar, X } from 'lucide-react-native';
 import React, { useState, useCallback } from 'react';
 import {
   View,
@@ -29,6 +29,7 @@ export default function AddProjectScreen() {
   const [type, setType] = useState<'project' | 'goal'>('project');
   const [deadline, setDeadline] = useState<Date | undefined>(undefined);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [hasDeadline, setHasDeadline] = useState(false);
 
   const handleClose = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -163,13 +164,46 @@ export default function AddProjectScreen() {
           {type === 'goal' && (
             <View style={styles.inputSection}>
               <Text style={styles.inputLabel}>Target Date</Text>
-              <DatePickerWrapper
-                value={deadline || new Date()}
-                onChange={(date) => setDeadline(date)}
-                minimumDate={new Date()}
-                show={showDatePicker}
-                onClose={() => setShowDatePicker(false)}
-              />
+              {!hasDeadline ? (
+                <Pressable
+                  style={styles.addDeadlineButton}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setHasDeadline(true);
+                    setDeadline(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
+                  }}
+                >
+                  <Calendar size={20} color="#8E8E93" />
+                  <Text style={styles.addDeadlineText}>Add end date</Text>
+                </Pressable>
+              ) : (
+                <View style={styles.deadlineContainer}>
+                  <View style={styles.deadlineHeader}>
+                    <View style={styles.deadlineLabel}>
+                      <Calendar size={18} color="#000" />
+                      <Text style={styles.deadlineLabelText}>Due by</Text>
+                    </View>
+                    <Pressable
+                      style={styles.removeDeadlineButton}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        setHasDeadline(false);
+                        setDeadline(undefined);
+                      }}
+                      hitSlop={8}
+                    >
+                      <X size={18} color="#8E8E93" />
+                    </Pressable>
+                  </View>
+                  <DatePickerWrapper
+                    value={deadline || new Date()}
+                    onChange={(date) => setDeadline(date)}
+                    minimumDate={new Date()}
+                    show={showDatePicker}
+                    onClose={() => setShowDatePicker(false)}
+                  />
+                </View>
+              )}
             </View>
           )}
 
@@ -441,5 +475,54 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 1,
     overflow: 'hidden',
+  },
+  addDeadlineButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    gap: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  addDeadlineText: {
+    fontSize: 17,
+    color: '#8E8E93',
+  },
+  deadlineContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
+    overflow: 'hidden',
+  },
+  deadlineHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 4,
+  },
+  deadlineLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  deadlineLabelText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#000',
+  },
+  removeDeadlineButton: {
+    padding: 4,
   },
 });
