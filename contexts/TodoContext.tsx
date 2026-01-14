@@ -26,7 +26,7 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
         }
     });
 
-    const saveMutation = useMutation({
+    const { mutate: saveTodos } = useMutation({
         mutationFn: async (todos: Todo[]) => {
             await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
             return todos;
@@ -55,14 +55,14 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
         };
         const updated = [...todos, newTodo];
         setTodos(updated);
-        saveMutation.mutate(updated);
-    }, [todos, saveMutation]);
+        saveTodos(updated);
+    }, [todos, saveTodos]);
 
     const deleteTodo = useCallback((id: string) => {
         const updated = todos.filter(t => t.id !== id);
         setTodos(updated);
-        saveMutation.mutate(updated);
-    }, [todos, saveMutation]);
+        saveTodos(updated);
+    }, [todos, saveTodos]);
 
     const toggleTodo = useCallback((id: string): boolean => {
         let wasCompleted = false;
@@ -74,9 +74,9 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
             return todo;
         });
         setTodos(updated);
-        saveMutation.mutate(updated);
+        saveTodos(updated);
         return wasCompleted;
-    }, [todos, saveMutation]);
+    }, [todos, saveTodos]);
 
     // Get todos for a specific date, including rolled-over incomplete tasks from past days
     const getTodosForDate = useCallback((date: Date): Todo[] => {
@@ -109,15 +109,20 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
         });
         if (JSON.stringify(updated) !== JSON.stringify(todos)) {
             setTodos(updated);
-            saveMutation.mutate(updated);
+            saveTodos(updated);
         }
-    }, [todos, saveMutation]);
+    }, [todos, saveTodos]);
 
     const clearCompletedTodos = useCallback(() => {
         const updated = todos.filter(t => !t.completed);
         setTodos(updated);
-        saveMutation.mutate(updated);
-    }, [todos, saveMutation]);
+        saveTodos(updated);
+    }, [todos, saveTodos]);
+
+    const reorderTodos = useCallback((reorderedTodos: Todo[]) => {
+        setTodos(reorderedTodos);
+        saveTodos(reorderedTodos);
+    }, [saveTodos]);
 
     const completedCount = useMemo(() => todos.filter(t => t.completed).length, [todos]);
     const totalCount = todos.length;
@@ -131,6 +136,7 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
         getTodosForDate,
         rolloverTasks,
         clearCompletedTodos,
+        reorderTodos,
         completedCount,
         totalCount,
     };

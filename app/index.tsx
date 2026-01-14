@@ -5,16 +5,13 @@ import {
   ChevronRight,
   Settings,
   Plus,
-  Clock,
   Check,
   Flame,
-  Home,
-  Brain,
-  FolderKanban,
   PenLine,
   ListTodo,
+  GripVertical,
 } from 'lucide-react-native';
-import React, { useCallback, useState, useEffect, useRef } from 'react';
+import React, { useCallback, useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -27,15 +24,19 @@ import {
   Animated,
   Alert,
   Image,
+  PanResponder,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useTodos } from '@/contexts/TodoContext';
 import { useHabits } from '@/contexts/HabitContext';
 import { useNotes } from '@/contexts/NoteContext';
 import type { Todo } from '@/types/todo';
 import type { Habit } from '@/types/habit';
-import { format, addDays, subDays, startOfWeek, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths } from 'date-fns';
+import { format, addDays, subDays, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths } from 'date-fns';
 import SwipeableRow from '@/components/SwipeableRow';
 import { CelebrationOverlay } from '@/components/CelebrationOverlay';
 import { AddOptionsModal } from '@/components/AddOptionsModal';
@@ -44,66 +45,206 @@ import { BottomNavBar } from '@/components/BottomNavBar';
 import { DailySummaryModal, useDailySummary } from '@/components/DailySummaryModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const ITEM_HEIGHT = 68;
 
-function TodoItem({
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+function DraggableTodoItem({
   todo,
   toggleTodo,
-  deleteTodo
+  deleteTodo,
+  index,
+  draggedIndex,
+  onDragStart,
+  onDragEnd,
+  onDragMove,
+  isDragging,
 }: {
   todo: Todo;
   toggleTodo: (id: string) => void;
   deleteTodo: (id: string) => void;
+  index: number;
+  draggedIndex: number | null;
+  onDragStart: (index: number) => void;
+  onDragEnd: () => void;
+  onDragMove: (index: number, gestureY: number) => void;
+  isDragging: boolean;
 }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const translateY = useRef(new Animated.Value(0)).current;
+  const elevationAnim = useRef(new Animated.Value(0)).current;
 
-  const handlePressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.98,
-      useNativeDriver: true,
-      speed: 20,
-    }).start();
-  };
-
-  const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-      speed: 20,
-    }).start();
-  };
+  const panResponder = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderGrant: () => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      onDragStart(index);
+      Animated.parallel([
+        Animated.spring(scaleAnim, {
+          toValue: 1.02,
+          useNativeDriver: true,
+        }),
+        Animated.timing(elevationAnim, {
+          toValue: 1,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    },
+    onPanResponderMove: (_, gestureState) => {
+      translateY.setValue(gestureState.dy);
+      onDragMove(index, gestureState.dy);
+    },
+    onPanResponderRelease: () => {
+      Animated.parallel([
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          useNativeDriver: true,
+        }),
+        Animated.spring(translateY, {
+          toValue: 0,
+          useNativeDriver: true,
+        }),
+        Animated.timing(elevationAnim, {
+          toValue: 0,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+      ]).start();
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      onDragEnd();
+    },
+    onPanResponderTerminate: () => {
+      Animated.parallel([
+        Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true }),
+        Animated.spring(translateY, { toValue: 0, useNativeDriver: true }),
+        Animated.timing(elevationAnim, { toValue: 0, duration: 150, useNativeDriver: true }),
+      ]).start();
+      onDragEnd();
+    },
+  }), [index, onDragStart, onDragEnd, onDragMove, scaleAnim, translateY, elevationAnim]);
 
   const handlePress = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    toggleTodo(todo.id);
-  }, [todo.id, toggleTodo]);
+    if (!isDragging) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      toggleTodo(todo.id);
+    }
+  }, [todo.id, toggleTodo, isDragging]);
 
   const handleDelete = useCallback(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     deleteTodo(todo.id);
   }, [todo.id, deleteTodo]);
 
+  const isBeingDragged = draggedIndex === index;
+  const shouldOffset = draggedIndex !== null && !isBeingDragged;
+
   return (
-    <View style={styles.todoItemWrapper}>
+    <Animated.View
+      style={[
+        styles.todoItemWrapper,
+        {
+          transform: [
+            { scale: isBeingDragged ? scaleAnim : 1 },
+            { translateY: isBeingDragged ? translateY : 0 },
+          ],
+          zIndex: isBeingDragged ? 999 : 1,
+          opacity: shouldOffset ? 0.7 : 1,
+        },
+      ]}
+    >
       <SwipeableRow onDelete={handleDelete}>
-        <Pressable
-          onPress={handlePress}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-        >
-          <Animated.View style={[
-            styles.todoItem,
-            todo.completed && styles.todoItemCompleted,
-            { transform: [{ scale: scaleAnim }] }
-          ]}>
-            <View style={[styles.checkboxContainer, todo.completed ? styles.checkboxChecked : styles.checkboxUnchecked]}>
-              {todo.completed && <Check size={14} color="#fff" strokeWidth={4} />}
+        <Pressable onPress={handlePress} disabled={isDragging}>
+          <Animated.View
+            style={[
+              styles.todoItem,
+              todo.completed && styles.todoItemCompleted,
+              isBeingDragged && styles.todoItemDragging,
+            ]}
+          >
+            <View {...panResponder.panHandlers} style={styles.dragHandle}>
+              <GripVertical size={18} color="#C7C7CC" />
             </View>
+            <Pressable
+              onPress={handlePress}
+              style={[styles.checkboxContainer, todo.completed ? styles.checkboxChecked : styles.checkboxUnchecked]}
+              disabled={isDragging}
+            >
+              {todo.completed && <Check size={14} color="#fff" strokeWidth={4} />}
+            </Pressable>
             <Text style={[styles.todoText, todo.completed && styles.todoTextChecked]}>
               {todo.title}
             </Text>
           </Animated.View>
         </Pressable>
       </SwipeableRow>
+    </Animated.View>
+  );
+}
+
+function DraggableTaskList({
+  todos,
+  toggleTodo,
+  deleteTodo,
+  onReorder,
+}: {
+  todos: Todo[];
+  toggleTodo: (id: string) => void;
+  deleteTodo: (id: string) => void;
+  onReorder: (todos: Todo[]) => void;
+}) {
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [localTodos, setLocalTodos] = useState(todos);
+  const isDragging = draggedIndex !== null;
+
+  useEffect(() => {
+    setLocalTodos(todos);
+  }, [todos]);
+
+  const handleDragStart = useCallback((index: number) => {
+    setDraggedIndex(index);
+  }, []);
+
+  const handleDragMove = useCallback((fromIndex: number, gestureY: number) => {
+    const moveThreshold = ITEM_HEIGHT * 0.5;
+    const indexDelta = Math.round(gestureY / ITEM_HEIGHT);
+    const newIndex = Math.max(0, Math.min(localTodos.length - 1, fromIndex + indexDelta));
+    
+    if (newIndex !== fromIndex && Math.abs(gestureY) > moveThreshold) {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      const newTodos = [...localTodos];
+      const [movedItem] = newTodos.splice(fromIndex, 1);
+      newTodos.splice(newIndex, 0, movedItem);
+      setLocalTodos(newTodos);
+      setDraggedIndex(newIndex);
+      Haptics.selectionAsync();
+    }
+  }, [localTodos]);
+
+  const handleDragEnd = useCallback(() => {
+    setDraggedIndex(null);
+    onReorder(localTodos);
+  }, [localTodos, onReorder]);
+
+  return (
+    <View style={styles.todoList}>
+      {localTodos.map((todo, index) => (
+        <DraggableTodoItem
+          key={todo.id}
+          todo={todo}
+          toggleTodo={toggleTodo}
+          deleteTodo={deleteTodo}
+          index={index}
+          draggedIndex={draggedIndex}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragMove={handleDragMove}
+          isDragging={isDragging}
+        />
+      ))}
     </View>
   );
 }
@@ -320,8 +461,7 @@ function HabitCard({
 
 export default function HomeScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const { getTodosForDate, toggleTodo, deleteTodo } = useTodos();
+  const { getTodosForDate, toggleTodo, deleteTodo, todos: allTodos, reorderTodos } = useTodos();
   const {
     habits,
     toggleHabitCompletion,
@@ -553,20 +693,25 @@ export default function HomeScreen() {
             </Pressable>
           </View>
 
-          <View style={styles.todoList}>
-            {todosForDate.length === 0 ? (
-              <View style={styles.emptyStateCard}>
-                <Text style={styles.emptyText}>No tasks for this day</Text>
-                <Pressable onPress={() => router.push('/add-todo')} style={styles.emptyAddButton}>
-                  <Text style={styles.emptyAddText}>Add a task</Text>
-                </Pressable>
-              </View>
-            ) : (
-              todosForDate.map(todo => (
-                <TodoItem key={todo.id} todo={todo} toggleTodo={toggleTodo} deleteTodo={deleteTodo} />
-              ))
-            )}
-          </View>
+          {todosForDate.length === 0 ? (
+            <View style={styles.emptyStateCard}>
+              <Text style={styles.emptyText}>No tasks for this day</Text>
+              <Pressable onPress={() => router.push('/add-todo')} style={styles.emptyAddButton}>
+                <Text style={styles.emptyAddText}>Add a task</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <DraggableTaskList
+              todos={todosForDate}
+              toggleTodo={toggleTodo}
+              deleteTodo={deleteTodo}
+              onReorder={(reorderedDateTodos) => {
+                const otherTodos = allTodos.filter(t => !todosForDate.some(dt => dt.id === t.id));
+                const newAllTodos = [...otherTodos, ...reorderedDateTodos];
+                reorderTodos(newAllTodos);
+              }}
+            />
+          )}
         </View>
 
         {/* Habits Section */}
@@ -952,23 +1097,37 @@ const styles = StyleSheet.create({
     color: '#5856D6',
   },
   todoList: {
-    gap: 12,
   },
   todoItemWrapper: {
-    // Wrapper for swipeable
+    marginBottom: 12,
   },
   todoItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    padding: 16,
+    paddingVertical: 16,
+    paddingRight: 16,
+    paddingLeft: 8,
     borderRadius: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.03,
     shadowRadius: 8,
     elevation: 2,
-    gap: 16,
+    gap: 12,
+    minHeight: ITEM_HEIGHT,
+  },
+  todoItemDragging: {
+    shadowColor: '#5856D6',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 10,
+    backgroundColor: '#FAFAFF',
+  },
+  dragHandle: {
+    padding: 8,
+    marginLeft: -4,
   },
   todoItemCompleted: {
     opacity: 0.6,
