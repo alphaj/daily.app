@@ -1,14 +1,8 @@
 import { useRouter } from 'expo-router';
 import {
-    ChevronLeft,
-
-    Plus,
     Zap,
-    Menu,
     Flame,
     Check,
-    Brain,
-    Home,
 } from 'lucide-react-native';
 import React from 'react';
 import {
@@ -18,7 +12,7 @@ import {
     Pressable,
     ScrollView,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useHabits } from '@/contexts/HabitContext';
 import SwipeableRow from '@/components/SwipeableRow';
@@ -116,7 +110,6 @@ function HabitItem({
 
 export default function HabitsScreen() {
     const router = useRouter();
-    const insets = useSafeAreaInsets();
     const {
         habits,
         toggleHabitCompletion,
@@ -146,10 +139,6 @@ export default function HabitsScreen() {
         <SafeAreaView style={styles.container} edges={['top']}>
             {/* Header */}
             <View style={styles.header}>
-                <Pressable style={styles.iconButton} onPress={() => router.back()}>
-                    <ChevronLeft size={24} color="#000" strokeWidth={1.5} />
-                </Pressable>
-
                 <View style={styles.headerCenter}>
                     <Text style={styles.logoText}>daily.app</Text>
                     <Text style={styles.headerTitle}>Habits</Text>
@@ -226,17 +215,9 @@ const styles = StyleSheet.create({
         backgroundColor: '#F2F2F7', // System Gray 6
     },
     header: {
-        flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
         paddingHorizontal: 16,
-        paddingVertical: 8, // Reduced vertical padding
-    },
-    iconButton: {
-        padding: 8,
-        backgroundColor: '#fff', // Added background for buttons
-        borderRadius: 20,
-        overflow: 'hidden',
+        paddingVertical: 8,
     },
     headerCenter: {
         alignItems: 'center',
