@@ -55,7 +55,17 @@ export default function CreatePasswordScreen() {
                 style={styles.keyboardView}
             >
                 {/* Back Button */}
-                <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+                <TouchableOpacity
+                    style={styles.backButton}
+                    onPress={() => {
+                        if (router.canGoBack()) {
+                            router.back();
+                        } else {
+                            router.replace('/(onboarding)/email');
+                        }
+                    }}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
                     <ChevronLeft size={28} color="#000" strokeWidth={1.5} />
                 </TouchableOpacity>
 
