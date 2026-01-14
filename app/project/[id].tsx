@@ -495,6 +495,13 @@ export default function ProjectDetailScreen() {
                   </View>
                 </View>
               )}
+
+              {!isAddingTask && sortedTasks.length > 0 && (
+                <Pressable style={styles.addStepZone} onPress={handleShowAddInput}>
+                  <Plus size={16} color="#C7C7CC" strokeWidth={2} />
+                  <Text style={styles.addStepZoneText}>Tap to add step</Text>
+                </Pressable>
+              )}
             </View>
           )}
         </View>
@@ -801,5 +808,23 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#000',
     fontWeight: '600',
+  },
+  addStepZone: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 8,
+    marginLeft: 44,
+    paddingVertical: 24,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#E5E5EA',
+    borderStyle: 'dashed',
+  },
+  addStepZoneText: {
+    fontSize: 14,
+    color: '#C7C7CC',
+    fontWeight: '500',
   },
 });
