@@ -13,41 +13,76 @@ interface QueryResult<T> {
 
 export async function dbQuery<T>(query: string, vars?: Record<string, unknown>): Promise<T[]> {
   if (!DB_ENDPOINT || !DB_NAMESPACE || !DB_TOKEN) {
+    console.error("[db] Database not configured - missing env vars");
     throw new Error("Database not configured");
   }
 
   const url = `${DB_ENDPOINT}/sql`;
   
-  console.log("[db] executing query:", query.substring(0, 100));
-
-  const hasVars = vars && Object.keys(vars).length > 0;
-  
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": hasVars ? "application/json" : "text/plain",
-      "Accept": "application/json",
-      "Authorization": `Bearer ${DB_TOKEN}`,
-      "Surreal-NS": DB_NAMESPACE,
-      "Surreal-DB": "main",
-    },
-    body: hasVars ? JSON.stringify({ query, vars }) : query,
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    console.error("[db] query failed:", response.status, text);
-    throw new Error(`Database query failed: ${response.status}`);
+  console.log("[db] executing query:", query.substring(0, 150));
+  if (vars) {
+    console.log("[db] with vars:", Object.keys(vars).join(", "));
   }
 
-  const data = await response.json() as QueryResult<T>[];
-  console.log("[db] query result:", JSON.stringify(data).substring(0, 200));
-  
-  if (Array.isArray(data) && data.length > 0) {
-    return data[0].result || [];
+  try {
+    let finalQuery = query;
+    
+    if (vars && Object.keys(vars).length > 0) {
+      for (const [key, value] of Object.entries(vars)) {
+        const placeholder = "$" + key;
+        let replacement: string;
+        
+        if (typeof value === "string") {
+          replacement = `"${value.replace(/"/g, '\\"')}"`;
+        } else if (typeof value === "boolean") {
+          replacement = value ? "true" : "false";
+        } else if (value === null || value === undefined) {
+          replacement = "null";
+        } else {
+          replacement = String(value);
+        }
+        
+        finalQuery = finalQuery.split(placeholder).join(replacement);
+      }
+    }
+    
+    console.log("[db] final query:", finalQuery.substring(0, 200));
+    
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain",
+        "Accept": "application/json",
+        "Authorization": `Bearer ${DB_TOKEN}`,
+        "Surreal-NS": DB_NAMESPACE,
+        "Surreal-DB": "main",
+      },
+      body: finalQuery,
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      console.error("[db] query failed:", response.status, text);
+      throw new Error(`Database query failed: ${response.status} - ${text}`);
+    }
+
+    const data = await response.json() as QueryResult<T>[];
+    console.log("[db] query result:", JSON.stringify(data).substring(0, 300));
+    
+    if (Array.isArray(data) && data.length > 0) {
+      const result = data[0];
+      if (result.status === "ERR") {
+        console.error("[db] query returned error:", result);
+        throw new Error(`Database query error: ${JSON.stringify(result)}`);
+      }
+      return result.result || [];
+    }
+    
+    return [];
+  } catch (error) {
+    console.error("[db] query exception:", error);
+    throw error;
   }
-  
-  return [];
 }
 
 export async function dbCreate<T>(table: string, data: Record<string, unknown>): Promise<T | null> {

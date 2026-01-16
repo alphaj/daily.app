@@ -92,31 +92,49 @@ export const authRouter = createTRPCRouter({
 
       console.log("[auth] signup attempt for:", normalizedEmail);
 
-      const existingUsers = await dbQuery<DbUser>(
-        `SELECT * FROM users WHERE email = "${normalizedEmail}"`
-      );
+      try {
+        const existingUsers = await dbQuery<DbUser>(
+          `SELECT * FROM users WHERE email = $email`,
+          { email: normalizedEmail }
+        );
 
-      if (existingUsers.length > 0) {
-        console.log("[auth] signup failed - email already registered");
-        throw new Error("Email already registered");
+        console.log("[auth] existing users check:", existingUsers.length);
+
+        if (existingUsers.length > 0) {
+          console.log("[auth] signup failed - email already registered");
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "Email already registered",
+          });
+        }
+
+        const passwordHash = await hashPassword(password);
+        const id = generateId();
+        const createdAt = new Date().toISOString();
+
+        await dbQuery(
+          `CREATE users SET id = $id, email = $email, passwordHash = $passwordHash, createdAt = $createdAt`,
+          { id, email: normalizedEmail, passwordHash, createdAt }
+        );
+
+        console.log("[auth] user created:", id);
+
+        const token = await generateToken(id, normalizedEmail);
+
+        return {
+          user: { id, email: normalizedEmail, createdAt },
+          token,
+        };
+      } catch (error) {
+        console.error("[auth] signup error:", error);
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to create account. Please try again.",
+        });
       }
-
-      const passwordHash = await hashPassword(password);
-      const id = generateId();
-      const createdAt = new Date().toISOString();
-
-      await dbQuery(
-        `CREATE users SET id = "${id}", email = "${normalizedEmail}", passwordHash = "${passwordHash}", createdAt = "${createdAt}"`
-      );
-
-      console.log("[auth] user created:", id);
-
-      const token = await generateToken(id, normalizedEmail);
-
-      return {
-        user: { id, email: normalizedEmail, createdAt },
-        token,
-      };
     }),
 
   login: publicProcedure
@@ -127,31 +145,51 @@ export const authRouter = createTRPCRouter({
 
       console.log("[auth] login attempt for:", normalizedEmail);
 
-      const users = await dbQuery<DbUser>(
-        `SELECT * FROM users WHERE email = "${normalizedEmail}"`
-      );
+      try {
+        const users = await dbQuery<DbUser>(
+          `SELECT * FROM users WHERE email = $email`,
+          { email: normalizedEmail }
+        );
 
-      if (users.length === 0) {
-        console.log("[auth] login failed - user not found");
-        throw new Error("Invalid email or password");
+        console.log("[auth] found users:", users.length);
+
+        if (users.length === 0) {
+          console.log("[auth] login failed - user not found");
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "Invalid email or password",
+          });
+        }
+
+        const user = users[0];
+        const isValid = await verifyPassword(password, user.passwordHash);
+        
+        if (!isValid) {
+          console.log("[auth] login failed - invalid password");
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "Invalid email or password",
+          });
+        }
+
+        const token = await generateToken(user.id, normalizedEmail);
+
+        console.log("[auth] login success:", user.id);
+
+        return {
+          user: { id: user.id, email: user.email, createdAt: user.createdAt },
+          token,
+        };
+      } catch (error) {
+        console.error("[auth] login error:", error);
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Login failed. Please try again.",
+        });
       }
-
-      const user = users[0];
-      const isValid = await verifyPassword(password, user.passwordHash);
-      
-      if (!isValid) {
-        console.log("[auth] login failed - invalid password");
-        throw new Error("Invalid email or password");
-      }
-
-      const token = await generateToken(user.id, normalizedEmail);
-
-      console.log("[auth] login success:", user.id);
-
-      return {
-        user: { id: user.id, email: user.email, createdAt: user.createdAt },
-        token,
-      };
     }),
 
   verifyToken: publicProcedure
@@ -164,7 +202,8 @@ export const authRouter = createTRPCRouter({
         console.log("[auth] verifying token for user:", userId);
 
         const users = await dbQuery<DbUser>(
-          `SELECT * FROM users WHERE id = "${userId}"`
+          `SELECT * FROM users WHERE id = $id`,
+          { id: userId }
         );
 
         if (users.length === 0) {
@@ -192,12 +231,15 @@ export const authRouter = createTRPCRouter({
 
         console.log("[auth] deleting account:", userId);
 
-        await dbQuery(`DELETE FROM users WHERE id = "${userId}"`);
+        await dbQuery(`DELETE FROM users WHERE id = $id`, { id: userId });
 
         return { success: true };
       } catch (error) {
         console.log("[auth] delete account failed:", error);
-        throw new Error("Failed to delete account");
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to delete account",
+        });
       }
     }),
 
@@ -209,7 +251,8 @@ export const authRouter = createTRPCRouter({
         console.log("[auth] password reset requested for:", normalizedEmail);
 
         const users = await dbQuery<DbUser>(
-          `SELECT * FROM users WHERE email = "${normalizedEmail}"`
+          `SELECT * FROM users WHERE email = $email`,
+          { email: normalizedEmail }
         );
 
         if (users.length === 0) {
@@ -218,7 +261,7 @@ export const authRouter = createTRPCRouter({
         }
 
         try {
-          await dbQuery(`DELETE FROM password_resets WHERE email = "${normalizedEmail}"`);
+          await dbQuery(`DELETE FROM password_resets WHERE email = $email`, { email: normalizedEmail });
         } catch (deleteError) {
           console.log("[auth] delete old resets failed (may not exist):", deleteError);
         }
@@ -228,7 +271,8 @@ export const authRouter = createTRPCRouter({
         const resetId = `reset_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
         await dbQuery(
-          `CREATE password_resets SET id = "${resetId}", email = "${normalizedEmail}", code = "${code}", expiresAt = "${expiresAt}", used = false`
+          `CREATE password_resets SET id = $id, email = $email, code = $code, expiresAt = $expiresAt, used = false`,
+          { id: resetId, email: normalizedEmail, code, expiresAt }
         );
 
         console.log("[auth] password reset code generated:", code);
@@ -253,23 +297,41 @@ export const authRouter = createTRPCRouter({
       const normalizedEmail = input.email.toLowerCase().trim();
       console.log("[auth] verifying reset code for:", normalizedEmail);
 
-      const resets = await dbQuery<DbPasswordReset>(
-        `SELECT * FROM password_resets WHERE email = "${normalizedEmail}" AND code = "${input.code}" AND used = false`
-      );
+      try {
+        const resets = await dbQuery<DbPasswordReset>(
+          `SELECT * FROM password_resets WHERE email = $email AND code = $code AND used = false`,
+          { email: normalizedEmail, code: input.code }
+        );
 
-      if (resets.length === 0) {
-        console.log("[auth] reset code not found or already used");
-        throw new Error("Invalid or expired code");
+        if (resets.length === 0) {
+          console.log("[auth] reset code not found or already used");
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invalid or expired code",
+          });
+        }
+
+        const reset = resets[0];
+        if (new Date(reset.expiresAt) < new Date()) {
+          console.log("[auth] reset code expired");
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Code has expired. Please request a new one.",
+          });
+        }
+
+        console.log("[auth] reset code verified successfully");
+        return { valid: true };
+      } catch (error) {
+        console.error("[auth] verifyResetCode error:", error);
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to verify code",
+        });
       }
-
-      const reset = resets[0];
-      if (new Date(reset.expiresAt) < new Date()) {
-        console.log("[auth] reset code expired");
-        throw new Error("Code has expired. Please request a new one.");
-      }
-
-      console.log("[auth] reset code verified successfully");
-      return { valid: true };
     }),
 
   resetPassword: publicProcedure
@@ -278,47 +340,68 @@ export const authRouter = createTRPCRouter({
       const normalizedEmail = input.email.toLowerCase().trim();
       console.log("[auth] resetting password for:", normalizedEmail);
 
-      const resets = await dbQuery<DbPasswordReset>(
-        `SELECT * FROM password_resets WHERE email = "${normalizedEmail}" AND code = "${input.code}" AND used = false`
-      );
+      try {
+        const resets = await dbQuery<DbPasswordReset>(
+          `SELECT * FROM password_resets WHERE email = $email AND code = $code AND used = false`,
+          { email: normalizedEmail, code: input.code }
+        );
 
-      if (resets.length === 0) {
-        console.log("[auth] reset code not found or already used");
-        throw new Error("Invalid or expired code");
+        if (resets.length === 0) {
+          console.log("[auth] reset code not found or already used");
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invalid or expired code",
+          });
+        }
+
+        const reset = resets[0];
+        if (new Date(reset.expiresAt) < new Date()) {
+          console.log("[auth] reset code expired");
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Code has expired. Please request a new one.",
+          });
+        }
+
+        const newPasswordHash = await hashPassword(input.newPassword);
+
+        await dbQuery(
+          `UPDATE users SET passwordHash = $passwordHash WHERE email = $email`,
+          { passwordHash: newPasswordHash, email: normalizedEmail }
+        );
+
+        await dbQuery(
+          `UPDATE password_resets SET used = true WHERE id = $id`,
+          { id: reset.id }
+        );
+
+        console.log("[auth] password reset successful");
+
+        const users = await dbQuery<DbUser>(
+          `SELECT * FROM users WHERE email = $email`,
+          { email: normalizedEmail }
+        );
+
+        if (users.length > 0) {
+          const user = users[0];
+          const token = await generateToken(user.id, normalizedEmail);
+          return {
+            success: true,
+            user: { id: user.id, email: user.email, createdAt: user.createdAt },
+            token,
+          };
+        }
+
+        return { success: true };
+      } catch (error) {
+        console.error("[auth] resetPassword error:", error);
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to reset password",
+        });
       }
-
-      const reset = resets[0];
-      if (new Date(reset.expiresAt) < new Date()) {
-        console.log("[auth] reset code expired");
-        throw new Error("Code has expired. Please request a new one.");
-      }
-
-      const newPasswordHash = await hashPassword(input.newPassword);
-
-      await dbQuery(
-        `UPDATE users SET passwordHash = "${newPasswordHash}" WHERE email = "${normalizedEmail}"`
-      );
-
-      await dbQuery(
-        `UPDATE password_resets SET used = true WHERE id = "${reset.id}"`
-      );
-
-      console.log("[auth] password reset successful");
-
-      const users = await dbQuery<DbUser>(
-        `SELECT * FROM users WHERE email = "${normalizedEmail}"`
-      );
-
-      if (users.length > 0) {
-        const user = users[0];
-        const token = await generateToken(user.id, normalizedEmail);
-        return {
-          success: true,
-          user: { id: user.id, email: user.email, createdAt: user.createdAt },
-          token,
-        };
-      }
-
-      return { success: true };
     }),
 });
