@@ -15,6 +15,9 @@ app.use(
         endpoint: "/api/trpc",
         router: appRouter,
         createContext,
+        onError: ({ error, path }) => {
+            console.error(`[trpc] error in ${path}:`, error.message);
+        },
     }),
 );
 

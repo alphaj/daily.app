@@ -1,5 +1,6 @@
 import * as z from "zod";
 import { SignJWT, jwtVerify } from "jose";
+import { TRPCError } from "@trpc/server";
 
 import { createTRPCRouter, publicProcedure } from "../create-context";
 import { dbQuery } from "../../db";
@@ -203,35 +204,47 @@ export const authRouter = createTRPCRouter({
   requestPasswordReset: publicProcedure
     .input(requestPasswordResetSchema)
     .mutation(async ({ input }) => {
-      const normalizedEmail = input.email.toLowerCase().trim();
-      console.log("[auth] password reset requested for:", normalizedEmail);
+      try {
+        const normalizedEmail = input.email.toLowerCase().trim();
+        console.log("[auth] password reset requested for:", normalizedEmail);
 
-      const users = await dbQuery<DbUser>(
-        `SELECT * FROM users WHERE email = "${normalizedEmail}"`
-      );
+        const users = await dbQuery<DbUser>(
+          `SELECT * FROM users WHERE email = "${normalizedEmail}"`
+        );
 
-      if (users.length === 0) {
-        console.log("[auth] password reset - email not found, returning success anyway");
-        return { success: true, message: "If an account exists, a reset code has been sent." };
+        if (users.length === 0) {
+          console.log("[auth] password reset - email not found, returning success anyway");
+          return { success: true, message: "If an account exists, a reset code has been sent." };
+        }
+
+        try {
+          await dbQuery(`DELETE FROM password_resets WHERE email = "${normalizedEmail}"`);
+        } catch (deleteError) {
+          console.log("[auth] delete old resets failed (may not exist):", deleteError);
+        }
+
+        const code = generateResetCode();
+        const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+        const resetId = `reset_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+        await dbQuery(
+          `CREATE password_resets SET id = "${resetId}", email = "${normalizedEmail}", code = "${code}", expiresAt = "${expiresAt}", used = false`
+        );
+
+        console.log("[auth] password reset code generated:", code);
+
+        return { 
+          success: true, 
+          message: "If an account exists, a reset code has been sent.",
+          code: code,
+        };
+      } catch (error) {
+        console.error("[auth] requestPasswordReset error:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to process password reset request",
+        });
       }
-
-      await dbQuery(`DELETE FROM password_resets WHERE email = "${normalizedEmail}"`);
-
-      const code = generateResetCode();
-      const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-      const resetId = `reset_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-      await dbQuery(
-        `CREATE password_resets SET id = "${resetId}", email = "${normalizedEmail}", code = "${code}", expiresAt = "${expiresAt}", used = false`
-      );
-
-      console.log("[auth] password reset code generated:", code);
-
-      return { 
-        success: true, 
-        message: "If an account exists, a reset code has been sent.",
-        code: code,
-      };
     }),
 
   verifyResetCode: publicProcedure
