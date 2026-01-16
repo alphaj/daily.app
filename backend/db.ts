@@ -20,16 +20,18 @@ export async function dbQuery<T>(query: string, vars?: Record<string, unknown>):
   
   console.log("[db] executing query:", query.substring(0, 100));
 
+  const hasVars = vars && Object.keys(vars).length > 0;
+  
   const response = await fetch(url, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
+      "Content-Type": hasVars ? "application/json" : "text/plain",
       "Accept": "application/json",
       "Authorization": `Bearer ${DB_TOKEN}`,
       "Surreal-NS": DB_NAMESPACE,
       "Surreal-DB": "main",
     },
-    body: vars ? JSON.stringify({ query, vars }) : query,
+    body: hasVars ? JSON.stringify({ query, vars }) : query,
   });
 
   if (!response.ok) {
