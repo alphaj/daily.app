@@ -2,7 +2,6 @@ import { useRouter } from 'expo-router';
 import {
     ChevronLeft,
     ChevronRight,
-    User,
     Bell,
     Palette,
     Download,
@@ -10,9 +9,7 @@ import {
     MessageSquare,
     Star,
     Shield,
-    LogOut,
     FolderKanban,
-    Trash2,
 } from 'lucide-react-native';
 import React from 'react';
 import {
@@ -21,11 +18,10 @@ import {
     StyleSheet,
     Pressable,
     ScrollView,
-    Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { useAuth } from '@/contexts/AuthContext';
+
 
 interface MenuItemProps {
     icon: React.ReactNode;
@@ -66,43 +62,6 @@ function MenuSection({ title, children }: { title?: string; children: React.Reac
 
 export default function MenuScreen() {
     const router = useRouter();
-    const { logout, deleteAccount, user } = useAuth();
-
-    const handleLogout = () => {
-        Alert.alert(
-            'Log out',
-            'Are you sure you want to log out?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Log out',
-                    style: 'destructive',
-                    onPress: async () => {
-                        await logout();
-                        router.replace('/(onboarding)/email');
-                    }
-                },
-            ]
-        );
-    };
-
-    const handleDeleteAccount = () => {
-        Alert.alert(
-            'Delete Account',
-            'This will permanently delete your account and all your data including habits, tasks, notes, and projects. This action cannot be undone.',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Delete Account',
-                    style: 'destructive',
-                    onPress: async () => {
-                        await deleteAccount();
-                        router.replace('/(onboarding)/splash');
-                    }
-                },
-            ]
-        );
-    };
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
@@ -132,15 +91,6 @@ export default function MenuScreen() {
                         title="Projects"
                         subtitle="Manage your projects"
                         onPress={() => router.push('/projects')}
-                    />
-                </MenuSection>
-
-                {/* Account Section */}
-                <MenuSection title="Account">
-                    <MenuItem
-                        icon={<User size={22} color="#5856D6" />}
-                        title="Profile"
-                        subtitle={user?.email || 'Manage your account'}
                     />
                 </MenuSection>
 
@@ -186,25 +136,6 @@ export default function MenuScreen() {
                     <MenuItem
                         icon={<Star size={22} color="#FFCC00" />}
                         title="Rate the App"
-                    />
-                </MenuSection>
-
-                {/* Danger Zone */}
-                <MenuSection>
-                    <MenuItem
-                        icon={<LogOut size={22} color="#FF3B30" />}
-                        title="Log out"
-                        onPress={handleLogout}
-                        showChevron={false}
-                        danger
-                    />
-                    <MenuItem
-                        icon={<Trash2 size={22} color="#FF3B30" />}
-                        title="Delete Account"
-                        subtitle="Permanently delete all data"
-                        onPress={handleDeleteAccount}
-                        showChevron={false}
-                        danger
                     />
                 </MenuSection>
 

@@ -12,19 +12,12 @@ export default function OnboardingLayout() {
                     contentStyle: { backgroundColor: '#FFFFFF' },
                 }}
             >
-                <Stack.Screen name="splash" />
-                <Stack.Screen name="email" />
-                <Stack.Screen name="login" />
                 <Stack.Screen name="notifications" />
                 <Stack.Screen name="loses-day" />
                 <Stack.Screen name="falls-through" />
                 <Stack.Screen name="feeling" />
                 <Stack.Screen name="today-win" />
                 <Stack.Screen name="welcome" />
-                <Stack.Screen name="password" />
-                <Stack.Screen name="create-password" />
-                <Stack.Screen name="forgot-password" />
-                <Stack.Screen name="reset-password" />
             </Stack>
         </OnboardingProvider>
     );
