@@ -2,7 +2,7 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Habit, ImplementationIntention, DayCompletion, HabitStats } from '@/types/habit';
+import type { Habit, ImplementationIntention, DayCompletion, HabitStats, DayOfWeek } from '@/types/habit';
 
 const HABITS_STORAGE_KEY = 'daily_habits';
 
@@ -83,7 +83,8 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
     intention?: ImplementationIntention,
     emoji?: string,
     whyStatement?: string,
-    celebrationPhrase?: string
+    celebrationPhrase?: string,
+    scheduledDays?: DayOfWeek[]
   ) => {
     const newHabit: Habit = {
       id: generateId(),
@@ -96,6 +97,7 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
       intention,
       whyStatement,
       celebrationPhrase,
+      scheduledDays,
     };
 
     const newHabits = [...habits, newHabit];
@@ -105,7 +107,7 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
 
   const updateHabit = useCallback(async (
     id: string,
-    updates: Partial<Pick<Habit, 'name' | 'intention' | 'emoji' | 'whyStatement' | 'celebrationPhrase'>>
+    updates: Partial<Pick<Habit, 'name' | 'intention' | 'emoji' | 'whyStatement' | 'celebrationPhrase' | 'scheduledDays'>>
   ) => {
     const newHabits = habits.map(h =>
       h.id === id ? { ...h, ...updates } : h

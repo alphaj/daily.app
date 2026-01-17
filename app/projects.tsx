@@ -7,7 +7,6 @@ import {
   Clock,
   Trophy,
   Target,
-  Lightbulb,
 } from 'lucide-react-native';
 import { format } from 'date-fns';
 import React, { useRef } from 'react';
@@ -188,7 +187,7 @@ export default function ProjectsScreen() {
         {activeProjects.length === 0 && completedProjects.length === 0 ? (
           <View style={styles.emptyState}>
             <View style={styles.emptyIconContainer}>
-              <Lightbulb size={48} color="#C7C7CC" strokeWidth={1} />
+              <Target size={48} color="#C7C7CC" strokeWidth={1} />
             </View>
             <Text style={styles.emptyTitle}>No Projects or Goals</Text>
             <Text style={styles.emptyText}>

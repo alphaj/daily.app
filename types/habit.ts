@@ -4,6 +4,9 @@ export interface ImplementationIntention {
   cue?: string;
 }
 
+/** Day of week indices (0 = Sunday, 1 = Monday, ..., 6 = Saturday) */
+export type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
 export interface Habit {
   id: string;
   name: string;
@@ -17,6 +20,8 @@ export interface Habit {
   whyStatement?: string;
   /** 3-word celebration phrase shown when all habits are complete */
   celebrationPhrase?: string;
+  /** Days of week this habit should be tracked (0-6, Sunday-Saturday). Empty/undefined = every day */
+  scheduledDays?: DayOfWeek[];
 }
 
 export interface HabitStats {

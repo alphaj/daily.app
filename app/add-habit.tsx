@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useHabits } from '@/contexts/HabitContext';
+import type { DayOfWeek } from '@/types/habit';
 
 // Popular habit emojis - just the essentials
 const QUICK_EMOJIS = ['💪', '📚', '🧘', '💧', '🏃', '😴', '✍️', '🎯'];
@@ -32,6 +33,17 @@ const ALL_EMOJIS = [
   '🧹', '🧺', '🪴', '🛏️', '🧽', '🪥', '📦', '🧸',
 ];
 
+// Days of the week for iOS-style picker
+const DAYS_OF_WEEK: { label: string; short: string; value: DayOfWeek }[] = [
+  { label: 'Sunday', short: 'S', value: 0 },
+  { label: 'Monday', short: 'M', value: 1 },
+  { label: 'Tuesday', short: 'T', value: 2 },
+  { label: 'Wednesday', short: 'W', value: 3 },
+  { label: 'Thursday', short: 'T', value: 4 },
+  { label: 'Friday', short: 'F', value: 5 },
+  { label: 'Saturday', short: 'S', value: 6 },
+];
+
 export default function AddHabitScreen() {
   const router = useRouter();
   const { addHabit } = useHabits();
@@ -40,16 +52,20 @@ export default function AddHabitScreen() {
   const [showAllEmojis, setShowAllEmojis] = useState(false);
   const [whyStatement, setWhyStatement] = useState('');
   const [celebrationPhrase, setCelebrationPhrase] = useState('');
+  const [selectedDays, setSelectedDays] = useState<DayOfWeek[]>([0, 1, 2, 3, 4, 5, 6]); // All days by default
 
   const handleSave = () => {
     if (habitName.trim()) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // If all days are selected, pass undefined (means every day)
+      const scheduledDays = selectedDays.length === 7 ? undefined : selectedDays;
       addHabit(
         habitName.trim(),
         {},
         selectedEmoji || undefined,
         whyStatement.trim() || undefined,
-        celebrationPhrase.trim() || undefined
+        celebrationPhrase.trim() || undefined,
+        scheduledDays
       );
       router.back();
     }
@@ -70,7 +86,35 @@ export default function AddHabitScreen() {
     setShowAllEmojis(!showAllEmojis);
   };
 
-  const isValid = habitName.trim().length > 0;
+  const toggleDay = (day: DayOfWeek) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedDays(prev => {
+      if (prev.includes(day)) {
+        // Don't allow deselecting all days
+        if (prev.length === 1) return prev;
+        return prev.filter(d => d !== day);
+      }
+      return [...prev, day].sort((a, b) => a - b);
+    });
+  };
+
+  const selectAllDays = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedDays([0, 1, 2, 3, 4, 5, 6]);
+  };
+
+  const selectWeekdays = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedDays([1, 2, 3, 4, 5]);
+  };
+
+  const hasName = habitName.trim().length > 0;
+  const hasIcon = selectedEmoji !== null;
+  const isValid = hasName && hasIcon;
+  const needsIcon = hasName && !hasIcon; // Show hint when name is filled but icon isn't
+  const isEveryDay = selectedDays.length === 7;
+  const isWeekdaysOnly = selectedDays.length === 5 &&
+    [1, 2, 3, 4, 5].every(d => selectedDays.includes(d as DayOfWeek));
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -96,7 +140,8 @@ export default function AddHabitScreen() {
             <Pressable
               style={[
                 styles.emojiDisplay,
-                selectedEmoji && styles.emojiDisplayActive
+                selectedEmoji && styles.emojiDisplayActive,
+                needsIcon && styles.emojiDisplayNeedsSelection
               ]}
               onPress={() => setSelectedEmoji(null)}
             >
@@ -104,6 +149,9 @@ export default function AddHabitScreen() {
                 {selectedEmoji || '✨'}
               </Text>
             </Pressable>
+            {needsIcon && (
+              <Text style={styles.iconHint}>Choose an icon for your habit</Text>
+            )}
 
             {/* Habit Input */}
             <TextInput
@@ -117,37 +165,25 @@ export default function AddHabitScreen() {
               onSubmitEditing={handleSave}
             />
 
-            {/* Quick Emoji Row */}
+            {/* Emoji Picker - iOS-style: one unified grid when expanded */}
             <View style={styles.emojiSection}>
-              <View style={styles.emojiRow}>
-                {QUICK_EMOJIS.map((emoji) => (
-                  <Pressable
-                    key={emoji}
-                    style={[
-                      styles.emojiButton,
-                      selectedEmoji === emoji && styles.emojiButtonSelected,
-                    ]}
-                    onPress={() => selectEmoji(emoji)}
-                  >
-                    <Text style={styles.emojiText}>{emoji}</Text>
-                  </Pressable>
-                ))}
-              </View>
-
-              {/* More Button */}
-              <Pressable style={styles.moreButton} onPress={toggleEmojiPicker}>
-                <Text style={styles.moreButtonText}>
-                  {showAllEmojis ? 'Show less' : 'More icons'}
-                </Text>
-                {showAllEmojis ? (
-                  <ChevronUp size={16} color="#5856D6" />
-                ) : (
-                  <ChevronDown size={16} color="#5856D6" />
-                )}
-              </Pressable>
-
-              {/* Expanded Emoji Grid */}
-              {showAllEmojis && (
+              {/* Show quick row when collapsed, full grid when expanded */}
+              {!showAllEmojis ? (
+                <View style={styles.emojiRow}>
+                  {QUICK_EMOJIS.map((emoji) => (
+                    <Pressable
+                      key={emoji}
+                      style={[
+                        styles.emojiButton,
+                        selectedEmoji === emoji && styles.emojiButtonSelected,
+                      ]}
+                      onPress={() => selectEmoji(emoji)}
+                    >
+                      <Text style={styles.emojiText}>{emoji}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : (
                 <View style={styles.allEmojisGrid}>
                   {ALL_EMOJIS.map((emoji, index) => (
                     <Pressable
@@ -163,6 +199,67 @@ export default function AddHabitScreen() {
                   ))}
                 </View>
               )}
+
+              {/* More/Less Button */}
+              <Pressable style={styles.moreButton} onPress={toggleEmojiPicker}>
+                <Text style={styles.moreButtonText}>
+                  {showAllEmojis ? 'Show less' : 'More icons'}
+                </Text>
+                {showAllEmojis ? (
+                  <ChevronUp size={16} color="#5856D6" />
+                ) : (
+                  <ChevronDown size={16} color="#5856D6" />
+                )}
+              </Pressable>
+            </View>
+
+            {/* Day Selector Section */}
+            <View style={styles.daySection}>
+              <Text style={styles.daySectionLabel}>Repeat on</Text>
+
+              {/* Quick Select Buttons */}
+              <View style={styles.quickSelectRow}>
+                <Pressable
+                  style={[styles.quickSelectButton, isEveryDay && styles.quickSelectButtonActive]}
+                  onPress={selectAllDays}
+                >
+                  <Text style={[styles.quickSelectText, isEveryDay && styles.quickSelectTextActive]}>
+                    Every day
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.quickSelectButton, isWeekdaysOnly && styles.quickSelectButtonActive]}
+                  onPress={selectWeekdays}
+                >
+                  <Text style={[styles.quickSelectText, isWeekdaysOnly && styles.quickSelectTextActive]}>
+                    Weekdays
+                  </Text>
+                </Pressable>
+              </View>
+
+              {/* Day Pills */}
+              <View style={styles.dayPillsRow}>
+                {DAYS_OF_WEEK.map((day) => {
+                  const isSelected = selectedDays.includes(day.value);
+                  return (
+                    <Pressable
+                      key={day.value}
+                      style={[
+                        styles.dayPill,
+                        isSelected && styles.dayPillSelected,
+                      ]}
+                      onPress={() => toggleDay(day.value)}
+                    >
+                      <Text style={[
+                        styles.dayPillText,
+                        isSelected && styles.dayPillTextSelected,
+                      ]}>
+                        {day.short}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
 
             {/* Reflection Fields */}
@@ -256,6 +353,17 @@ const styles = StyleSheet.create({
   },
   emojiDisplayActive: {
     backgroundColor: '#EEF0FF',
+  },
+  emojiDisplayNeedsSelection: {
+    borderWidth: 2,
+    borderColor: '#5856D6',
+    borderStyle: 'dashed',
+  },
+  iconHint: {
+    fontSize: 13,
+    color: '#5856D6',
+    fontWeight: '500',
+    marginTop: -12,
   },
   emojiDisplayText: {
     fontSize: 36,
@@ -378,5 +486,64 @@ const styles = StyleSheet.create({
     marginTop: 12,
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  // Day Selector Styles
+  daySection: {
+    width: '100%',
+    paddingTop: 8,
+  },
+  daySectionLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#8E8E93',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  quickSelectRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  quickSelectButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: '#F2F2F7',
+  },
+  quickSelectButtonActive: {
+    backgroundColor: '#5856D6',
+  },
+  quickSelectText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#8E8E93',
+  },
+  quickSelectTextActive: {
+    color: '#fff',
+  },
+  dayPillsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  dayPill: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F2F2F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dayPillSelected: {
+    backgroundColor: '#5856D6',
+  },
+  dayPillText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#8E8E93',
+  },
+  dayPillTextSelected: {
+    color: '#fff',
   },
 });

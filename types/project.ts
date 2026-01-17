@@ -35,9 +35,16 @@ export const PROJECT_COLORS = [
   '#A8B5E0', // Periwinkle
   '#E8A0B5', // Dusty rose
   '#7FDBDA', // Turquoise
+  '#C9A0DC', // Wisteria
+  '#FFD180', // Light orange
+  '#A5D6A7', // Light green
+  '#90CAF9', // Soft blue
+  '#FFAB91', // Salmon
+  '#CE93D8', // Orchid
 ] as const;
 
 export const PROJECT_ICONS = [
   '🚀', '🎯', '💡', '📚', '🏆', '🎨', '💪', '🌟', '🔥', '⚡',
   '🎬', '📱', '💻', '🏠', '✈️', '🎵', '📷', '🛠️', '🌱', '💎',
+  '🎁', '🧠', '❤️', '🌈',
 ] as const;

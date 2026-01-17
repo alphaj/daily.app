@@ -10,6 +10,7 @@ import {
   PenLine,
   ListTodo,
   GripVertical,
+  Target,
 } from 'lucide-react-native';
 import React, { useCallback, useState, useEffect, useRef, useMemo } from 'react';
 import {
@@ -721,11 +722,7 @@ export default function HomeScreen() {
           <View style={styles.sectionHeaderPadding}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleRow}>
-                <Image
-                  source={require('../assets/images/custom-habit-icon.png')}
-                  style={{ width: 24, height: 24 }}
-                  resizeMode="contain"
-                />
+                <Target size={20} color="#5856D6" />
                 <Text style={styles.sectionLabel}>Habits</Text>
               </View>
               <Pressable onPress={() => router.push('/add-habit')} style={styles.addButton}>
