@@ -66,22 +66,22 @@ function MenuSection({ title, children }: { title?: string; children: React.Reac
 export default function MenuScreen() {
     const router = useRouter();
 
-    const handleResetApp = () => {
+    const handleSignOut = () => {
         Alert.alert(
-            'Reset App',
-            'This will clear all your data and return you to the welcome screen. This action cannot be undone.',
+            'Sign Out',
+            'This will sign you out and return you to the welcome screen. Your data will be cleared.',
             [
                 { text: 'Cancel', style: 'cancel' },
                 {
-                    text: 'Reset',
+                    text: 'Sign Out',
                     style: 'destructive',
                     onPress: async () => {
                         try {
                             await AsyncStorage.clear();
                             router.replace('/(onboarding)/welcome');
                         } catch (error) {
-                            console.log('Error resetting app:', error);
-                            Alert.alert('Error', 'Failed to reset app. Please try again.');
+                            console.log('Error signing out:', error);
+                            Alert.alert('Error', 'Failed to sign out. Please try again.');
                         }
                     },
                 },
@@ -169,9 +169,9 @@ export default function MenuScreen() {
                 <MenuSection title="Account">
                     <MenuItem
                         icon={<LogOut size={22} color="#FF3B30" />}
-                        title="Reset App"
-                        subtitle="Clear all data & start fresh"
-                        onPress={handleResetApp}
+                        title="Sign Out"
+                        subtitle="Return to welcome screen"
+                        onPress={handleSignOut}
                         danger
                     />
                 </MenuSection>
