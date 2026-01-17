@@ -201,7 +201,12 @@ function DraggableTaskList({
   const isDragging = draggedIndex !== null;
 
   useEffect(() => {
-    setLocalTodos(todos);
+    // Sort: incomplete tasks first, then completed at bottom
+    const sorted = [...todos].sort((a, b) => {
+      if (a.completed === b.completed) return 0;
+      return a.completed ? 1 : -1;
+    });
+    setLocalTodos(sorted);
   }, [todos]);
 
   const handleDragStart = useCallback((index: number) => {
@@ -212,7 +217,7 @@ function DraggableTaskList({
     const moveThreshold = ITEM_HEIGHT * 0.5;
     const indexDelta = Math.round(gestureY / ITEM_HEIGHT);
     const newIndex = Math.max(0, Math.min(localTodos.length - 1, fromIndex + indexDelta));
-    
+
     if (newIndex !== fromIndex && Math.abs(gestureY) > moveThreshold) {
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       const newTodos = [...localTodos];

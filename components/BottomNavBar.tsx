@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LayoutGrid, Inbox, FolderKanban, ListChecks, Plus } from 'lucide-react-native';
+import { LayoutGrid, Inbox, Lightbulb, ListTodo, Plus } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
 export type NavRoute = 'home' | 'inbox' | 'projects' | 'habits' | 'menu';
@@ -13,8 +13,9 @@ interface BottomNavBarProps {
 
 const NAV_ITEMS: { route: NavRoute; path: string; icon: any }[] = [
     { route: 'home', path: '/', icon: LayoutGrid },
-    { route: 'projects', path: '/projects', icon: FolderKanban },
-    { route: 'habits', path: '/habits', icon: ListChecks },
+    { route: 'projects', path: '/projects', icon: Lightbulb },
+    { route: 'habits', path: '/habits', icon: ListTodo },
+
     { route: 'inbox', path: '/inbox', icon: Inbox },
 ];
 

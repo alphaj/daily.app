@@ -9,9 +9,12 @@ export default function OnboardingLayout() {
                     headerShown: false,
                     animation: 'slide_from_right',
                     gestureEnabled: true,
-                    contentStyle: { backgroundColor: '#FFFFFF' },
+                    contentStyle: { backgroundColor: '#000000' },
                 }}
             >
+                <Stack.Screen name="sign-up-email" />
+                <Stack.Screen name="create-password" />
+                <Stack.Screen name="login" />
                 <Stack.Screen name="notifications" />
                 <Stack.Screen name="loses-day" />
                 <Stack.Screen name="falls-through" />

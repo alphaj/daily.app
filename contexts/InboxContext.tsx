@@ -1,24 +1,33 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import createContextHook from '@nkzw/create-context-hook';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, useCallback } from 'react';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 import type { InboxItem, InboxItemType, InboxArea } from '@/types/inbox';
 
-const STORAGE_KEY = 'inbox_items';
-const MIGRATION_KEY = 'inbox_migration_done';
-const OLD_BRAIN_DUMP_KEY = 'brain_dump_items';
-const OLD_LATER_KEY = 'later_items';
+interface DbInboxItem {
+    id: string;
+    user_id: string;
+    content: string;
+    note: string | null;
+    type: string;
+    area: string | null;
+    is_pinned: boolean;
+    is_archived: boolean;
+    archived_at: string | null;
+    order: number;
+    converted_to_task_id: string | null;
+    converted_to_habit_id: string | null;
+    created_at: string;
+}
 
-// Auto-detect content type based on input
 function detectType(content: string): InboxItemType {
     const trimmed = content.trim().toLowerCase();
 
-    // Check for URLs
     if (/https?:\/\/[^\s]+/.test(content) || /www\.[^\s]+/.test(content)) {
-        return 'idea'; // Links are often ideas to explore
+        return 'idea';
     }
 
-    // Check for reminder patterns
     if (
         trimmed.startsWith('remind me') ||
         trimmed.startsWith("don't forget") ||
@@ -28,7 +37,6 @@ function detectType(content: string): InboxItemType {
         return 'reminder';
     }
 
-    // Check for idea patterns
     if (
         trimmed.startsWith('idea:') ||
         trimmed.startsWith('idea -') ||
@@ -37,7 +45,6 @@ function detectType(content: string): InboxItemType {
         return 'idea';
     }
 
-    // Check for task patterns
     if (
         trimmed.startsWith('todo:') ||
         trimmed.startsWith('task:') ||
@@ -46,7 +53,6 @@ function detectType(content: string): InboxItemType {
         return 'task';
     }
 
-    // Check for someday/later patterns
     if (
         trimmed.startsWith('someday') ||
         trimmed.startsWith('later') ||
@@ -55,103 +61,46 @@ function detectType(content: string): InboxItemType {
         return 'someday';
     }
 
-    // Default to thought
     return 'thought';
 }
 
-function generateId(): string {
-    return Date.now().toString(36) + Math.random().toString(36).substring(2);
-}
-
-// Migration function to convert old data
-async function migrateOldData(): Promise<InboxItem[]> {
-    const migrated: InboxItem[] = [];
-
-    try {
-        // Migrate Brain Dump items
-        const brainDumpData = await AsyncStorage.getItem(OLD_BRAIN_DUMP_KEY);
-        if (brainDumpData) {
-            const items = JSON.parse(brainDumpData);
-            for (const item of items) {
-                migrated.push({
-                    id: item.id || generateId(),
-                    content: item.content,
-                    type: item.type === 'link' ? 'idea' : (item.type || 'thought'),
-                    createdAt: item.createdAt || new Date().toISOString(),
-                    isPinned: item.isPinned || false,
-                    isArchived: item.isArchived || false,
-                    convertedToTaskId: item.convertedToTaskId,
-                    convertedToHabitId: item.convertedToHabitId,
-                });
-            }
-        }
-
-        // Migrate Later items
-        const laterData = await AsyncStorage.getItem(OLD_LATER_KEY);
-        if (laterData) {
-            const items = JSON.parse(laterData);
-            for (const item of items) {
-                migrated.push({
-                    id: item.id || generateId(),
-                    content: item.title,
-                    note: item.note,
-                    type: 'someday', // Later items become "someday" type
-                    area: item.area,
-                    createdAt: item.createdAt || new Date().toISOString(),
-                    isPinned: false,
-                    isArchived: !!item.archivedAt,
-                    archivedAt: item.archivedAt,
-                    order: item.order,
-                });
-            }
-        }
-    } catch (error) {
-        console.error('[InboxContext] Migration error:', error);
-    }
-
-    return migrated;
+function mapDbItemToInboxItem(dbItem: DbInboxItem): InboxItem {
+    return {
+        id: dbItem.id,
+        content: dbItem.content,
+        note: dbItem.note || undefined,
+        type: dbItem.type as InboxItemType,
+        area: dbItem.area as InboxArea | undefined,
+        createdAt: dbItem.created_at,
+        isPinned: dbItem.is_pinned,
+        isArchived: dbItem.is_archived,
+        archivedAt: dbItem.archived_at || undefined,
+        order: dbItem.order,
+        convertedToTaskId: dbItem.converted_to_task_id || undefined,
+        convertedToHabitId: dbItem.converted_to_habit_id || undefined,
+    };
 }
 
 export const [InboxProvider, useInbox] = createContextHook(() => {
     const queryClient = useQueryClient();
+    const { user } = useAuth();
     const [items, setItems] = useState<InboxItem[]>([]);
 
     const itemsQuery = useQuery({
-        queryKey: ['inbox'],
+        queryKey: ['inbox', user?.id],
         queryFn: async () => {
-            // Check if migration is needed
-            const migrationDone = await AsyncStorage.getItem(MIGRATION_KEY);
+            if (!user) return [];
 
-            if (!migrationDone) {
-                // Perform migration
-                const migratedItems = await migrateOldData();
-                const existingData = await AsyncStorage.getItem(STORAGE_KEY);
-                const existingItems = existingData ? JSON.parse(existingData) : [];
+            const { data, error } = await supabase
+                .from('inbox_items')
+                .select('*')
+                .eq('user_id', user.id);
 
-                // Combine migrated + existing (if any)
-                const allItems = [...migratedItems, ...existingItems];
+            if (error) throw error;
 
-                // Save and mark migration complete
-                await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(allItems));
-                await AsyncStorage.setItem(MIGRATION_KEY, 'true');
-
-                console.log('[InboxContext] Migration complete:', allItems.length, 'items');
-                return allItems;
-            }
-
-            const stored = await AsyncStorage.getItem(STORAGE_KEY);
-            return stored ? JSON.parse(stored) : [];
+            return (data as DbInboxItem[]).map(mapDbItemToInboxItem);
         },
-    });
-
-    const saveMutation = useMutation({
-        mutationFn: async (items: InboxItem[]) => {
-            await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-            return items;
-        },
-        onSuccess: (items) => {
-            queryClient.setQueryData(['inbox'], items);
-        },
+        enabled: !!user,
     });
 
     useEffect(() => {
@@ -160,145 +109,211 @@ export const [InboxProvider, useInbox] = createContextHook(() => {
         }
     }, [itemsQuery.data]);
 
-    const addItem = useCallback(
-        (content: string, type?: InboxItemType, area?: InboxArea, note?: string) => {
-            const newItem: InboxItem = {
-                id: generateId(),
+    const addItem = useCallback(async (
+        content: string,
+        type?: InboxItemType,
+        area?: InboxArea,
+        note?: string
+    ) => {
+        if (!user) return null;
+
+        const minOrder = items.length > 0 ? Math.min(...items.map(i => i.order ?? 0)) - 1 : 0;
+
+        const { data, error } = await supabase
+            .from('inbox_items')
+            .insert({
+                user_id: user.id,
                 content: content.trim(),
-                note,
+                note: note || null,
                 type: type || detectType(content),
-                area,
-                createdAt: new Date().toISOString(),
-                isPinned: false,
-                isArchived: false,
-                order: items.length > 0 ? Math.min(...items.map((i) => i.order ?? 0)) - 1 : 0,
-            };
-            const updated = [newItem, ...items];
-            setItems(updated);
-            saveMutation.mutate(updated);
-            return newItem;
-        },
-        [items, saveMutation]
-    );
+                area: area || null,
+                order: minOrder,
+            })
+            .select()
+            .single();
 
-    const updateItem = useCallback(
-        (id: string, updates: Partial<Pick<InboxItem, 'content' | 'note' | 'type' | 'area'>>) => {
-            const updated = items.map((item) =>
-                item.id === id ? { ...item, ...updates } : item
-            );
-            setItems(updated);
-            saveMutation.mutate(updated);
-        },
-        [items, saveMutation]
-    );
+        if (error) {
+            console.error('Failed to add inbox item:', error);
+            return null;
+        }
 
-    const deleteItem = useCallback(
-        (id: string) => {
-            const updated = items.filter((item) => item.id !== id);
-            setItems(updated);
-            saveMutation.mutate(updated);
-        },
-        [items, saveMutation]
-    );
+        queryClient.invalidateQueries({ queryKey: ['inbox', user.id] });
+        return mapDbItemToInboxItem(data);
+    }, [user, items, queryClient]);
 
-    const togglePin = useCallback(
-        (id: string) => {
-            const updated = items.map((item) =>
-                item.id === id ? { ...item, isPinned: !item.isPinned } : item
-            );
-            setItems(updated);
-            saveMutation.mutate(updated);
-        },
-        [items, saveMutation]
-    );
+    const updateItem = useCallback(async (
+        id: string,
+        updates: Partial<Pick<InboxItem, 'content' | 'note' | 'type' | 'area'>>
+    ) => {
+        if (!user) return;
 
-    const archiveItem = useCallback(
-        (id: string) => {
-            const updated = items.map((item) =>
-                item.id === id
-                    ? { ...item, isArchived: true, archivedAt: new Date().toISOString() }
-                    : item
-            );
-            setItems(updated);
-            saveMutation.mutate(updated);
-        },
-        [items, saveMutation]
-    );
+        const { error } = await supabase
+            .from('inbox_items')
+            .update({
+                content: updates.content,
+                note: updates.note || null,
+                type: updates.type,
+                area: updates.area || null,
+            })
+            .eq('id', id)
+            .eq('user_id', user.id);
 
-    const restoreItem = useCallback(
-        (id: string) => {
-            const updated = items.map((item) =>
-                item.id === id ? { ...item, isArchived: false, archivedAt: undefined } : item
-            );
-            setItems(updated);
-            saveMutation.mutate(updated);
-        },
-        [items, saveMutation]
-    );
+        if (error) {
+            console.error('Failed to update inbox item:', error);
+            return;
+        }
 
-    const markConvertedToTask = useCallback(
-        (id: string, taskId: string) => {
-            const updated = items.map((item) =>
-                item.id === id ? { ...item, convertedToTaskId: taskId } : item
-            );
-            setItems(updated);
-            saveMutation.mutate(updated);
-        },
-        [items, saveMutation]
-    );
+        queryClient.invalidateQueries({ queryKey: ['inbox', user.id] });
+    }, [user, queryClient]);
 
-    const markConvertedToHabit = useCallback(
-        (id: string, habitId: string) => {
-            const updated = items.map((item) =>
-                item.id === id ? { ...item, convertedToHabitId: habitId } : item
-            );
-            setItems(updated);
-            saveMutation.mutate(updated);
-        },
-        [items, saveMutation]
-    );
+    const deleteItem = useCallback(async (id: string) => {
+        if (!user) return;
 
-    const reorderItems = useCallback(
-        (reorderedIds: string[]) => {
-            const updated = items.map((item) => {
-                const newIndex = reorderedIds.indexOf(item.id);
-                if (newIndex !== -1) {
-                    return { ...item, order: newIndex };
-                }
-                return item;
-            });
-            setItems(updated);
-            saveMutation.mutate(updated);
-        },
-        [items, saveMutation]
-    );
+        const { error } = await supabase
+            .from('inbox_items')
+            .delete()
+            .eq('id', id)
+            .eq('user_id', user.id);
+
+        if (error) {
+            console.error('Failed to delete inbox item:', error);
+            return;
+        }
+
+        queryClient.invalidateQueries({ queryKey: ['inbox', user.id] });
+    }, [user, queryClient]);
+
+    const togglePin = useCallback(async (id: string) => {
+        if (!user) return;
+
+        const item = items.find(i => i.id === id);
+        if (!item) return;
+
+        const { error } = await supabase
+            .from('inbox_items')
+            .update({ is_pinned: !item.isPinned })
+            .eq('id', id)
+            .eq('user_id', user.id);
+
+        if (error) {
+            console.error('Failed to toggle pin:', error);
+            return;
+        }
+
+        queryClient.invalidateQueries({ queryKey: ['inbox', user.id] });
+    }, [user, items, queryClient]);
+
+    const archiveItem = useCallback(async (id: string) => {
+        if (!user) return;
+
+        const { error } = await supabase
+            .from('inbox_items')
+            .update({
+                is_archived: true,
+                archived_at: new Date().toISOString(),
+            })
+            .eq('id', id)
+            .eq('user_id', user.id);
+
+        if (error) {
+            console.error('Failed to archive item:', error);
+            return;
+        }
+
+        queryClient.invalidateQueries({ queryKey: ['inbox', user.id] });
+    }, [user, queryClient]);
+
+    const restoreItem = useCallback(async (id: string) => {
+        if (!user) return;
+
+        const { error } = await supabase
+            .from('inbox_items')
+            .update({
+                is_archived: false,
+                archived_at: null,
+            })
+            .eq('id', id)
+            .eq('user_id', user.id);
+
+        if (error) {
+            console.error('Failed to restore item:', error);
+            return;
+        }
+
+        queryClient.invalidateQueries({ queryKey: ['inbox', user.id] });
+    }, [user, queryClient]);
+
+    const markConvertedToTask = useCallback(async (id: string, taskId: string) => {
+        if (!user) return;
+
+        const { error } = await supabase
+            .from('inbox_items')
+            .update({ converted_to_task_id: taskId })
+            .eq('id', id)
+            .eq('user_id', user.id);
+
+        if (error) {
+            console.error('Failed to mark converted to task:', error);
+            return;
+        }
+
+        queryClient.invalidateQueries({ queryKey: ['inbox', user.id] });
+    }, [user, queryClient]);
+
+    const markConvertedToHabit = useCallback(async (id: string, habitId: string) => {
+        if (!user) return;
+
+        const { error } = await supabase
+            .from('inbox_items')
+            .update({ converted_to_habit_id: habitId })
+            .eq('id', id)
+            .eq('user_id', user.id);
+
+        if (error) {
+            console.error('Failed to mark converted to habit:', error);
+            return;
+        }
+
+        queryClient.invalidateQueries({ queryKey: ['inbox', user.id] });
+    }, [user, queryClient]);
+
+    const reorderItems = useCallback(async (reorderedIds: string[]) => {
+        if (!user) return;
+
+        for (let i = 0; i < reorderedIds.length; i++) {
+            await supabase
+                .from('inbox_items')
+                .update({ order: i })
+                .eq('id', reorderedIds[i])
+                .eq('user_id', user.id);
+        }
+
+        queryClient.invalidateQueries({ queryKey: ['inbox', user.id] });
+    }, [user, queryClient]);
 
     // Computed values
     const activeItems = items
-        .filter((item) => !item.isArchived)
+        .filter(item => !item.isArchived)
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
     const archivedItems = items
-        .filter((item) => item.isArchived)
-        .sort((a, b) => new Date(b.archivedAt || b.createdAt).getTime() - new Date(a.archivedAt || a.createdAt).getTime());
+        .filter(item => item.isArchived)
+        .sort((a, b) =>
+            new Date(b.archivedAt || b.createdAt).getTime() -
+            new Date(a.archivedAt || a.createdAt).getTime()
+        );
 
     const getPinnedItems = useCallback(() => {
-        return activeItems.filter((item) => item.isPinned);
+        return activeItems.filter(item => item.isPinned);
     }, [activeItems]);
 
-    const getItemsByType = useCallback(
-        (type: InboxItemType) => {
-            return activeItems.filter((item) => item.type === type);
-        },
-        [activeItems]
-    );
+    const getItemsByType = useCallback((type: InboxItemType) => {
+        return activeItems.filter(item => item.type === type);
+    }, [activeItems]);
 
-    const getItemsByArea = useCallback(
-        (area: InboxArea) => {
-            return activeItems.filter((item) => item.area === area);
-        },
-        [activeItems]
-    );
+    const getItemsByArea = useCallback((area: InboxArea) => {
+        return activeItems.filter(item => item.area === area);
+    }, [activeItems]);
 
     return {
         items: activeItems,

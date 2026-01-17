@@ -1,10 +1,19 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import createContextHook from '@nkzw/create-context-hook';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 import type { Todo } from '@/types/todo';
 
-const STORAGE_KEY = 'daily_todos';
+interface DbTodo {
+    id: string;
+    user_id: string;
+    title: string;
+    completed: boolean;
+    due_date: string;
+    priority: string | null;
+    created_at: string;
+}
 
 function getDateKey(date: Date): string {
     return date.toISOString().split('T')[0];
@@ -14,26 +23,37 @@ function getToday(): string {
     return getDateKey(new Date());
 }
 
+function mapDbTodoToTodo(dbTodo: DbTodo): Todo {
+    return {
+        id: dbTodo.id,
+        title: dbTodo.title,
+        completed: dbTodo.completed,
+        dueDate: dbTodo.due_date,
+        priority: dbTodo.priority as 'low' | 'medium' | 'high' | undefined,
+        createdAt: dbTodo.created_at,
+    };
+}
+
 export const [TodoProvider, useTodos] = createContextHook(() => {
     const queryClient = useQueryClient();
+    const { user } = useAuth();
     const [todos, setTodos] = useState<Todo[]>([]);
 
     const todosQuery = useQuery({
-        queryKey: ['todos'],
+        queryKey: ['todos', user?.id],
         queryFn: async () => {
-            const stored = await AsyncStorage.getItem(STORAGE_KEY);
-            return stored ? JSON.parse(stored) : [];
-        }
-    });
+            if (!user) return [];
 
-    const { mutate: saveTodos } = useMutation({
-        mutationFn: async (todos: Todo[]) => {
-            await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
-            return todos;
+            const { data, error } = await supabase
+                .from('todos')
+                .select('*')
+                .eq('user_id', user.id);
+
+            if (error) throw error;
+
+            return (data as DbTodo[]).map(mapDbTodoToTodo);
         },
-        onSuccess: (todos) => {
-            queryClient.setQueryData(['todos'], todos);
-        }
+        enabled: !!user,
     });
 
     useEffect(() => {
@@ -42,87 +62,126 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
         }
     }, [todosQuery.data]);
 
-    // Add a new todo for a specific date
-    const addTodo = useCallback((title: string, date?: Date, priority?: 'low' | 'medium' | 'high') => {
+    const addTodo = useCallback(async (title: string, date?: Date, priority?: 'low' | 'medium' | 'high') => {
+        if (!user) return;
+
         const dueDate = date ? getDateKey(date) : getToday();
-        const newTodo: Todo = {
-            id: Date.now().toString(),
-            title,
-            completed: false,
-            createdAt: new Date().toISOString(),
-            dueDate,
-            priority,
-        };
-        const updated = [...todos, newTodo];
-        setTodos(updated);
-        saveTodos(updated);
-    }, [todos, saveTodos]);
 
-    const deleteTodo = useCallback((id: string) => {
-        const updated = todos.filter(t => t.id !== id);
-        setTodos(updated);
-        saveTodos(updated);
-    }, [todos, saveTodos]);
+        const { error } = await supabase
+            .from('todos')
+            .insert({
+                user_id: user.id,
+                title,
+                due_date: dueDate,
+                priority: priority || null,
+            });
 
-    const toggleTodo = useCallback((id: string): boolean => {
-        let wasCompleted = false;
-        const updated = todos.map(todo => {
-            if (todo.id === id) {
-                wasCompleted = !todo.completed;
-                return { ...todo, completed: !todo.completed };
-            }
-            return todo;
-        });
-        setTodos(updated);
-        saveTodos(updated);
-        return wasCompleted;
-    }, [todos, saveTodos]);
+        if (error) {
+            console.error('Failed to add todo:', error);
+            return;
+        }
 
-    // Get todos for a specific date, including rolled-over incomplete tasks from past days
+        queryClient.invalidateQueries({ queryKey: ['todos', user.id] });
+    }, [user, queryClient]);
+
+    const deleteTodo = useCallback(async (id: string) => {
+        if (!user) return;
+
+        const { error } = await supabase
+            .from('todos')
+            .delete()
+            .eq('id', id)
+            .eq('user_id', user.id);
+
+        if (error) {
+            console.error('Failed to delete todo:', error);
+            return;
+        }
+
+        queryClient.invalidateQueries({ queryKey: ['todos', user.id] });
+    }, [user, queryClient]);
+
+    const toggleTodo = useCallback(async (id: string): Promise<boolean> => {
+        if (!user) return false;
+
+        const todo = todos.find(t => t.id === id);
+        if (!todo) return false;
+
+        const newCompleted = !todo.completed;
+
+        const { error } = await supabase
+            .from('todos')
+            .update({ completed: newCompleted })
+            .eq('id', id)
+            .eq('user_id', user.id);
+
+        if (error) {
+            console.error('Failed to toggle todo:', error);
+            return false;
+        }
+
+        queryClient.invalidateQueries({ queryKey: ['todos', user.id] });
+        return newCompleted;
+    }, [user, todos, queryClient]);
+
     const getTodosForDate = useCallback((date: Date): Todo[] => {
         const dateKey = getDateKey(date);
         const todayKey = getToday();
 
-        // If viewing today or future, include rolled-over incomplete tasks
         if (dateKey >= todayKey) {
             return todos.filter(todo => {
-                // Include tasks explicitly for this date
                 if (todo.dueDate === dateKey) return true;
-                // Include incomplete tasks from past days (rollover)
                 if (!todo.completed && todo.dueDate < todayKey) return true;
                 return false;
             });
         }
 
-        // For past dates, only show tasks that were originally for that date
         return todos.filter(todo => todo.dueDate === dateKey);
     }, [todos]);
 
-    // Rollover: Move all incomplete past tasks to today
-    const rolloverTasks = useCallback(() => {
-        const todayKey = getToday();
-        const updated = todos.map(todo => {
-            if (!todo.completed && todo.dueDate < todayKey) {
-                return { ...todo, dueDate: todayKey };
-            }
-            return todo;
-        });
-        if (JSON.stringify(updated) !== JSON.stringify(todos)) {
-            setTodos(updated);
-            saveTodos(updated);
-        }
-    }, [todos, saveTodos]);
+    const rolloverTasks = useCallback(async () => {
+        if (!user) return;
 
-    const clearCompletedTodos = useCallback(() => {
-        const updated = todos.filter(t => !t.completed);
-        setTodos(updated);
-        saveTodos(updated);
-    }, [todos, saveTodos]);
+        const todayKey = getToday();
+        const tasksToRollover = todos.filter(
+            todo => !todo.completed && todo.dueDate < todayKey
+        );
+
+        for (const task of tasksToRollover) {
+            await supabase
+                .from('todos')
+                .update({ due_date: todayKey })
+                .eq('id', task.id)
+                .eq('user_id', user.id);
+        }
+
+        if (tasksToRollover.length > 0) {
+            queryClient.invalidateQueries({ queryKey: ['todos', user.id] });
+        }
+    }, [user, todos, queryClient]);
+
+    const clearCompletedTodos = useCallback(async () => {
+        if (!user) return;
+
+        const { error } = await supabase
+            .from('todos')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('completed', true);
+
+        if (error) {
+            console.error('Failed to clear completed todos:', error);
+            return;
+        }
+
+        queryClient.invalidateQueries({ queryKey: ['todos', user.id] });
+    }, [user, queryClient]);
 
     const reorderTodos = useCallback((reorderedTodos: Todo[]) => {
+        // For now, just update local state
+        // Could add order column to todos table if needed
         setTodos(reorderedTodos);
-        saveTodos(reorderedTodos);
-    }, [saveTodos]);
+    }, []);
 
     const completedCount = useMemo(() => todos.filter(t => t.completed).length, [todos]);
     const totalCount = todos.length;
@@ -141,4 +200,3 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
         totalCount,
     };
 });
-
