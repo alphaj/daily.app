@@ -538,22 +538,19 @@ export default function HomeScreen() {
       // Still toggle the habit
     }
 
-    // Toggle the habit
-    const nowCompleted = toggleHabitCompletion(habitId);
-
-    // If we just completed a habit, check if all are now complete
-    if (nowCompleted) {
-      // Small delay to allow state to update
-      setTimeout(() => {
-        const allCompleted = habits.every(h =>
-          h.id === habitId ? true : isCompletedToday(h)
-        );
-        if (allCompleted && habits.length > 0) {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          setShowCelebration(true);
-        }
-      }, 100);
-    }
+    toggleHabitCompletion(habitId).then((nowCompleted) => {
+      if (nowCompleted) {
+        setTimeout(() => {
+          const allCompleted = habits.every(h =>
+            h.id === habitId ? true : isCompletedToday(h)
+          );
+          if (allCompleted && habits.length > 0) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            setShowCelebration(true);
+          }
+        }, 100);
+      }
+    });
   }, [habits, isCompletedToday, toggleHabitCompletion]);
 
   const handleCalendarPress = () => {

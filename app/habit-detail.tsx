@@ -46,11 +46,10 @@ export default function HabitDetailScreen() {
 
     const completed = isCompletedToday(habit);
 
-    const handleToggleToday = () => {
+    const handleToggleToday = async () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        const wasCompleted = toggleHabitCompletion(habit.id);
+        const wasCompleted = await toggleHabitCompletion(habit.id);
 
-        // Celebrate if completing and reaching a milestone
         if (wasCompleted && (habit.currentStreak + 1) % 7 === 0) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             setShowCelebration(true);

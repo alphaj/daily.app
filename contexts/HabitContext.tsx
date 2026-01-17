@@ -1,31 +1,10 @@
 import createContextHook from '@nkzw/create-context-hook';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Habit, ImplementationIntention, DayCompletion, HabitStats } from '@/types/habit';
 
-interface DbHabit {
-  id: string;
-  user_id: string;
-  name: string;
-  emoji: string | null;
-  intention_when: string | null;
-  intention_where: string | null;
-  intention_cue: string | null;
-  why_statement: string | null;
-  celebration_phrase: string | null;
-  current_streak: number;
-  best_streak: number;
-  created_at: string;
-}
-
-interface DbHabitCompletion {
-  id: string;
-  habit_id: string;
-  user_id: string;
-  completed_date: string;
-}
+const HABITS_STORAGE_KEY = 'daily_habits';
 
 function getToday(): string {
   return new Date().toISOString().split('T')[0];
@@ -72,58 +51,20 @@ function getDayName(dateStr: string): string {
   return date.toLocaleDateString('en-US', { weekday: 'short' }).charAt(0);
 }
 
-function mapDbHabitToHabit(dbHabit: DbHabit, completions: DbHabitCompletion[]): Habit {
-  const completedDates = completions
-    .filter(c => c.habit_id === dbHabit.id)
-    .map(c => c.completed_date);
-
-  const intention: ImplementationIntention | undefined =
-    dbHabit.intention_when || dbHabit.intention_where || dbHabit.intention_cue
-      ? {
-        when: dbHabit.intention_when || undefined,
-        where: dbHabit.intention_where || undefined,
-        cue: dbHabit.intention_cue || undefined,
-      }
-      : undefined;
-
-  return {
-    id: dbHabit.id,
-    name: dbHabit.name,
-    emoji: dbHabit.emoji || undefined,
-    createdAt: dbHabit.created_at,
-    completedDates,
-    currentStreak: dbHabit.current_streak,
-    bestStreak: dbHabit.best_streak,
-    intention,
-    whyStatement: dbHabit.why_statement || undefined,
-    celebrationPhrase: dbHabit.celebration_phrase || undefined,
-  };
+function generateId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
 export const [HabitProvider, useHabits] = createContextHook(() => {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
   const [habits, setHabits] = useState<Habit[]>([]);
 
   const habitsQuery = useQuery({
-    queryKey: ['habits', user?.id],
+    queryKey: ['habits'],
     queryFn: async () => {
-      if (!user) return [];
-
-      const [habitsRes, completionsRes] = await Promise.all([
-        supabase.from('habits').select('*').eq('user_id', user.id),
-        supabase.from('habit_completions').select('*').eq('user_id', user.id),
-      ]);
-
-      if (habitsRes.error) throw habitsRes.error;
-      if (completionsRes.error) throw completionsRes.error;
-
-      const dbHabits = habitsRes.data as DbHabit[];
-      const dbCompletions = completionsRes.data as DbHabitCompletion[];
-
-      return dbHabits.map(h => mapDbHabitToHabit(h, dbCompletions));
+      const stored = await AsyncStorage.getItem(HABITS_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : [];
     },
-    enabled: !!user,
   });
 
   useEffect(() => {
@@ -132,6 +73,11 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
     }
   }, [habitsQuery.data]);
 
+  const saveHabits = useCallback(async (newHabits: Habit[]) => {
+    await AsyncStorage.setItem(HABITS_STORAGE_KEY, JSON.stringify(newHabits));
+    queryClient.invalidateQueries({ queryKey: ['habits'] });
+  }, [queryClient]);
+
   const addHabit = useCallback(async (
     name: string,
     intention?: ImplementationIntention,
@@ -139,111 +85,47 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
     whyStatement?: string,
     celebrationPhrase?: string
   ) => {
-    if (!user) return;
-
-    const { error } = await supabase.from('habits').insert({
-      user_id: user.id,
+    const newHabit: Habit = {
+      id: generateId(),
       name,
-      emoji: emoji || null,
-      intention_when: intention?.when || null,
-      intention_where: intention?.where || null,
-      intention_cue: intention?.cue || null,
-      why_statement: whyStatement || null,
-      celebration_phrase: celebrationPhrase || null,
-    });
+      emoji,
+      createdAt: new Date().toISOString(),
+      completedDates: [],
+      currentStreak: 0,
+      bestStreak: 0,
+      intention,
+      whyStatement,
+      celebrationPhrase,
+    };
 
-    if (error) {
-      console.error('Failed to add habit:', error);
-      return;
-    }
-
-    queryClient.invalidateQueries({ queryKey: ['habits', user.id] });
-  }, [user, queryClient]);
+    const newHabits = [...habits, newHabit];
+    setHabits(newHabits);
+    await saveHabits(newHabits);
+  }, [habits, saveHabits]);
 
   const updateHabit = useCallback(async (
     id: string,
     updates: Partial<Pick<Habit, 'name' | 'intention' | 'emoji' | 'whyStatement' | 'celebrationPhrase'>>
   ) => {
-    if (!user) return;
-
-    const { error } = await supabase
-      .from('habits')
-      .update({
-        name: updates.name,
-        emoji: updates.emoji || null,
-        intention_when: updates.intention?.when || null,
-        intention_where: updates.intention?.where || null,
-        intention_cue: updates.intention?.cue || null,
-        why_statement: updates.whyStatement || null,
-        celebration_phrase: updates.celebrationPhrase || null,
-      })
-      .eq('id', id)
-      .eq('user_id', user.id);
-
-    if (error) {
-      console.error('Failed to update habit:', error);
-      return;
-    }
-
-    queryClient.invalidateQueries({ queryKey: ['habits', user.id] });
-  }, [user, queryClient]);
+    const newHabits = habits.map(h =>
+      h.id === id ? { ...h, ...updates } : h
+    );
+    setHabits(newHabits);
+    await saveHabits(newHabits);
+  }, [habits, saveHabits]);
 
   const deleteHabit = useCallback(async (id: string) => {
-    if (!user) return;
-
-    const { error } = await supabase
-      .from('habits')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', user.id);
-
-    if (error) {
-      console.error('Failed to delete habit:', error);
-      return;
-    }
-
-    queryClient.invalidateQueries({ queryKey: ['habits', user.id] });
-  }, [user, queryClient]);
+    const newHabits = habits.filter(h => h.id !== id);
+    setHabits(newHabits);
+    await saveHabits(newHabits);
+  }, [habits, saveHabits]);
 
   const toggleHabitCompletion = useCallback(async (id: string): Promise<boolean> => {
-    if (!user) return false;
-
     const today = getToday();
     const habit = habits.find(h => h.id === id);
     if (!habit) return false;
 
     const isCompleted = habit.completedDates.includes(today);
-
-    if (isCompleted) {
-      // Remove completion
-      const { error } = await supabase
-        .from('habit_completions')
-        .delete()
-        .eq('habit_id', id)
-        .eq('user_id', user.id)
-        .eq('completed_date', today);
-
-      if (error) {
-        console.error('Failed to remove habit completion:', error);
-        return false;
-      }
-    } else {
-      // Add completion
-      const { error } = await supabase
-        .from('habit_completions')
-        .insert({
-          habit_id: id,
-          user_id: user.id,
-          completed_date: today,
-        });
-
-      if (error) {
-        console.error('Failed to add habit completion:', error);
-        return false;
-      }
-    }
-
-    // Update streak
     const newCompletedDates = isCompleted
       ? habit.completedDates.filter(d => d !== today)
       : [...habit.completedDates, today];
@@ -251,15 +133,16 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
     const currentStreak = calculateStreak(newCompletedDates);
     const bestStreak = Math.max(habit.bestStreak, currentStreak);
 
-    await supabase
-      .from('habits')
-      .update({ current_streak: currentStreak, best_streak: bestStreak })
-      .eq('id', id)
-      .eq('user_id', user.id);
+    const newHabits = habits.map(h =>
+      h.id === id
+        ? { ...h, completedDates: newCompletedDates, currentStreak, bestStreak }
+        : h
+    );
 
-    queryClient.invalidateQueries({ queryKey: ['habits', user.id] });
+    setHabits(newHabits);
+    await saveHabits(newHabits);
     return !isCompleted;
-  }, [user, habits, queryClient]);
+  }, [habits, saveHabits]);
 
   const isCompletedToday = useCallback((habit: Habit): boolean => {
     return habit.completedDates.includes(getToday());

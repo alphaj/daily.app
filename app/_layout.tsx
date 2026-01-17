@@ -3,28 +3,24 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { HabitProvider } from "@/contexts/HabitContext";
 import { TodoProvider } from "@/contexts/TodoContext";
 import { NoteProvider } from "@/contexts/NoteContext";
 import { InboxProvider } from "@/contexts/InboxContext";
 import { ProjectProvider } from "@/contexts/ProjectContext";
-import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { trpc, trpcClient } from "@/lib/trpc";
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 function useProtectedRoute() {
-  const { isAuthenticated, isLoading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
   const [hasCheckedOnboarding, setHasCheckedOnboarding] = React.useState(false);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = React.useState(false);
 
-  // Check onboarding status
   React.useEffect(() => {
     AsyncStorage.getItem('@daily_onboarding').then((value) => {
       if (value) {
@@ -36,30 +32,16 @@ function useProtectedRoute() {
   }, []);
 
   useEffect(() => {
-    if (isLoading || !hasCheckedOnboarding) return;
+    if (!hasCheckedOnboarding) return;
 
     const inOnboarding = segments[0] === "(onboarding)";
-    const authScreens = ["sign-up-email", "create-password", "login"];
-    const inAuthScreen = authScreens.includes(segments[1] as string);
 
-    if (!isAuthenticated && !inOnboarding) {
-      // Not authenticated and not in onboarding → go to sign-up
-      router.replace("/(onboarding)/sign-up-email");
-    } else if (isAuthenticated && !hasCompletedOnboarding && !inOnboarding) {
-      // Authenticated but hasn't completed onboarding → go to onboarding
-      router.replace("/(onboarding)/notifications");
-    } else if (isAuthenticated && hasCompletedOnboarding && inOnboarding) {
-      // Authenticated and completed onboarding but still in onboarding → go to dashboard
+    if (!hasCompletedOnboarding && !inOnboarding) {
+      router.replace("/(onboarding)/welcome");
+    } else if (hasCompletedOnboarding && inOnboarding) {
       router.replace("/");
-    } else if (isAuthenticated && inAuthScreen) {
-      // Authenticated but on auth screens → skip to onboarding or dashboard
-      if (hasCompletedOnboarding) {
-        router.replace("/");
-      } else {
-        router.replace("/(onboarding)/notifications");
-      }
     }
-  }, [isAuthenticated, isLoading, segments, hasCheckedOnboarding, hasCompletedOnboarding]);
+  }, [segments, hasCheckedOnboarding, hasCompletedOnboarding, router]);
 }
 
 function RootLayoutNav() {
@@ -88,21 +70,19 @@ function RootLayoutNav() {
 
 function AppWrapper() {
   return (
-    <AuthProvider>
-      <HabitProvider>
-        <TodoProvider>
-          <NoteProvider>
-            <InboxProvider>
-              <ProjectProvider>
-                <GestureHandlerRootView style={{ flex: 1 }}>
-                  <RootLayoutNav />
-                </GestureHandlerRootView>
-              </ProjectProvider>
-            </InboxProvider>
-          </NoteProvider>
-        </TodoProvider>
-      </HabitProvider>
-    </AuthProvider>
+    <HabitProvider>
+      <TodoProvider>
+        <NoteProvider>
+          <InboxProvider>
+            <ProjectProvider>
+              <GestureHandlerRootView style={{ flex: 1 }}>
+                <RootLayoutNav />
+              </GestureHandlerRootView>
+            </ProjectProvider>
+          </InboxProvider>
+        </NoteProvider>
+      </TodoProvider>
+    </HabitProvider>
   );
 }
 

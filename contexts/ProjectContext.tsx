@@ -1,81 +1,25 @@
 import createContextHook from '@nkzw/create-context-hook';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Project, ProjectTask } from '@/types/project';
 
-interface DbProject {
-  id: string;
-  user_id: string;
-  name: string;
-  description: string | null;
-  color: string;
-  icon: string;
-  type: string;
-  deadline: string | null;
-  created_at: string;
-  completed_at: string | null;
-}
+const PROJECTS_STORAGE_KEY = 'daily_projects';
 
-interface DbProjectTask {
-  id: string;
-  project_id: string;
-  user_id: string;
-  title: string;
-  completed: boolean;
-  order: number;
-  created_at: string;
-}
-
-function mapDbProjectToProject(dbProject: DbProject, tasks: DbProjectTask[]): Project {
-  return {
-    id: dbProject.id,
-    name: dbProject.name,
-    description: dbProject.description || '',
-    color: dbProject.color,
-    icon: dbProject.icon,
-    type: dbProject.type as 'project' | 'goal',
-    deadline: dbProject.deadline || undefined,
-    createdAt: dbProject.created_at,
-    completedAt: dbProject.completed_at || undefined,
-    tasks: tasks
-      .filter(t => t.project_id === dbProject.id)
-      .map(t => ({
-        id: t.id,
-        title: t.title,
-        completed: t.completed,
-        order: t.order,
-        createdAt: t.created_at,
-      }))
-      .sort((a, b) => a.order - b.order),
-  };
+function generateId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
 export const [ProjectProvider, useProjects] = createContextHook(() => {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
 
   const projectsQuery = useQuery({
-    queryKey: ['projects', user?.id],
+    queryKey: ['projects'],
     queryFn: async () => {
-      if (!user) return [];
-
-      const [projectsRes, tasksRes] = await Promise.all([
-        supabase.from('projects').select('*').eq('user_id', user.id),
-        supabase.from('project_tasks').select('*').eq('user_id', user.id),
-      ]);
-
-      if (projectsRes.error) throw projectsRes.error;
-      if (tasksRes.error) throw tasksRes.error;
-
-      const dbProjects = projectsRes.data as DbProject[];
-      const dbTasks = tasksRes.data as DbProjectTask[];
-
-      return dbProjects.map(p => mapDbProjectToProject(p, dbTasks));
+      const stored = await AsyncStorage.getItem(PROJECTS_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : [];
     },
-    enabled: !!user,
   });
 
   useEffect(() => {
@@ -83,6 +27,11 @@ export const [ProjectProvider, useProjects] = createContextHook(() => {
       setProjects(projectsQuery.data);
     }
   }, [projectsQuery.data]);
+
+  const saveProjects = useCallback(async (newProjects: Project[]) => {
+    await AsyncStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(newProjects));
+    queryClient.invalidateQueries({ queryKey: ['projects'] });
+  }, [queryClient]);
 
   const addProject = useCallback(async (
     name: string,
@@ -92,177 +41,119 @@ export const [ProjectProvider, useProjects] = createContextHook(() => {
     type: 'project' | 'goal' = 'project',
     deadline?: string
   ) => {
-    if (!user) return '';
+    const newProject: Project = {
+      id: generateId(),
+      name,
+      description,
+      color,
+      icon,
+      type,
+      deadline,
+      createdAt: new Date().toISOString(),
+      tasks: [],
+    };
 
-    const { data, error } = await supabase
-      .from('projects')
-      .insert({
-        user_id: user.id,
-        name,
-        description,
-        color,
-        icon,
-        type,
-        deadline: deadline || null,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Failed to add project:', error);
-      return '';
-    }
-
-    queryClient.invalidateQueries({ queryKey: ['projects', user.id] });
-    return data.id;
-  }, [user, queryClient]);
+    const newProjects = [...projects, newProject];
+    setProjects(newProjects);
+    await saveProjects(newProjects);
+    return newProject.id;
+  }, [projects, saveProjects]);
 
   const deleteProject = useCallback(async (id: string) => {
-    if (!user) return;
-
-    const { error } = await supabase
-      .from('projects')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', user.id);
-
-    if (error) {
-      console.error('Failed to delete project:', error);
-      return;
-    }
-
-    queryClient.invalidateQueries({ queryKey: ['projects', user.id] });
-  }, [user, queryClient]);
+    const newProjects = projects.filter(p => p.id !== id);
+    setProjects(newProjects);
+    await saveProjects(newProjects);
+  }, [projects, saveProjects]);
 
   const updateProject = useCallback(async (
     id: string,
     updates: Partial<Pick<Project, 'name' | 'description' | 'color' | 'icon' | 'type' | 'deadline'>>
   ) => {
-    if (!user) return;
-
-    const { error } = await supabase
-      .from('projects')
-      .update({
-        name: updates.name,
-        description: updates.description,
-        color: updates.color,
-        icon: updates.icon,
-        type: updates.type,
-        deadline: updates.deadline || null,
-      })
-      .eq('id', id)
-      .eq('user_id', user.id);
-
-    if (error) {
-      console.error('Failed to update project:', error);
-      return;
-    }
-
-    queryClient.invalidateQueries({ queryKey: ['projects', user.id] });
-  }, [user, queryClient]);
+    const newProjects = projects.map(p =>
+      p.id === id ? { ...p, ...updates } : p
+    );
+    setProjects(newProjects);
+    await saveProjects(newProjects);
+  }, [projects, saveProjects]);
 
   const addTask = useCallback(async (projectId: string, title: string) => {
-    if (!user) return;
-
-    // Get current max order
     const project = projects.find(p => p.id === projectId);
-    const maxOrder = project?.tasks.length ? Math.max(...project.tasks.map(t => t.order)) : -1;
+    if (!project) return;
 
-    const { error } = await supabase
-      .from('project_tasks')
-      .insert({
-        project_id: projectId,
-        user_id: user.id,
-        title,
-        order: maxOrder + 1,
-      });
+    const maxOrder = project.tasks.length ? Math.max(...project.tasks.map(t => t.order)) : -1;
 
-    if (error) {
-      console.error('Failed to add task:', error);
-      return;
-    }
+    const newTask: ProjectTask = {
+      id: generateId(),
+      title,
+      completed: false,
+      order: maxOrder + 1,
+      createdAt: new Date().toISOString(),
+    };
 
-    queryClient.invalidateQueries({ queryKey: ['projects', user.id] });
-  }, [user, projects, queryClient]);
+    const newProjects = projects.map(p =>
+      p.id === projectId
+        ? { ...p, tasks: [...p.tasks, newTask] }
+        : p
+    );
+
+    setProjects(newProjects);
+    await saveProjects(newProjects);
+  }, [projects, saveProjects]);
 
   const deleteTask = useCallback(async (projectId: string, taskId: string) => {
-    if (!user) return;
+    const newProjects = projects.map(p =>
+      p.id === projectId
+        ? { ...p, tasks: p.tasks.filter(t => t.id !== taskId) }
+        : p
+    );
 
-    const { error } = await supabase
-      .from('project_tasks')
-      .delete()
-      .eq('id', taskId)
-      .eq('user_id', user.id);
-
-    if (error) {
-      console.error('Failed to delete task:', error);
-      return;
-    }
-
-    queryClient.invalidateQueries({ queryKey: ['projects', user.id] });
-  }, [user, queryClient]);
+    setProjects(newProjects);
+    await saveProjects(newProjects);
+  }, [projects, saveProjects]);
 
   const toggleTask = useCallback(async (projectId: string, taskId: string) => {
-    if (!user) return;
-
     const project = projects.find(p => p.id === projectId);
-    const task = project?.tasks.find(t => t.id === taskId);
+    if (!project) return;
+
+    const task = project.tasks.find(t => t.id === taskId);
     if (!task) return;
 
     const newCompleted = !task.completed;
-
-    const { error } = await supabase
-      .from('project_tasks')
-      .update({ completed: newCompleted })
-      .eq('id', taskId)
-      .eq('user_id', user.id);
-
-    if (error) {
-      console.error('Failed to toggle task:', error);
-      return;
-    }
-
-    // Check if all tasks are now completed
-    const updatedTasks = project!.tasks.map(t =>
+    const updatedTasks = project.tasks.map(t =>
       t.id === taskId ? { ...t, completed: newCompleted } : t
     );
+
     const allCompleted = updatedTasks.every(t => t.completed) && updatedTasks.length > 0;
 
-    if (allCompleted) {
-      await supabase
-        .from('projects')
-        .update({ completed_at: new Date().toISOString() })
-        .eq('id', projectId)
-        .eq('user_id', user.id);
-    } else {
-      await supabase
-        .from('projects')
-        .update({ completed_at: null })
-        .eq('id', projectId)
-        .eq('user_id', user.id);
-    }
+    const newProjects = projects.map(p =>
+      p.id === projectId
+        ? {
+            ...p,
+            tasks: updatedTasks,
+            completedAt: allCompleted ? new Date().toISOString() : undefined,
+          }
+        : p
+    );
 
-    queryClient.invalidateQueries({ queryKey: ['projects', user.id] });
-  }, [user, projects, queryClient]);
+    setProjects(newProjects);
+    await saveProjects(newProjects);
+  }, [projects, saveProjects]);
 
   const reorderTasks = useCallback(async (projectId: string, taskIds: string[]) => {
-    if (!user) return;
+    const newProjects = projects.map(p => {
+      if (p.id !== projectId) return p;
 
-    const updates = taskIds.map((id, index) => ({
-      id,
-      order: index,
-    }));
+      const reorderedTasks = taskIds.map((id, index) => {
+        const task = p.tasks.find(t => t.id === id);
+        return task ? { ...task, order: index } : null;
+      }).filter(Boolean) as ProjectTask[];
 
-    for (const update of updates) {
-      await supabase
-        .from('project_tasks')
-        .update({ order: update.order })
-        .eq('id', update.id)
-        .eq('user_id', user.id);
-    }
+      return { ...p, tasks: reorderedTasks };
+    });
 
-    queryClient.invalidateQueries({ queryKey: ['projects', user.id] });
-  }, [user, queryClient]);
+    setProjects(newProjects);
+    await saveProjects(newProjects);
+  }, [projects, saveProjects]);
 
   const getProject = useCallback((id: string) => {
     return projects.find(p => p.id === id);
