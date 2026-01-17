@@ -58,7 +58,7 @@ function getCompletionLevel(date: Date, completedDates: string[], createdAt: str
     const dateStr = formatDate(date);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     const createdDate = new Date(createdAt.split('T')[0] + 'T00:00:00');
     createdDate.setHours(0, 0, 0, 0);
 
@@ -331,12 +331,17 @@ const styles = StyleSheet.create({
     },
     streakCard: {
         flex: 1,
-        backgroundColor: '#F8F8FC',
-        borderRadius: 20,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
         padding: 20,
         alignItems: 'center',
         position: 'relative',
         overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 2,
     },
     streakGlow: {
         position: 'absolute',
@@ -345,7 +350,7 @@ const styles = StyleSheet.create({
         right: 0,
         bottom: 0,
         backgroundColor: '#FF9500',
-        borderRadius: 20,
+        borderRadius: 16,
     },
     streakIcon: {
         width: 48,
@@ -372,26 +377,38 @@ const styles = StyleSheet.create({
         marginTop: 4,
     },
     heatmapContainer: {
-        marginBottom: 24,
+        marginBottom: 20,
     },
     sectionTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#000',
-        marginBottom: 16,
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#6D6D72',
+        marginBottom: 8,
+        textTransform: 'uppercase',
+        letterSpacing: -0.2,
+        marginLeft: 16, // Align with inset grouped content
     },
     monthsScroll: {
-        paddingRight: 24,
+        paddingRight: 16,
+        paddingLeft: 4, // Add some left padding for the first item shadow if needed
     },
     monthContainer: {
         width: SCREEN_WIDTH - 48,
         marginRight: 16,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        padding: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 2,
     },
     monthHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 12,
+        marginBottom: 16,
     },
     monthLabel: {
         fontSize: 16,
@@ -413,7 +430,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         fontSize: 11,
         fontWeight: '600',
-        color: '#C7C7CC',
+        color: '#8E8E93',
     },
     datesGrid: {
         flexDirection: 'row',
@@ -428,8 +445,8 @@ const styles = StyleSheet.create({
         width: CELL_SIZE,
         height: CELL_SIZE,
         margin: CELL_GAP / 2,
-        borderRadius: 8,
-        backgroundColor: '#F2F2F7',
+        borderRadius: CELL_SIZE / 2, // Circular for iOS calendar look
+        backgroundColor: 'transparent',
         alignItems: 'center',
         justifyContent: 'center',
         position: 'relative',
@@ -438,55 +455,55 @@ const styles = StyleSheet.create({
         backgroundColor: '#5856D6',
     },
     dateCellMissed: {
-        backgroundColor: '#F2F2F7',
+        // backgroundColor: '#F2F2F7', // Optional: show missed spots?
     },
     dateCellFuture: {
-        backgroundColor: '#FAFAFA',
-        opacity: 0.5,
+        // opacity: 0.5,
     },
     dateCellBeforeCreation: {
-        backgroundColor: 'transparent',
-        opacity: 0.3,
+        // opacity: 0.3,
     },
     dateCellToday: {
-        borderWidth: 2,
-        borderColor: '#5856D6',
+        backgroundColor: '#F2F2F7',
     },
     dateText: {
-        fontSize: 13,
-        fontWeight: '600',
-        color: '#8E8E93',
+        fontSize: 15,
+        fontWeight: '500',
+        color: '#000',
     },
     dateTextCompleted: {
         color: '#fff',
+        fontWeight: '600',
     },
     dateTextFuture: {
-        color: '#C7C7CC',
-    },
-    dateTextBeforeCreation: {
         color: '#D1D1D6',
     },
+    dateTextBeforeCreation: {
+        color: '#E5E5EA',
+    },
     dateTextToday: {
-        color: '#5856D6',
+        color: '#5856D6', // Today text color when not completed
         fontWeight: '700',
     },
     milestoneBadge: {
         position: 'absolute',
-        top: -4,
-        right: -4,
-        width: 16,
-        height: 16,
-        borderRadius: 8,
+        top: -2,
+        right: -2,
+        width: 14,
+        height: 14,
+        borderRadius: 7,
         backgroundColor: '#fff',
         alignItems: 'center',
         justifyContent: 'center',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
+        shadowOpacity: 0.2,
+        shadowRadius: 1,
+        elevation: 2,
+        zIndex: 1,
     },
     insightsContainer: {
-        marginBottom: 24,
+        marginBottom: 20,
     },
     insightsRow: {
         flexDirection: 'row',
@@ -494,10 +511,15 @@ const styles = StyleSheet.create({
     },
     insightCard: {
         flex: 1,
-        backgroundColor: '#F8F8FC',
+        backgroundColor: '#FFFFFF',
         borderRadius: 16,
         padding: 16,
         alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 2,
     },
     insightEmoji: {
         fontSize: 20,

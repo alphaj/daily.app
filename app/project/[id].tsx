@@ -6,8 +6,10 @@ import {
   Trash2,
   GripVertical,
   Flag,
+  PartyPopper,
+  Trophy,
 } from 'lucide-react-native';
-import React, { useState, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -19,12 +21,15 @@ import {
   Animated,
   PanResponder,
   LayoutChangeEvent,
+  Easing,
+  Modal,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useProjects } from '@/contexts/ProjectContext';
 import type { ProjectTask } from '@/types/project';
-import { format } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 
 const TASK_HEIGHT = 72;
 
@@ -42,6 +47,7 @@ function RoadmapTask({
   pan,
   isFirst,
   isLast,
+  onCompleteAnimationDone,
 }: {
   task: ProjectTask;
   index: number;
@@ -56,9 +62,19 @@ function RoadmapTask({
   pan: Animated.ValueXY;
   isFirst: boolean;
   isLast: boolean;
+  onCompleteAnimationDone?: () => void;
 }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const [isDraggingState, setIsDraggingState] = useState(false);
+
+  // Animation values for iOS-style completion
+  const checkboxFillAnim = useRef(new Animated.Value(task.completed ? 1 : 0)).current;
+  const checkmarkScaleAnim = useRef(new Animated.Value(task.completed ? 1 : 0)).current;
+  const strikethroughAnim = useRef(new Animated.Value(task.completed ? 1 : 0)).current;
+  const cardOpacityAnim = useRef(new Animated.Value(task.completed ? 0.6 : 1)).current;
+  const completionPulseAnim = useRef(new Animated.Value(1)).current;
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [showCompleted, setShowCompleted] = useState(task.completed);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -93,22 +109,119 @@ function RoadmapTask({
     })
   ).current;
 
-  const handlePress = () => {
-    if (isDraggingState) return;
+  const runCompletionAnimation = () => {
+    setIsAnimating(true);
+    setShowCompleted(true);
+
+    // 1. Haptic feedback
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // Sequence the animations for that satisfying iOS feel
     Animated.sequence([
-      Animated.timing(scaleAnim, {
-        toValue: 0.95,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scaleAnim, {
+      // 2. Checkbox fills with spring
+      Animated.spring(checkboxFillAnim, {
         toValue: 1,
-        duration: 100,
-        useNativeDriver: true,
+        useNativeDriver: false,
+        tension: 100,
+        friction: 8,
       }),
     ]).start();
+
+    // 3. Checkmark pops in after checkbox fills
+    setTimeout(() => {
+      Animated.spring(checkmarkScaleAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 150,
+        friction: 6,
+      }).start();
+      // Success haptic when checkmark appears
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }, 100);
+
+    // 4. Strikethrough sweeps across + card dims
+    setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(strikethroughAnim, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: false,
+          easing: Easing.out(Easing.cubic),
+        }),
+        Animated.timing(cardOpacityAnim, {
+          toValue: 0.6,
+          duration: 300,
+          useNativeDriver: false,
+        }),
+      ]).start();
+    }, 150);
+
+    // 5. Subtle pulse on the whole card
+    setTimeout(() => {
+      Animated.sequence([
+        Animated.timing(completionPulseAnim, {
+          toValue: 1.02,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.spring(completionPulseAnim, {
+          toValue: 1,
+          useNativeDriver: true,
+          tension: 100,
+          friction: 10,
+        }),
+      ]).start(() => {
+        setIsAnimating(false);
+        onCompleteAnimationDone?.();
+      });
+    }, 200);
+
     onToggle();
+  };
+
+  const runUncheckAnimation = () => {
+    setIsAnimating(true);
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    // Reverse animations
+    Animated.parallel([
+      Animated.timing(checkmarkScaleAnim, {
+        toValue: 0,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(checkboxFillAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: false,
+      }),
+      Animated.timing(strikethroughAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: false,
+      }),
+      Animated.timing(cardOpacityAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: false,
+      }),
+    ]).start(() => {
+      setIsAnimating(false);
+      setShowCompleted(false);
+    });
+
+    onToggle();
+  };
+
+  const handlePress = () => {
+    if (isDraggingState || isAnimating) return;
+
+    if (task.completed) {
+      runUncheckAnimation();
+    } else {
+      runCompletionAnimation();
+    }
   };
 
   const handleLongPress = () => {
@@ -126,6 +239,17 @@ function RoadmapTask({
   const showSpacerAbove = draggedOverIndex !== null && draggedOverIndex === index && !isDraggingState;
   const showSpacerBelow = draggedOverIndex !== null && draggedOverIndex === index + 1 && !isDraggingState;
 
+  // Animated checkbox background color
+  const checkboxBackgroundColor = checkboxFillAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['#FFFFFF', projectColor],
+  });
+
+  const checkboxBorderColor = checkboxFillAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['#E5E5EA', projectColor],
+  });
+
   return (
     <>
       {showSpacerAbove && <View style={styles.dropSpacer} />}
@@ -134,44 +258,87 @@ function RoadmapTask({
           styles.taskRow,
           {
             transform: [
-              { scale: scaleAnim },
+              { scale: Animated.multiply(scaleAnim, completionPulseAnim) },
               { translateY: isDraggingState ? pan.y : 0 },
-            ]
+            ],
+            opacity: cardOpacityAnim,
           },
           isDraggingState && styles.taskRowDragging,
         ]}
       >
         <View style={styles.timelineContainer}>
           {!isFirst && (
-            <View style={[styles.timelineLineTop, task.completed && { backgroundColor: projectColor }]} />
+            <Animated.View
+              style={[
+                styles.timelineLineTop,
+                {
+                  backgroundColor: checkboxFillAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['#E5E5EA', projectColor],
+                  })
+                }
+              ]}
+            />
           )}
           <Pressable
-            style={[
-              styles.timelineNode,
-              task.completed && { backgroundColor: projectColor, borderColor: projectColor },
-            ]}
             onPress={handlePress}
             onLongPress={handleLongPress}
             delayLongPress={500}
           >
-            {task.completed && <Check size={14} color="#fff" strokeWidth={3} />}
+            <Animated.View
+              style={[
+                styles.timelineNode,
+                {
+                  backgroundColor: checkboxBackgroundColor,
+                  borderColor: checkboxBorderColor,
+                },
+              ]}
+            >
+              <Animated.View style={{ transform: [{ scale: checkmarkScaleAnim }] }}>
+                {showCompleted && <Check size={14} color="#fff" strokeWidth={3} />}
+              </Animated.View>
+            </Animated.View>
           </Pressable>
           {!isLast && (
-            <View style={[styles.timelineLineBottom, task.completed && { backgroundColor: projectColor }]} />
+            <Animated.View
+              style={[
+                styles.timelineLineBottom,
+                {
+                  backgroundColor: checkboxFillAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['#E5E5EA', projectColor],
+                  })
+                }
+              ]}
+            />
           )}
         </View>
 
         <Pressable
-          style={[styles.taskContent, task.completed && styles.taskContentCompleted]}
+          style={[styles.taskContent, showCompleted && styles.taskContentCompleted]}
           onPress={handlePress}
           onLongPress={handleLongPress}
           delayLongPress={500}
         >
           <View style={styles.taskMain}>
             <Text style={[styles.taskNumber, { color: projectColor }]}>Step {index + 1}</Text>
-            <Text style={[styles.taskTitle, task.completed && styles.taskTitleCompleted]} numberOfLines={2}>
-              {task.title}
-            </Text>
+            <View style={styles.taskTitleContainer}>
+              <Text style={[styles.taskTitle, showCompleted && styles.taskTitleCompleted]} numberOfLines={2}>
+                {task.title}
+              </Text>
+              {/* Animated strikethrough overlay */}
+              <Animated.View
+                style={[
+                  styles.strikethroughLine,
+                  {
+                    width: strikethroughAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['0%', '100%'],
+                    }),
+                  }
+                ]}
+              />
+            </View>
           </View>
           <View style={styles.taskActions} {...panResponder.panHandlers}>
             <GripVertical size={18} color={isDraggingState ? projectColor : "#D1D1D6"} />
@@ -201,6 +368,387 @@ function EmptyTasksState({ onAdd }: { onAdd: () => void }) {
   );
 }
 
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const CONFETTI_COUNT = 50;
+
+interface ConfettiPiece {
+  id: number;
+  x: Animated.Value;
+  y: Animated.Value;
+  rotation: Animated.Value;
+  scale: Animated.Value;
+  color: string;
+  size: number;
+}
+
+function GoalCompleteCelebration({
+  visible,
+  onDismiss,
+  projectName,
+  projectColor,
+  projectIcon,
+  totalSteps,
+  deadline,
+  completedAt,
+}: {
+  visible: boolean;
+  onDismiss: () => void;
+  projectName: string;
+  projectColor: string;
+  projectIcon: string;
+  totalSteps: number;
+  deadline?: string;
+  completedAt: Date;
+}) {
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const contentScale = useRef(new Animated.Value(0.8)).current;
+  const contentOpacity = useRef(new Animated.Value(0)).current;
+  const trophyScale = useRef(new Animated.Value(0)).current;
+  const trophyRotation = useRef(new Animated.Value(0)).current;
+  const glowScale = useRef(new Animated.Value(1)).current;
+
+  const confettiColors = ['#FF6B6B', '#4ECDC4', '#FFE66D', '#95E1D3', '#F38181', '#AA96DA', projectColor];
+
+  const confettiPieces = useRef<ConfettiPiece[]>(
+    Array.from({ length: CONFETTI_COUNT }, (_, i) => ({
+      id: i,
+      x: new Animated.Value(Math.random() * SCREEN_WIDTH),
+      y: new Animated.Value(-50 - Math.random() * 100),
+      rotation: new Animated.Value(0),
+      scale: new Animated.Value(Math.random() * 0.5 + 0.5),
+      color: confettiColors[Math.floor(Math.random() * confettiColors.length)],
+      size: Math.random() * 10 + 6,
+    }))
+  ).current;
+
+  useEffect(() => {
+    if (visible) {
+      // Trigger success haptic
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      // Animate in
+      Animated.parallel([
+        Animated.timing(backdropOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.spring(contentScale, {
+          toValue: 1,
+          tension: 100,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+        Animated.timing(contentOpacity, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      // Trophy animation with delay
+      setTimeout(() => {
+        Animated.spring(trophyScale, {
+          toValue: 1,
+          tension: 150,
+          friction: 6,
+          useNativeDriver: true,
+        }).start();
+
+        // Trophy wiggle
+        Animated.sequence([
+          Animated.timing(trophyRotation, { toValue: -0.1, duration: 100, useNativeDriver: true }),
+          Animated.timing(trophyRotation, { toValue: 0.1, duration: 100, useNativeDriver: true }),
+          Animated.timing(trophyRotation, { toValue: -0.05, duration: 100, useNativeDriver: true }),
+          Animated.timing(trophyRotation, { toValue: 0, duration: 100, useNativeDriver: true }),
+        ]).start();
+
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      }, 200);
+
+      // Glow pulse animation
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(glowScale, {
+            toValue: 1.2,
+            duration: 1000,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(glowScale, {
+            toValue: 1,
+            duration: 1000,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+
+      // Confetti animation
+      confettiPieces.forEach((piece, i) => {
+        piece.y.setValue(-50 - Math.random() * 100);
+        piece.x.setValue(Math.random() * SCREEN_WIDTH);
+
+        const delay = i * 20;
+        const duration = 2000 + Math.random() * 1000;
+
+        setTimeout(() => {
+          const xOffset = (Math.random() - 0.5) * 100;
+          Animated.parallel([
+            Animated.timing(piece.y, {
+              toValue: SCREEN_HEIGHT + 50,
+              duration,
+              easing: Easing.linear,
+              useNativeDriver: true,
+            }),
+            Animated.timing(piece.x, {
+              toValue: Math.random() * SCREEN_WIDTH + xOffset,
+              duration,
+              useNativeDriver: true,
+            }),
+            Animated.timing(piece.rotation, {
+              toValue: Math.random() * 10 - 5,
+              duration,
+              useNativeDriver: true,
+            }),
+          ]).start();
+        }, delay);
+      });
+    } else {
+      // Reset animations
+      backdropOpacity.setValue(0);
+      contentScale.setValue(0.8);
+      contentOpacity.setValue(0);
+      trophyScale.setValue(0);
+      trophyRotation.setValue(0);
+    }
+  }, [visible]);
+
+  const handleDismiss = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    Animated.parallel([
+      Animated.timing(backdropOpacity, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(contentScale, {
+        toValue: 0.8,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(contentOpacity, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      onDismiss();
+    });
+  };
+
+  // Calculate stats
+  const daysAhead = deadline ? differenceInDays(new Date(deadline), completedAt) : null;
+
+  return (
+    <Modal visible={visible} transparent animationType="none">
+      <View style={celebrationStyles.container}>
+        {/* Backdrop */}
+        <Animated.View
+          style={[
+            celebrationStyles.backdrop,
+            { opacity: backdropOpacity }
+          ]}
+        />
+
+        {/* Confetti */}
+        {confettiPieces.map((piece) => (
+          <Animated.View
+            key={piece.id}
+            style={[
+              celebrationStyles.confetti,
+              {
+                backgroundColor: piece.color,
+                width: piece.size,
+                height: piece.size * 1.5,
+                borderRadius: piece.size / 4,
+                transform: [
+                  { translateX: piece.x },
+                  { translateY: piece.y },
+                  {
+                    rotate: piece.rotation.interpolate({
+                      inputRange: [-5, 5],
+                      outputRange: ['-180deg', '180deg'],
+                    })
+                  },
+                  { scale: piece.scale },
+                ],
+              },
+            ]}
+          />
+        ))}
+
+        {/* Content Card */}
+        <Animated.View
+          style={[
+            celebrationStyles.card,
+            {
+              transform: [{ scale: contentScale }],
+              opacity: contentOpacity,
+            }
+          ]}
+        >
+          {/* Trophy */}
+          <Animated.View
+            style={[
+              celebrationStyles.trophyContainer,
+              {
+                transform: [
+                  { scale: trophyScale },
+                  {
+                    rotate: trophyRotation.interpolate({
+                      inputRange: [-0.1, 0.1],
+                      outputRange: ['-10deg', '10deg'],
+                    })
+                  },
+                ],
+              }
+            ]}
+          >
+            <View style={[celebrationStyles.trophyCircle, { backgroundColor: `${projectColor}20` }]}>
+              <Trophy size={48} color={projectColor} strokeWidth={1.5} fill={`${projectColor}30`} />
+            </View>
+          </Animated.View>
+
+          {/* Celebration Text */}
+          <Text style={celebrationStyles.title}>Goal Complete! 🎉</Text>
+          <Text style={celebrationStyles.projectName}>{projectName}</Text>
+
+          {/* Stats */}
+          <View style={celebrationStyles.statsContainer}>
+            <View style={celebrationStyles.statItem}>
+              <Text style={celebrationStyles.statValue}>{totalSteps}</Text>
+              <Text style={celebrationStyles.statLabel}>Steps Completed</Text>
+            </View>
+            {daysAhead !== null && daysAhead >= 0 && (
+              <View style={celebrationStyles.statItem}>
+                <Text style={[celebrationStyles.statValue, { color: '#34C759' }]}>
+                  {daysAhead === 0 ? 'On time!' : `${daysAhead} days`}
+                </Text>
+                <Text style={celebrationStyles.statLabel}>
+                  {daysAhead === 0 ? '' : 'Ahead of deadline'}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Dismiss Button */}
+          <Pressable
+            style={[celebrationStyles.button, { backgroundColor: projectColor }]}
+            onPress={handleDismiss}
+          >
+            <Text style={celebrationStyles.buttonText}>Continue</Text>
+          </Pressable>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+}
+
+const celebrationStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  },
+  confetti: {
+    position: 'absolute',
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 28,
+    padding: 32,
+    alignItems: 'center',
+    width: SCREEN_WIDTH - 48,
+    maxWidth: 340,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  glow: {
+    position: 'absolute',
+    top: -20,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    opacity: 0.2,
+  },
+  trophyContainer: {
+    marginBottom: 20,
+  },
+  trophyCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#000',
+    marginBottom: 8,
+    letterSpacing: -0.5,
+  },
+  projectName: {
+    fontSize: 17,
+    fontWeight: '500',
+    color: '#8E8E93',
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 32,
+    marginBottom: 28,
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#000',
+    letterSpacing: -0.3,
+  },
+  statLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#8E8E93',
+    marginTop: 2,
+  },
+  button: {
+    paddingVertical: 16,
+    paddingHorizontal: 48,
+    borderRadius: 14,
+    alignItems: 'center',
+    width: '100%',
+  },
+  buttonText: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#fff',
+  },
+});
+
 export default function ProjectDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -210,10 +758,13 @@ export default function ProjectDetailScreen() {
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const [draggedOverIndex, setDraggedOverIndex] = useState<number | null>(null);
+  const [showCelebration, setShowCelebration] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const taskLayoutsRef = useRef<{ y: number; height: number }[]>([]);
   const pan = useRef(new Animated.ValueXY()).current;
+  const previousProgressRef = useRef<number | null>(null);
+  const hasCelebratedRef = useRef(false);
 
   const project = getProject(id || '');
 
@@ -223,6 +774,21 @@ export default function ProjectDetailScreen() {
   }, [project]);
 
   const progress = project ? getProjectProgress(project) : 0;
+
+  // Detect when goal is completed (progress goes to 100%)
+  useEffect(() => {
+    if (project && project.tasks.length > 0) {
+      // Check if we just completed the goal (and haven't celebrated yet)
+      if (progress === 100 && previousProgressRef.current !== null && previousProgressRef.current < 100 && !hasCelebratedRef.current) {
+        // Small delay to let the step animation finish first
+        setTimeout(() => {
+          setShowCelebration(true);
+          hasCelebratedRef.current = true;
+        }, 600);
+      }
+      previousProgressRef.current = progress;
+    }
+  }, [progress, project]);
 
   const handleBack = useCallback(() => {
     router.back();
@@ -281,6 +847,23 @@ export default function ProjectDetailScreen() {
   const handleDragRelease = useCallback(() => {
     setDraggingIndex(null);
   }, []);
+
+  // Scroll to the next uncompleted task after completing one
+  const scrollToNextTask = useCallback((completedIndex: number) => {
+    // Find the next uncompleted task after this one
+    const nextUncompletedIndex = sortedTasks.findIndex((task, i) => i > completedIndex && !task.completed);
+
+    if (nextUncompletedIndex !== -1 && taskLayoutsRef.current[nextUncompletedIndex]) {
+      const layout = taskLayoutsRef.current[nextUncompletedIndex];
+      // Scroll so the next task is nicely visible (not at the very top)
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({
+          y: layout.y - 100, // Offset to give some breathing room at top
+          animated: true,
+        });
+      }, 300);
+    }
+  }, [sortedTasks]);
 
   const handleTaskLayout = useCallback((index: number, event: LayoutChangeEvent) => {
     const { y, height } = event.nativeEvent.layout;
@@ -456,6 +1039,7 @@ export default function ProjectDetailScreen() {
                     pan={pan}
                     isFirst={index === 0}
                     isLast={index === sortedTasks.length - 1 && !isAddingTask}
+                    onCompleteAnimationDone={() => scrollToNextTask(index)}
                   />
                 </View>
               ))}
@@ -506,6 +1090,20 @@ export default function ProjectDetailScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* Goal Complete Celebration Modal */}
+      {project && (
+        <GoalCompleteCelebration
+          visible={showCelebration}
+          onDismiss={() => setShowCelebration(false)}
+          projectName={project.name}
+          projectColor={project.color}
+          projectIcon={project.icon}
+          totalSteps={project.tasks.length}
+          deadline={project.deadline}
+          completedAt={new Date()}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -687,6 +1285,10 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: 2,
   },
+  taskTitleContainer: {
+    position: 'relative',
+    flex: 1,
+  },
   taskTitle: {
     fontSize: 15,
     fontWeight: '500',
@@ -695,7 +1297,14 @@ const styles = StyleSheet.create({
   },
   taskTitleCompleted: {
     color: '#8E8E93',
-    textDecorationLine: 'line-through',
+  },
+  strikethroughLine: {
+    position: 'absolute',
+    left: 0,
+    top: '50%',
+    height: 1.5,
+    backgroundColor: '#8E8E93',
+    marginTop: -0.75,
   },
   taskActions: {
     paddingLeft: 12,

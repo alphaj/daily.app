@@ -36,11 +36,11 @@ export default function AddProjectScreen() {
     router.back();
   }, [router]);
 
-  const handleCreate = useCallback(() => {
+  const handleCreate = useCallback(async () => {
     if (!name.trim()) return;
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const projectId = addProject(
+    const projectId = await addProject(
       name.trim(),
       description.trim(),
       selectedColor,

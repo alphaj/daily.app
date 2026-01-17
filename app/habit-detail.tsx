@@ -1,7 +1,7 @@
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import {
     ChevronLeft,
-    Flame,
+    Repeat,
     Trash2,
 } from 'lucide-react-native';
 import React, { useState, useCallback } from 'react';
@@ -82,6 +82,7 @@ export default function HabitDetailScreen() {
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
+            <Stack.Screen options={{ headerShown: false }} />
             <CelebrationOverlay
                 visible={showCelebration}
                 onComplete={handleCelebrationComplete}
@@ -106,52 +107,56 @@ export default function HabitDetailScreen() {
                 contentContainerStyle={{ paddingBottom: 40 }}
             >
                 {/* Habit Hero Section */}
-                <View style={styles.heroSection}>
-                    {habit.emoji ? (
-                        <View style={styles.heroEmoji}>
-                            <Text style={styles.heroEmojiText}>{habit.emoji}</Text>
-                        </View>
-                    ) : (
-                        <View style={styles.heroIcon}>
-                            <Flame size={40} color="#5856D6" />
-                        </View>
-                    )}
-                    <Text style={styles.heroName}>{habit.name}</Text>
+                <View style={styles.card}>
+                    <View style={styles.heroContent}>
+                        {habit.emoji ? (
+                            <View style={styles.heroEmoji}>
+                                <Text style={styles.heroEmojiText}>{habit.emoji}</Text>
+                            </View>
+                        ) : (
+                            <View style={styles.heroIcon}>
+                                <Repeat size={40} color="#5856D6" />
+                            </View>
+                        )}
+                        <Text style={styles.heroName}>{habit.name}</Text>
 
-                    {/* Today's Toggle */}
-                    <Pressable
-                        style={[
-                            styles.todayButton,
-                            completed && styles.todayButtonCompleted
-                        ]}
-                        onPress={handleToggleToday}
-                    >
-                        <Text style={[
-                            styles.todayButtonText,
-                            completed && styles.todayButtonTextCompleted
-                        ]}>
-                            {completed ? '✓ Completed Today' : 'Mark as Complete'}
-                        </Text>
-                    </Pressable>
+                        {/* Today's Toggle */}
+                        <Pressable
+                            style={[
+                                styles.todayButton,
+                                completed && styles.todayButtonCompleted
+                            ]}
+                            onPress={handleToggleToday}
+                        >
+                            <Text style={[
+                                styles.todayButtonText,
+                                completed && styles.todayButtonTextCompleted
+                            ]}>
+                                {completed ? '✓ Completed Today' : 'Mark as Complete'}
+                            </Text>
+                        </Pressable>
+                    </View>
                 </View>
 
                 {/* Next Milestone Card */}
                 {habit.currentStreak > 0 && (
-                    <View style={styles.milestoneCard}>
-                        <View style={styles.milestoneIcon}>
-                            <Text style={styles.milestoneEmoji}>🎯</Text>
-                        </View>
-                        <View style={styles.milestoneContent}>
-                            <Text style={styles.milestoneTitle}>
-                                {daysToMilestone} days to {nextMilestone}-day milestone!
-                            </Text>
-                            <View style={styles.milestoneProgress}>
-                                <View
-                                    style={[
-                                        styles.milestoneProgressFill,
-                                        { width: `${(habit.currentStreak / nextMilestone) * 100}%` }
-                                    ]}
-                                />
+                    <View style={styles.card}>
+                        <View style={styles.milestoneContainer}>
+                            <View style={styles.milestoneIcon}>
+                                <Text style={styles.milestoneEmoji}>🎯</Text>
+                            </View>
+                            <View style={styles.milestoneContent}>
+                                <Text style={styles.milestoneTitle}>
+                                    {daysToMilestone} days to {nextMilestone}-day milestone!
+                                </Text>
+                                <View style={styles.milestoneProgress}>
+                                    <View
+                                        style={[
+                                            styles.milestoneProgressFill,
+                                            { width: `${(habit.currentStreak / nextMilestone) * 100}%` }
+                                        ]}
+                                    />
+                                </View>
                             </View>
                         </View>
                     </View>
@@ -169,26 +174,28 @@ export default function HabitDetailScreen() {
 
                 {/* Intention Card (if set) */}
                 {habit.intention && (habit.intention.when || habit.intention.where || habit.intention.cue) && (
-                    <View style={styles.intentionCard}>
-                        <Text style={styles.intentionTitle}>My Intention</Text>
-                        {habit.intention.when && (
-                            <View style={styles.intentionRow}>
-                                <Text style={styles.intentionLabel}>When:</Text>
-                                <Text style={styles.intentionValue}>{habit.intention.when}</Text>
-                            </View>
-                        )}
-                        {habit.intention.where && (
-                            <View style={styles.intentionRow}>
-                                <Text style={styles.intentionLabel}>Where:</Text>
-                                <Text style={styles.intentionValue}>{habit.intention.where}</Text>
-                            </View>
-                        )}
-                        {habit.intention.cue && (
-                            <View style={styles.intentionRow}>
-                                <Text style={styles.intentionLabel}>Cue:</Text>
-                                <Text style={styles.intentionValue}>{habit.intention.cue}</Text>
-                            </View>
-                        )}
+                    <View style={styles.card}>
+                        <Text style={styles.cardTitle}>My Intention</Text>
+                        <View style={styles.intentionContainer}>
+                            {habit.intention.when && (
+                                <View style={styles.intentionRow}>
+                                    <Text style={styles.intentionLabel}>When:</Text>
+                                    <Text style={styles.intentionValue}>{habit.intention.when}</Text>
+                                </View>
+                            )}
+                            {habit.intention.where && (
+                                <View style={styles.intentionRow}>
+                                    <Text style={styles.intentionLabel}>Where:</Text>
+                                    <Text style={styles.intentionValue}>{habit.intention.where}</Text>
+                                </View>
+                            )}
+                            {habit.intention.cue && (
+                                <View style={styles.intentionRow}>
+                                    <Text style={styles.intentionLabel}>Cue:</Text>
+                                    <Text style={styles.intentionValue}>{habit.intention.cue}</Text>
+                                </View>
+                            )}
+                        </View>
                     </View>
                 )}
 
@@ -208,7 +215,7 @@ export default function HabitDetailScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: '#F2F2F7', // System Gray Background
     },
     errorContainer: {
         flex: 1,
@@ -239,6 +246,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingHorizontal: 16,
         paddingVertical: 10,
+        backgroundColor: '#F2F2F7',
     },
     iconButton: {
         padding: 8,
@@ -250,12 +258,28 @@ const styles = StyleSheet.create({
     },
     content: {
         flex: 1,
-        paddingHorizontal: 24,
+        paddingHorizontal: 16,
     },
-    heroSection: {
+    card: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 2,
+    },
+    cardTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#000',
+        marginBottom: 16,
+    },
+    heroContent: {
         alignItems: 'center',
-        paddingVertical: 24,
-        marginBottom: 8,
+        paddingVertical: 8,
     },
     heroEmoji: {
         width: 88,
@@ -291,6 +315,8 @@ const styles = StyleSheet.create({
         paddingVertical: 14,
         backgroundColor: '#5856D6',
         borderRadius: 16,
+        width: '100%',
+        alignItems: 'center',
     },
     todayButtonCompleted: {
         backgroundColor: '#34C759',
@@ -303,13 +329,9 @@ const styles = StyleSheet.create({
     todayButtonTextCompleted: {
         color: '#fff',
     },
-    milestoneCard: {
+    milestoneContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#FFF8E6',
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 24,
         gap: 12,
     },
     milestoneIcon: {
@@ -344,41 +366,35 @@ const styles = StyleSheet.create({
         borderRadius: 3,
     },
     heatmapSection: {
-        marginBottom: 24,
+        marginBottom: 20,
     },
-    intentionCard: {
-        backgroundColor: '#F8F8FC',
-        borderRadius: 16,
-        padding: 20,
-        marginBottom: 24,
-    },
-    intentionTitle: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: '#000',
-        marginBottom: 16,
+    intentionContainer: {
+        gap: 12,
     },
     intentionRow: {
         flexDirection: 'row',
-        marginBottom: 8,
+        alignItems: 'flex-start',
     },
     intentionLabel: {
         fontSize: 14,
         fontWeight: '600',
         color: '#8E8E93',
         width: 60,
+        marginTop: 1,
     },
     intentionValue: {
         fontSize: 14,
         fontWeight: '500',
         color: '#000',
         flex: 1,
+        lineHeight: 20,
     },
     createdText: {
         fontSize: 13,
         fontWeight: '500',
-        color: '#C7C7CC',
+        color: '#8E8E93', // Slightly darker than previous C7C7CC for better readability on gray
         textAlign: 'center',
         marginBottom: 20,
+        marginTop: 10,
     },
 });

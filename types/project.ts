@@ -30,6 +30,11 @@ export const PROJECT_COLORS = [
   '#F7DC6F', // Gold
   '#BB8FCE', // Lavender
   '#85C1E9', // Light blue
+  '#FFBE98', // Peach
+  '#F8B4D9', // Rose pink
+  '#A8B5E0', // Periwinkle
+  '#E8A0B5', // Dusty rose
+  '#7FDBDA', // Turquoise
 ] as const;
 
 export const PROJECT_ICONS = [
