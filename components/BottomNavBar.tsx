@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet, Platform } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LayoutGrid, Inbox, Lightbulb, ListTodo, Plus } from 'lucide-react-native';
@@ -64,8 +64,10 @@ export function BottomNavBar({ onFabPress }: BottomNavBarProps) {
     const leftItems = NAV_ITEMS.slice(0, 2);
     const rightItems = NAV_ITEMS.slice(2);
 
+    const bottomPadding = Platform.OS === 'web' ? 16 : Math.max(insets.bottom, 8);
+
     return (
-        <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+        <View style={[styles.container, { paddingBottom: bottomPadding }]}>
             {leftItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeRoute === item.route;
