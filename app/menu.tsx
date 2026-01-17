@@ -10,6 +10,7 @@ import {
     Star,
     Shield,
     FolderKanban,
+    LogOut,
 } from 'lucide-react-native';
 import React from 'react';
 import {
@@ -18,7 +19,9 @@ import {
     StyleSheet,
     Pressable,
     ScrollView,
+    Alert,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 
@@ -62,6 +65,29 @@ function MenuSection({ title, children }: { title?: string; children: React.Reac
 
 export default function MenuScreen() {
     const router = useRouter();
+
+    const handleResetApp = () => {
+        Alert.alert(
+            'Reset App',
+            'This will clear all your data and return you to the welcome screen. This action cannot be undone.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Reset',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await AsyncStorage.clear();
+                            router.replace('/(onboarding)/welcome');
+                        } catch (error) {
+                            console.log('Error resetting app:', error);
+                            Alert.alert('Error', 'Failed to reset app. Please try again.');
+                        }
+                    },
+                },
+            ]
+        );
+    };
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
@@ -136,6 +162,17 @@ export default function MenuScreen() {
                     <MenuItem
                         icon={<Star size={22} color="#FFCC00" />}
                         title="Rate the App"
+                    />
+                </MenuSection>
+
+                {/* Account Section */}
+                <MenuSection title="Account">
+                    <MenuItem
+                        icon={<LogOut size={22} color="#FF3B30" />}
+                        title="Reset App"
+                        subtitle="Clear all data & start fresh"
+                        onPress={handleResetApp}
+                        danger
                     />
                 </MenuSection>
 
