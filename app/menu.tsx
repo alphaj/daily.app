@@ -3,13 +3,10 @@ import {
     ChevronLeft,
     ChevronRight,
     Bell,
-    Palette,
-    Download,
     HelpCircle,
     MessageSquare,
     Star,
     Shield,
-    FolderKanban,
     LogOut,
 } from 'lucide-react-native';
 import React from 'react';
@@ -110,15 +107,6 @@ export default function MenuScreen() {
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 40 }}
             >
-                {/* Organize Section */}
-                <MenuSection title="Organize">
-                    <MenuItem
-                        icon={<FolderKanban size={22} color="#007AFF" />}
-                        title="Projects"
-                        subtitle="Manage your projects"
-                        onPress={() => router.push('/projects')}
-                    />
-                </MenuSection>
 
                 {/* Preferences Section */}
                 <MenuSection title="Preferences">
@@ -127,20 +115,10 @@ export default function MenuScreen() {
                         title="Notifications"
                         subtitle="Reminders & alerts"
                     />
-                    <MenuItem
-                        icon={<Palette size={22} color="#34C759" />}
-                        title="Appearance"
-                        subtitle="Theme & display"
-                    />
                 </MenuSection>
 
                 {/* Data Section */}
                 <MenuSection title="Data">
-                    <MenuItem
-                        icon={<Download size={22} color="#007AFF" />}
-                        title="Export Data"
-                        subtitle="Download your data"
-                    />
                     <MenuItem
                         icon={<Shield size={22} color="#8E8E93" />}
                         title="Privacy Policy"

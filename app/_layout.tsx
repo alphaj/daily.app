@@ -9,6 +9,7 @@ import { TodoProvider } from "@/contexts/TodoContext";
 import { NoteProvider } from "@/contexts/NoteContext";
 import { InboxProvider } from "@/contexts/InboxContext";
 import { ProjectProvider } from "@/contexts/ProjectContext";
+import { OnboardingProvider, useOnboarding } from "@/contexts/OnboardingContext";
 import { trpc, trpcClient } from "@/lib/trpc";
 
 SplashScreen.preventAutoHideAsync();
@@ -18,30 +19,19 @@ const queryClient = new QueryClient();
 function useProtectedRoute() {
   const segments = useSegments();
   const router = useRouter();
-  const [hasCheckedOnboarding, setHasCheckedOnboarding] = React.useState(false);
-  const [hasCompletedOnboarding, setHasCompletedOnboarding] = React.useState(false);
-
-  React.useEffect(() => {
-    AsyncStorage.getItem('@daily_onboarding').then((value) => {
-      if (value) {
-        const parsed = JSON.parse(value);
-        setHasCompletedOnboarding(parsed.hasCompletedOnboarding ?? false);
-      }
-      setHasCheckedOnboarding(true);
-    });
-  }, []);
+  const { state, isLoading } = useOnboarding();
 
   useEffect(() => {
-    if (!hasCheckedOnboarding) return;
+    if (isLoading) return;
 
     const inOnboarding = segments[0] === "(onboarding)";
 
-    if (!hasCompletedOnboarding && !inOnboarding) {
+    if (!state.hasCompletedOnboarding && !inOnboarding) {
       router.replace("/(onboarding)/welcome");
-    } else if (hasCompletedOnboarding && inOnboarding) {
+    } else if (state.hasCompletedOnboarding && inOnboarding) {
       router.replace("/");
     }
-  }, [segments, hasCheckedOnboarding, hasCompletedOnboarding, router]);
+  }, [segments, state.hasCompletedOnboarding, isLoading, router]);
 }
 
 function RootLayoutNav() {
@@ -75,9 +65,11 @@ function AppWrapper() {
         <NoteProvider>
           <InboxProvider>
             <ProjectProvider>
-              <GestureHandlerRootView style={{ flex: 1 }}>
-                <RootLayoutNav />
-              </GestureHandlerRootView>
+              <OnboardingProvider>
+                <GestureHandlerRootView style={{ flex: 1 }}>
+                  <RootLayoutNav />
+                </GestureHandlerRootView>
+              </OnboardingProvider>
             </ProjectProvider>
           </InboxProvider>
         </NoteProvider>
