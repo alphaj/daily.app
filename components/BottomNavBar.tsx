@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Pressable, StyleSheet, Platform } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LayoutGrid, Inbox, Lightbulb, ListTodo, Plus } from 'lucide-react-native';
@@ -64,10 +64,8 @@ export function BottomNavBar({ onFabPress }: BottomNavBarProps) {
     const leftItems = NAV_ITEMS.slice(0, 2);
     const rightItems = NAV_ITEMS.slice(2);
 
-    const bottomPadding = Platform.OS === 'web' ? 16 : Math.max(insets.bottom, 8);
-
     return (
-        <View style={[styles.container, { paddingBottom: bottomPadding }]}>
+        <View style={[styles.container, { paddingBottom: Math.max(insets.bottom - 8, 0) }]}>
             {leftItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeRoute === item.route;
@@ -117,21 +115,22 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 32,
-        paddingTop: 16,
+        paddingTop: 8,
+        paddingBottom: 8,
         backgroundColor: '#fff',
-        borderTopWidth: 0.5,
-        borderTopColor: '#E5E5EA',
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: 'rgba(0,0,0,0.12)',
     },
     tab: {
-        padding: 8,
+        padding: 6,
     },
     fab: {
-        width: 52,
-        height: 52,
-        borderRadius: 26,
+        width: 48,
+        height: 48,
+        borderRadius: 24,
         backgroundColor: '#F2F2F7',
         alignItems: 'center',
         justifyContent: 'center',
-        marginTop: -16,
+        marginTop: -12,
     },
 });
