@@ -10,6 +10,7 @@ export default function OnboardingLayout() {
                 contentStyle: { backgroundColor: '#000000' },
             }}
         >
+            <Stack.Screen name="get-started" />
             <Stack.Screen name="sign-up-email" />
             <Stack.Screen name="create-password" />
             <Stack.Screen name="login" />
@@ -19,6 +20,15 @@ export default function OnboardingLayout() {
             <Stack.Screen name="feeling" />
             <Stack.Screen name="today-win" />
             <Stack.Screen name="welcome" />
+            <Stack.Screen
+                name="privacy-policy"
+                options={{
+                    presentation: 'modal',
+                    headerShown: true,
+                    headerTitle: 'Privacy Policy',
+                    headerBackTitle: 'Back'
+                }}
+            />
         </Stack>
     );
 }

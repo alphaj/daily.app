@@ -28,7 +28,7 @@ function useProtectedRoute() {
     const inOnboarding = segments[0] === "(onboarding)";
 
     if (!state.hasCompletedOnboarding && !inOnboarding) {
-      router.replace("/(onboarding)/notifications");
+      router.replace("/(onboarding)/get-started");
     } else if (state.hasCompletedOnboarding && inOnboarding) {
       router.replace("/");
     }
