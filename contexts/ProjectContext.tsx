@@ -39,7 +39,8 @@ export const [ProjectProvider, useProjects] = createContextHook(() => {
     color: string,
     icon: string,
     type: 'project' | 'goal' = 'project',
-    deadline?: string
+    deadline?: string,
+    isWork?: boolean
   ) => {
     const newProject: Project = {
       id: generateId(),
@@ -49,6 +50,7 @@ export const [ProjectProvider, useProjects] = createContextHook(() => {
       icon,
       type,
       deadline,
+      isWork,
       createdAt: new Date().toISOString(),
       tasks: [],
     };
@@ -128,10 +130,10 @@ export const [ProjectProvider, useProjects] = createContextHook(() => {
     const newProjects = projects.map(p =>
       p.id === projectId
         ? {
-            ...p,
-            tasks: updatedTasks,
-            completedAt: allCompleted ? new Date().toISOString() : undefined,
-          }
+          ...p,
+          tasks: updatedTasks,
+          completedAt: allCompleted ? new Date().toISOString() : undefined,
+        }
         : p
     );
 

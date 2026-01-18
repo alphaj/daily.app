@@ -8,6 +8,10 @@ import {
     Star,
     Shield,
     LogOut,
+    Briefcase,
+    Heart,
+    CheckCircle2,
+    Zap,
 } from 'lucide-react-native';
 import React from 'react';
 import {
@@ -17,11 +21,13 @@ import {
     Pressable,
     ScrollView,
     Alert,
+    Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-
+import { WorkModeToggle } from '@/components/WorkModeToggle';
+import { useTodos } from '@/contexts/TodoContext';
 
 interface MenuItemProps {
     icon: React.ReactNode;
@@ -30,23 +36,45 @@ interface MenuItemProps {
     onPress?: () => void;
     showChevron?: boolean;
     danger?: boolean;
+    isLast?: boolean;
+    value?: string;
 }
 
-function MenuItem({ icon, title, subtitle, onPress, showChevron = true, danger }: MenuItemProps) {
+function MenuItem({
+    icon,
+    title,
+    subtitle,
+    onPress,
+    showChevron = true,
+    danger,
+    isLast,
+    value
+}: MenuItemProps) {
     return (
         <Pressable
-            style={styles.menuItem}
+            style={({ pressed }) => [
+                styles.menuItem,
+                pressed && styles.menuItemPressed,
+                !isLast && styles.menuItemBorder
+            ]}
             onPress={() => {
                 Haptics.selectionAsync();
                 onPress?.();
             }}
         >
-            <View style={styles.menuIcon}>{icon}</View>
+            <View style={styles.menuIconContainer}>
+                {icon}
+            </View>
             <View style={styles.menuContent}>
-                <Text style={[styles.menuTitle, danger && styles.menuTitleDanger]}>{title}</Text>
+                <Text style={[styles.menuTitle, danger && styles.menuTitleDanger]}>
+                    {title}
+                </Text>
                 {subtitle && <Text style={styles.menuSubtitle}>{subtitle}</Text>}
             </View>
-            {showChevron && <ChevronRight size={20} color="#C7C7CC" />}
+            <View style={styles.menuRight}>
+                {value && <Text style={styles.menuValue}>{value}</Text>}
+                {showChevron && <ChevronRight size={16} color="#C7C7CC" strokeWidth={2} />}
+            </View>
         </Pressable>
     );
 }
@@ -55,18 +83,52 @@ function MenuSection({ title, children }: { title?: string; children: React.Reac
     return (
         <View style={styles.section}>
             {title && <Text style={styles.sectionTitle}>{title}</Text>}
-            <View style={styles.sectionContent}>{children}</View>
+            <View style={styles.sectionContent}>
+                {children}
+            </View>
+        </View>
+    );
+}
+
+function StatCard({
+    label,
+    value,
+    icon,
+    color,
+    subLabel
+}: {
+    label: string;
+    value: number | string;
+    icon: React.ReactNode;
+    color: string;
+    subLabel?: string;
+}) {
+    return (
+        <View style={styles.statCard}>
+            <View style={[styles.statIconContainer, { backgroundColor: `${color}15` }]}>
+                {icon}
+            </View>
+            <View style={styles.statTextContainer}>
+                <Text style={styles.statValue}>{value}</Text>
+                <Text style={styles.statLabel}>{label}</Text>
+                {subLabel && <Text style={styles.statSubLabel}>{subLabel}</Text>}
+            </View>
         </View>
     );
 }
 
 export default function MenuScreen() {
     const router = useRouter();
+    const { completedCount, workCompletedCount, lifeCompletedCount } = useTodos();
+
+    const handleGoBack = () => {
+        router.replace('/');
+    };
 
     const handleSignOut = () => {
         Alert.alert(
             'Sign Out',
-            'This will sign you out and return you to the welcome screen. Your data will be cleared.',
+            'Are you sure you want to sign out?',
             [
                 { text: 'Cancel', style: 'cancel' },
                 {
@@ -78,7 +140,6 @@ export default function MenuScreen() {
                             router.replace('/(onboarding)/welcome');
                         } catch (error) {
                             console.log('Error signing out:', error);
-                            Alert.alert('Error', 'Failed to sign out. Please try again.');
                         }
                     },
                 },
@@ -87,195 +148,379 @@ export default function MenuScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
-            {/* Header */}
-            <View style={styles.header}>
-                <Pressable style={styles.iconButton} onPress={() => router.back()}>
-                    <ChevronLeft size={24} color="#000" strokeWidth={1.5} />
-                </Pressable>
-
-                <View style={styles.headerCenter}>
-                    <Text style={styles.logoText}>daily.app</Text>
+        <View style={styles.container}>
+            <SafeAreaView style={styles.safeArea} edges={['top']}>
+                {/* Header */}
+                <View style={styles.header}>
+                    <Pressable
+                        style={({ pressed }) => [styles.headerButton, pressed && styles.headerButtonPressed]}
+                        onPress={handleGoBack}
+                    >
+                        <ChevronLeft size={20} color="#007AFF" strokeWidth={2.5} />
+                        <Text style={styles.headerBackText}>Back</Text>
+                    </Pressable>
                     <Text style={styles.headerTitle}>Settings</Text>
+                    <View style={styles.headerRight} />
                 </View>
 
-                <View style={styles.iconButton} />
-            </View>
+                <ScrollView
+                    style={styles.scrollView}
+                    contentContainerStyle={styles.scrollContent}
+                    showsVerticalScrollIndicator={false}
+                >
+                    {/* Dashboard / Stats */}
+                    <View style={styles.dashboardContainer}>
+                        <View style={styles.dashboardHeader}>
+                            <View>
+                                <Text style={styles.dashboardTitle}>Overview</Text>
+                                <Text style={styles.dashboardSubtitle}>Your productivity journey</Text>
+                            </View>
+                            <View style={styles.completionBadge}>
+                                <Zap size={14} color="#FF9500" fill="#FF9500" />
+                                <Text style={styles.completionBadgeText}>{completedCount} done</Text>
+                            </View>
+                        </View>
 
-            <ScrollView
-                style={styles.content}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 40 }}
-            >
+                        <View style={styles.statsGrid}>
+                            <View style={styles.statItem}>
+                                <View style={[styles.statIcon, { backgroundColor: '#E0F2FE' }]}>
+                                    <Briefcase size={20} color="#0EA5E9" />
+                                </View>
+                                <View>
+                                    <Text style={styles.statNumber}>{workCompletedCount}</Text>
+                                    <Text style={styles.statCategory}>Work</Text>
+                                </View>
+                            </View>
+                            <View style={styles.statDivider} />
+                            <View style={styles.statItem}>
+                                <View style={[styles.statIcon, { backgroundColor: '#FFE4E6' }]}>
+                                    <Heart size={20} color="#E11D48" />
+                                </View>
+                                <View>
+                                    <Text style={styles.statNumber}>{lifeCompletedCount}</Text>
+                                    <Text style={styles.statCategory}>Life</Text>
+                                </View>
+                            </View>
+                        </View>
+                    </View>
 
-                {/* Preferences Section */}
-                <MenuSection title="Preferences">
-                    <MenuItem
-                        icon={<Bell size={22} color="#FF9500" />}
-                        title="Notifications"
-                        subtitle="Reminders & alerts"
-                    />
-                </MenuSection>
+                    {/* Focus Mode */}
+                    <Text style={styles.sectionTitle}>FOCUS</Text>
+                    <View style={styles.focusSection}>
+                        <WorkModeToggle />
+                    </View>
 
-                {/* Data Section */}
-                <MenuSection title="Data">
-                    <MenuItem
-                        icon={<Shield size={22} color="#8E8E93" />}
-                        title="Privacy Policy"
-                        subtitle="Data & security"
-                        onPress={() => router.push('/privacy-policy')}
-                    />
-                </MenuSection>
+                    {/* Preferences */}
+                    <MenuSection title="PREFERENCES">
+                        <MenuItem
+                            icon={<View style={[styles.iconBox, { backgroundColor: '#FF9500' }]}><Bell size={18} color="white" strokeWidth={2.5} /></View>}
+                            title="Notifications"
+                            isLast
+                        />
+                    </MenuSection>
 
-                {/* Support Section */}
-                <MenuSection title="Support">
-                    <MenuItem
-                        icon={<HelpCircle size={22} color="#AF52DE" />}
-                        title="Help & FAQ"
-                    />
-                    <MenuItem
-                        icon={<MessageSquare size={22} color="#5856D6" />}
-                        title="Contact Us"
-                    />
-                    <MenuItem
-                        icon={<Star size={22} color="#FFCC00" />}
-                        title="Rate the App"
-                    />
-                </MenuSection>
+                    {/* Support */}
+                    <MenuSection title="SUPPORT">
+                        <MenuItem
+                            icon={<View style={[styles.iconBox, { backgroundColor: '#5856D6' }]}><HelpCircle size={18} color="white" strokeWidth={2.5} /></View>}
+                            title="Help & FAQ"
+                        />
+                        <MenuItem
+                            icon={<View style={[styles.iconBox, { backgroundColor: '#34C759' }]}><MessageSquare size={18} color="white" strokeWidth={2.5} /></View>}
+                            title="Contact Us"
+                        />
+                        <MenuItem
+                            icon={<View style={[styles.iconBox, { backgroundColor: '#FFCC00' }]}><Star size={18} color="white" strokeWidth={2.5} /></View>}
+                            title="Rate the App"
+                            isLast
+                            value="v1.0.0"
+                        />
+                    </MenuSection>
 
-                {/* Account Section */}
-                <MenuSection title="Account">
-                    <MenuItem
-                        icon={<LogOut size={22} color="#FF3B30" />}
-                        title="Sign Out"
-                        subtitle="Return to welcome screen"
-                        onPress={handleSignOut}
-                        danger
-                    />
-                </MenuSection>
+                    {/* Legal */}
+                    <MenuSection title="LEGAL">
+                        <MenuItem
+                            icon={<View style={[styles.iconBox, { backgroundColor: '#8E8E93' }]}><Shield size={18} color="white" strokeWidth={2.5} /></View>}
+                            title="Privacy Policy"
+                            onPress={() => router.push('/privacy-policy')}
+                            isLast
+                        />
+                    </MenuSection>
 
-                {/* App Info */}
-                <View style={styles.appInfo}>
-                    <Text style={styles.appInfoText}>daily.app</Text>
-                    <Text style={styles.appVersion}>Version 1.0.0</Text>
-                </View>
-            </ScrollView>
-        </SafeAreaView>
+                    {/* Danger Zone */}
+                    <MenuSection>
+                        <MenuItem
+                            icon={<View style={[styles.iconBox, { backgroundColor: '#FF3B30' }]}><LogOut size={18} color="white" strokeWidth={2.5} /></View>}
+                            title="Sign Out"
+                            onPress={handleSignOut}
+                            danger
+                            isLast
+                        />
+                    </MenuSection>
+
+                    <Text style={styles.footerText}>
+                        Designed with ❤️ for You{'\n'}
+                        Daily Inc. © 2024
+                    </Text>
+                </ScrollView>
+            </SafeAreaView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F2F2F7', // System Gray 6
+        backgroundColor: '#F2F2F7', // iOS Grouped Table Background
+    },
+    safeArea: {
+        flex: 1,
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 8, // Reduced vertical padding
+        paddingHorizontal: 8,
+        height: 44, // Standard iOS header height
+        marginBottom: 8,
     },
-    iconButton: {
-        padding: 8,
-        width: 40,
-        height: 40, // Fixed height for circular button
-        backgroundColor: '#fff', // Added background
-        borderRadius: 20,
+    headerButton: {
+        flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'hidden',
+        paddingHorizontal: 8,
+        paddingVertical: 10,
     },
-    headerCenter: {
-        alignItems: 'center',
-        gap: 2,
+    headerButtonPressed: {
+        opacity: 0.5,
     },
-    logoText: {
-        fontSize: 16, // Slightly smaller
-        fontWeight: '800',
-        color: '#000',
-        letterSpacing: -0.5,
+    headerBackText: {
+        fontSize: 17,
+        color: '#007AFF', // iOS Blue
+        marginLeft: -4,
+        fontWeight: '400',
     },
     headerTitle: {
+        fontSize: 17,
+        fontWeight: '600',
+        color: '#000',
+    },
+    headerRight: {
+        width: 60, // Balance the left side
+    },
+    scrollView: {
+        flex: 1,
+    },
+    scrollContent: {
+        paddingTop: 16,
+        paddingBottom: 40,
+    },
+    dashboardContainer: {
+        marginHorizontal: 16,
+        marginBottom: 24,
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        padding: 20,
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.05,
+                shadowRadius: 8,
+            },
+            android: {
+                elevation: 3,
+            },
+        }),
+    },
+    dashboardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 20,
+    },
+    dashboardTitle: {
+        fontSize: 22,
+        fontWeight: '700',
+        color: '#1C1C1E',
+        letterSpacing: -0.5,
+        marginBottom: 4,
+    },
+    dashboardSubtitle: {
         fontSize: 13,
+        color: '#8E8E93',
+        fontWeight: '500',
+    },
+    completionBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFF8E6',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 20,
+        gap: 4,
+    },
+    completionBadgeText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#FF9500',
+    },
+    statsGrid: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    statItem: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    statDivider: {
+        width: 1,
+        height: 32,
+        backgroundColor: '#E5E5EA',
+        marginHorizontal: 16,
+    },
+    statIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    statNumber: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#1C1C1E',
+    },
+    statCategory: {
+        fontSize: 12,
+        color: '#8E8E93',
+        fontWeight: '500',
+    },
+    statCard: {
+        flex: 1,
+        backgroundColor: '#fff',
+        padding: 16,
+        borderRadius: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+    },
+    statIconContainer: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    statTextContainer: {
+        flex: 1,
+    },
+    statValue: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: '#000',
+    },
+    statLabel: {
+        fontSize: 12,
         fontWeight: '500',
         color: '#8E8E93',
     },
-    content: {
-        flex: 1,
+    statSubLabel: {
+        fontSize: 10,
+        color: '#C7C7CC',
+        marginTop: 2,
     },
     section: {
-        marginTop: 24,
-        paddingHorizontal: 20, // Reduced padding to allow wider cards
+        marginBottom: 24,
+        marginHorizontal: 16,
     },
     sectionTitle: {
-        fontSize: 12,
+        fontSize: 13,
         fontWeight: '600',
         color: '#8E8E93',
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
         marginBottom: 8,
-        marginLeft: 12, // Indent title slightly
+        marginLeft: 16,
+        textTransform: 'uppercase',
+        letterSpacing: -0.2,
     },
     sectionContent: {
-        backgroundColor: '#fff', // White card
-        borderRadius: 20, // iOS Cell Radius
+        backgroundColor: '#fff',
+        borderRadius: 12,
         overflow: 'hidden',
-        // Optional Shadow for depth
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.04,
-        shadowRadius: 8,
-        elevation: 2,
+    },
+    focusSection: {
+        marginBottom: 24,
+        marginHorizontal: 16,
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 4, // Padding to match the inset look
     },
     menuItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 16,
-        backgroundColor: '#fff',
-        // Separator logic is usually handled by views, but this works for simple lists in RN
-        borderBottomWidth: 0.5,
-        borderBottomColor: '#F2F2F7',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        minHeight: 48,
     },
-    menuIcon: {
-        width: 32,
-        height: 32,
-        borderRadius: 10, // Squircle
-        backgroundColor: '#F2F2F7', // Gray background for icon
+    menuItemPressed: {
+        backgroundColor: '#F2F2F7',
+    },
+    menuItemBorder: {
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: '#E5E5EA',
+        marginLeft: 52, // Indent separator to align with text
+    },
+    menuIconContainer: {
+        width: 36,
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: 14,
+        marginRight: 0,
+    },
+    iconBox: {
+        width: 28,
+        height: 28,
+        borderRadius: 7, // Apple style rounded corners
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     menuContent: {
         flex: 1,
+        marginLeft: 12,
+        justifyContent: 'center',
+    },
+    menuRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
     },
     menuTitle: {
-        fontSize: 16,
-        fontWeight: '600',
+        fontSize: 16, // iOS Body size
+        fontWeight: '400',
         color: '#000',
-        marginBottom: 2,
+        letterSpacing: -0.3,
     },
     menuTitleDanger: {
         color: '#FF3B30',
     },
     menuSubtitle: {
-        fontSize: 13,
+        fontSize: 12,
+        color: '#8E8E93',
+        marginTop: 2,
+    },
+    menuValue: {
+        fontSize: 16,
         color: '#8E8E93',
     },
-    appInfo: {
-        alignItems: 'center',
-        marginTop: 40,
-        marginBottom: 40,
-    },
-    appInfoText: {
-        fontSize: 16,
-        fontWeight: '700',
+    footerText: {
+        textAlign: 'center',
         color: '#C7C7CC',
-        letterSpacing: -0.5,
-    },
-    appVersion: {
-        fontSize: 13,
-        color: '#C7C7CC',
-        marginTop: 4,
+        fontSize: 12,
+        lineHeight: 18,
+        marginTop: 12,
     },
 });

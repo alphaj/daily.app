@@ -9,6 +9,7 @@ import { TodoProvider } from "@/contexts/TodoContext";
 import { NoteProvider } from "@/contexts/NoteContext";
 import { InboxProvider } from "@/contexts/InboxContext";
 import { ProjectProvider } from "@/contexts/ProjectContext";
+import { WorkModeProvider } from "@/contexts/WorkModeContext";
 import { OnboardingProvider, useOnboarding } from "@/contexts/OnboardingContext";
 import { trpc, trpcClient } from "@/lib/trpc";
 
@@ -47,7 +48,7 @@ function RootLayoutNav() {
       <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
       <Stack.Screen name="habits" options={{ headerShown: false, animation: 'none' }} />
       <Stack.Screen name="inbox" options={{ headerShown: false, animation: 'none' }} />
-      <Stack.Screen name="menu" options={{ headerShown: false }} />
+      <Stack.Screen name="menu" options={{ headerShown: false, gestureEnabled: false, fullScreenGestureEnabled: false, animation: 'slide_from_right' }} />
       <Stack.Screen name="add-habit" options={{ presentation: "modal", headerShown: false }} />
       <Stack.Screen name="add-todo" options={{ presentation: "modal", headerShown: false }} />
       <Stack.Screen name="projects" options={{ headerShown: false }} />
@@ -66,11 +67,13 @@ function AppWrapper() {
         <NoteProvider>
           <InboxProvider>
             <ProjectProvider>
-              <OnboardingProvider>
-                <GestureHandlerRootView style={{ flex: 1 }}>
-                  <RootLayoutNav />
-                </GestureHandlerRootView>
-              </OnboardingProvider>
+              <WorkModeProvider>
+                <OnboardingProvider>
+                  <GestureHandlerRootView style={{ flex: 1 }}>
+                    <RootLayoutNav />
+                  </GestureHandlerRootView>
+                </OnboardingProvider>
+              </WorkModeProvider>
             </ProjectProvider>
           </InboxProvider>
         </NoteProvider>

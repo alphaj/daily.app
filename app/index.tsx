@@ -3,7 +3,7 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
-  Settings,
+  Inbox,
   Plus,
   Check,
   Flame,
@@ -11,6 +11,7 @@ import {
   ListTodo,
   GripVertical,
   Target,
+  Briefcase,
 } from 'lucide-react-native';
 import React, { useCallback, useState, useEffect, useRef, useMemo } from 'react';
 import {
@@ -44,6 +45,18 @@ import { AddOptionsModal } from '@/components/AddOptionsModal';
 import { ReflectionModal } from '@/components/ReflectionModal';
 import { BottomNavBar } from '@/components/BottomNavBar';
 import { DailySummaryModal, useDailySummary } from '@/components/DailySummaryModal';
+import { WorkModeIndicator } from '@/components/WorkModeIndicator';
+import { useWorkMode } from '@/contexts/WorkModeContext';
+
+// Wrapper for direct toggle action
+function WorkModeToggleWrapper() {
+  const { toggleMode } = useWorkMode();
+
+  return <WorkModeIndicator onPress={() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    toggleMode();
+  }} />;
+}
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ITEM_HEIGHT = 68;
@@ -171,18 +184,24 @@ function DraggableTodoItem({
             </View>
             <Pressable
               onPress={handlePress}
-              style={[styles.checkboxContainer, todo.completed ? styles.checkboxChecked : styles.checkboxUnchecked]}
+              style={[
+                styles.checkboxContainer,
+                todo.isWork && styles.checkboxWork,
+                todo.completed ? styles.checkboxChecked : styles.checkboxUnchecked,
+                todo.isWork && todo.completed && styles.checkboxWorkChecked,
+              ]}
               disabled={isDragging}
             >
               {todo.completed && <Check size={14} color="#fff" strokeWidth={4} />}
             </Pressable>
-            <Text style={[styles.todoText, todo.completed && styles.todoTextChecked]}>
+
+            <Text style={[styles.todoText, todo.completed && styles.todoTextChecked]} numberOfLines={1}>
               {todo.title}
             </Text>
           </Animated.View>
         </Pressable>
       </SwipeableRow>
-    </Animated.View>
+    </Animated.View >
   );
 }
 
@@ -255,6 +274,8 @@ function DraggableTaskList({
   );
 }
 
+import { BlurView } from 'expo-blur';
+
 function CalendarModal({
   visible,
   onClose,
@@ -269,6 +290,25 @@ function CalendarModal({
   hasNoteForDate: (date: Date) => boolean;
 }) {
   const [currentMonth, setCurrentMonth] = React.useState(selectedDate);
+  const slideAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      setCurrentMonth(selectedDate);
+      Animated.spring(slideAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        damping: 20,
+        stiffness: 90,
+      }).start();
+    } else {
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [visible, selectedDate]);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -304,79 +344,112 @@ function CalendarModal({
     ...daysInMonth,
   ];
 
-  const weekDayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const weekDayHeaders = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
   return (
     <Modal
       visible={visible}
       transparent
-      animationType="fade"
+      animationType="none"
       onRequestClose={onClose}
     >
-      <Pressable style={styles.modalOverlay} onPress={onClose}>
-        <Pressable style={styles.calendarModal} onPress={(e) => e.stopPropagation()}>
-          <View style={styles.calendarHeader}>
-            <Pressable onPress={handlePrevMonth} hitSlop={10} style={styles.calendarNavButton}>
-              <ChevronLeft size={24} color="#000" />
-            </Pressable>
-            <Text style={styles.calendarMonthText}>
-              {format(currentMonth, 'MMMM yyyy')}
-            </Text>
-            <Pressable onPress={handleNextMonth} hitSlop={10} style={styles.calendarNavButton}>
-              <ChevronRight size={24} color="#000" />
-            </Pressable>
-          </View>
-
-          <View style={styles.weekDayRow}>
-            {weekDayHeaders.map((day) => (
-              <View key={day} style={styles.weekDayCell}>
-                <Text style={styles.weekDayText}>{day}</Text>
-              </View>
-            ))}
-          </View>
-
-          <View style={styles.calendarGrid}>
-            {calendarDays.map((date, index) => {
-              if (!date) {
-                return <View key={`empty-${index}`} style={styles.calendarDayCell} />;
-              }
-
-              const isSelected = isSameDay(date, selectedDate);
-              const isToday = isSameDay(date, new Date());
-              const hasNote = hasNoteForDate(date);
-
-              return (
-                <Pressable
-                  key={date.toISOString()}
-                  style={[
-                    styles.calendarDayCell,
-                    isSelected && styles.calendarDaySelected,
-                    isToday && !isSelected && styles.calendarDayToday,
-                  ]}
-                  onPress={() => handleSelectDate(date)}
-                >
-                  <Text
-                    style={[
-                      styles.calendarDayText,
-                      isSelected && styles.calendarDayTextSelected,
-                      isToday && !isSelected && styles.calendarDayTextToday,
-                    ]}
-                  >
-                    {format(date, 'd')}
+      <View style={StyleSheet.absoluteFill}>
+        <BlurView
+          intensity={20}
+          tint="dark"
+          style={StyleSheet.absoluteFill}
+        >
+          <Pressable style={styles.modalOverlay} onPress={onClose}>
+            <Animated.View
+              style={[
+                styles.calendarModal,
+                {
+                  transform: [
+                    {
+                      scale: slideAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.95, 1]
+                      })
+                    },
+                    {
+                      translateY: slideAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [20, 0]
+                      })
+                    }
+                  ],
+                  opacity: slideAnim
+                }
+              ]}
+            >
+              <Pressable onPress={(e) => e.stopPropagation()}>
+                <View style={styles.calendarHeader}>
+                  <Pressable onPress={handlePrevMonth} hitSlop={15} style={styles.calendarNavButton}>
+                    <ChevronLeft size={20} color="#000" />
+                  </Pressable>
+                  <Text style={styles.calendarMonthText}>
+                    {format(currentMonth, 'MMMM yyyy')}
                   </Text>
-                  {hasNote && !isSelected && (
-                    <View style={styles.calendarNoteDot} />
-                  )}
-                </Pressable>
-              );
-            })}
-          </View>
+                  <Pressable onPress={handleNextMonth} hitSlop={15} style={styles.calendarNavButton}>
+                    <ChevronRight size={20} color="#000" />
+                  </Pressable>
+                </View>
 
-          <Pressable style={styles.todayButton} onPress={handleGoToToday}>
-            <Text style={styles.todayButtonText}>Go to Today</Text>
+                <View style={styles.weekDayRow}>
+                  {weekDayHeaders.map((day, i) => (
+                    <View key={i} style={styles.weekDayCell}>
+                      <Text style={styles.weekDayText}>{day}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                <View style={styles.calendarGrid}>
+                  {calendarDays.map((date, index) => {
+                    if (!date) {
+                      return <View key={`empty-${index}`} style={styles.calendarDayCell} />;
+                    }
+
+                    const isSelected = isSameDay(date, selectedDate);
+                    const isToday = isSameDay(date, new Date());
+                    const hasNote = hasNoteForDate(date);
+
+                    return (
+                      <Pressable
+                        key={date.toISOString()}
+                        style={[
+                          styles.calendarDayCell,
+                          isSelected && styles.calendarDaySelected,
+                          isToday && !isSelected && styles.calendarDayToday,
+                        ]}
+                        onPress={() => handleSelectDate(date)}
+                      >
+                        <Text
+                          style={[
+                            styles.calendarDayText,
+                            isSelected && styles.calendarDayTextSelected,
+                            isToday && !isSelected && styles.calendarDayTextToday,
+                          ]}
+                        >
+                          {format(date, 'd')}
+                        </Text>
+                        {hasNote && !isSelected && (
+                          <View style={styles.calendarNoteDot} />
+                        )}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                <View style={styles.calendarFooter}>
+                  <Pressable style={styles.todayButton} onPress={handleGoToToday}>
+                    <Text style={styles.todayButtonText}>Go to Today</Text>
+                  </Pressable>
+                </View>
+              </Pressable>
+            </Animated.View>
           </Pressable>
-        </Pressable>
-      </Pressable>
+        </BlurView>
+      </View>
     </Modal>
   );
 }
@@ -465,9 +538,14 @@ function HabitCard({
   );
 }
 
+import { AmbientBackground } from '@/components/AmbientBackground';
+
 export default function HomeScreen() {
   const router = useRouter();
-  const { getTodosForDate, toggleTodo, deleteTodo, todos: allTodos, reorderTodos } = useTodos();
+  // ... existing code ... all hooks ...
+
+  // Keep existing hooks up to the return
+  const { getTodosForDate, getCompletedTodosForDate, toggleTodo, deleteTodo, todos: allTodos, reorderTodos } = useTodos();
   const {
     habits,
     toggleHabitCompletion,
@@ -476,6 +554,7 @@ export default function HomeScreen() {
     getCelebrationPhrase,
   } = useHabits();
   const { getNoteForDate, updateNoteForDate, hasNoteForDate, isSaving } = useNotes();
+  const { shouldShowItem } = useWorkMode();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [calendarModalVisible, setCalendarModalVisible] = useState(false);
   const [addOptionsVisible, setAddOptionsVisible] = useState(false);
@@ -489,8 +568,17 @@ export default function HomeScreen() {
   // Daily summary hook
   const { shouldShow: showDailySummary, markShown: dismissDailySummary } = useDailySummary();
 
+  // Check if viewing a past date
+  const isPastDate = !isSameDay(selectedDate, new Date()) && selectedDate < new Date();
+
   // Get tasks for the selected date
-  const todosForDate = getTodosForDate(selectedDate);
+  // For past dates, show tasks completed on that day
+  // For today and future, show tasks due on that day
+  // Filter by current work mode
+  const allTodosForDate = isPastDate
+    ? getCompletedTodosForDate(selectedDate)
+    : getTodosForDate(selectedDate);
+  const todosForDate = allTodosForDate.filter(todo => shouldShowItem(todo.isWork));
 
   // Load note for selected date
   useEffect(() => {
@@ -564,292 +652,306 @@ export default function HomeScreen() {
   const isToday = isSameDay(selectedDate, new Date());
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <View style={{ flex: 1 }}>
+      <AmbientBackground />
+      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]} edges={['top']}>
 
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerCenter} pointerEvents="box-none">
-          <Text style={styles.logoText}>DAILY.APP</Text>
-          <View style={styles.dateNav}>
-            <Pressable
-              hitSlop={20}
-              onPress={() => {
-                Haptics.selectionAsync();
-                setSelectedDate(addDays(selectedDate, -1));
-              }}
-              style={styles.navArrow}
-            >
-              <ChevronLeft size={24} color="#000" strokeWidth={2.5} />
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                Haptics.selectionAsync();
-                setSelectedDate(new Date());
-              }}
-            >
-              <Text style={styles.headerDateText}>{isToday ? 'Today' : format(selectedDate, 'MMM d')}</Text>
-            </Pressable>
-            <Pressable
-              hitSlop={20}
-              onPress={() => {
-                Haptics.selectionAsync();
-                setSelectedDate(addDays(selectedDate, 1));
-              }}
-              style={styles.navArrow}
-            >
-              <ChevronRight size={24} color="#000" strokeWidth={2.5} />
-            </Pressable>
-          </View>
-        </View>
+        {/* Header */}
+        <View style={styles.header}>
+          {/* Work Mode Indicator - leftmost */}
+          {/* Work Mode Indicator - leftmost */}
+          <WorkModeToggleWrapper />
 
-        <Pressable style={styles.iconButton} onPress={handleCalendarPress}>
-          <Calendar size={24} color="#000" strokeWidth={1.5} />
-        </Pressable>
-
-        <Pressable style={styles.iconButton} onPress={() => router.push('/menu')}>
-          <Settings size={22} color="#000" strokeWidth={1.5} />
-        </Pressable>
-      </View>
-
-      {/* Calendar Strip - Scrollable */}
-      <ScrollView
-        ref={calendarScrollRef}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.calendarStripScroll}
-        contentContainerStyle={styles.calendarStripContent}
-        onLayout={() => {
-          // Auto-scroll to selected date on mount
-          const dayWidth = 56; // width of day item + margins
-          const scrollToIndex = selectedDayIndex >= 0 ? selectedDayIndex : 30; // default to today (index 30)
-          const scrollX = scrollToIndex * dayWidth - (SCREEN_WIDTH / 2) + (dayWidth / 2);
-          calendarScrollRef.current?.scrollTo({ x: Math.max(0, scrollX), animated: false });
-        }}
-      >
-        {calendarDays.map((date: Date, index: number) => {
-          const isSelected = isSameDay(date, selectedDate);
-          const isTodayDate = isSameDay(date, today);
-          const hasNote = hasNoteForDate(date);
-
-          return (
-            <Pressable
-              key={index}
-              style={[
-                styles.dayItem,
-                isSelected && styles.dayItemSelected,
-              ]}
-              onPress={() => {
-                Haptics.selectionAsync();
-                setSelectedDate(date);
-              }}
-            >
-              <Text
-                style={[
-                  styles.dayName,
-                  isSelected && styles.dayNameSelected,
-                  !isSelected && isTodayDate && styles.dayNameToday
-                ]}
+          <View style={styles.headerCenter} pointerEvents="box-none">
+            <View style={styles.dateNav}>
+              <Pressable
+                hitSlop={20}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setSelectedDate(addDays(selectedDate, -1));
+                }}
+                style={styles.navArrow}
               >
-                {format(date, 'EEE')}
-              </Text>
-              <Text
-                style={[
-                  styles.dayNumber,
-                  isSelected && styles.dayNumberSelected,
-                  !isSelected && isTodayDate && styles.dayNumberToday
-                ]}
+                <ChevronLeft size={24} color="#000" strokeWidth={2.5} />
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setSelectedDate(new Date());
+                }}
               >
-                {format(date, 'd')}
-              </Text>
-              {hasNote && !isSelected && (
-                <View style={styles.noteDot} />
-              )}
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-
-      <ScrollView
-        style={styles.content}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Date Heading */}
-        <View style={styles.pageHeader}>
-          <Text style={styles.subDate}>
-            {dayName.toUpperCase()} {isToday && <Text style={{ color: '#5856D6' }}>• TODAY</Text>}
-          </Text>
-          <Text style={styles.mainDate}>{formattedSelectedDate}</Text>
-        </View>
-
-        {/* Tasks Section */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleRow}>
-              <ListTodo size={20} color="#000" />
-              <Text style={styles.sectionLabel}>Tasks</Text>
-            </View>
-            <Pressable onPress={() => router.push('/add-todo')} style={styles.addButton}>
-              <Plus size={16} color="#5856D6" strokeWidth={2.5} />
-              <Text style={styles.addLink}>Add</Text>
-            </Pressable>
-          </View>
-
-          {todosForDate.length === 0 ? (
-            <View style={styles.emptyStateCard}>
-              <Text style={styles.emptyText}>No tasks for this day</Text>
-              <Pressable onPress={() => router.push('/add-todo')} style={styles.emptyAddButton}>
-                <Text style={styles.emptyAddText}>Add a task</Text>
+                <Text style={styles.headerDateText}>{isToday ? 'Today' : format(selectedDate, 'MMM d')}</Text>
+              </Pressable>
+              <Pressable
+                hitSlop={20}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setSelectedDate(addDays(selectedDate, 1));
+                }}
+                style={styles.navArrow}
+              >
+                <ChevronRight size={24} color="#000" strokeWidth={2.5} />
               </Pressable>
             </View>
-          ) : (
-            <DraggableTaskList
-              todos={todosForDate}
-              toggleTodo={toggleTodo}
-              deleteTodo={deleteTodo}
-              onReorder={(reorderedDateTodos) => {
-                const otherTodos = allTodos.filter(t => !todosForDate.some(dt => dt.id === t.id));
-                const newAllTodos = [...otherTodos, ...reorderedDateTodos];
-                reorderTodos(newAllTodos);
-              }}
-            />
-          )}
+          </View>
+
+          <View style={styles.headerRight}>
+            <Pressable style={styles.iconButton} onPress={handleCalendarPress}>
+              <Calendar size={24} color="#000" strokeWidth={1.5} />
+            </Pressable>
+
+            <Pressable style={styles.iconButton} onPress={() => router.push('/inbox')}>
+              <Inbox size={22} color="#000" strokeWidth={1.5} />
+            </Pressable>
+          </View>
         </View>
 
-        {/* Habits Section */}
-        <View style={styles.habitsSection}>
-          <View style={styles.sectionHeaderPadding}>
+        {/* Calendar Strip - Scrollable */}
+        <ScrollView
+          ref={calendarScrollRef}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.calendarStripScroll}
+          contentContainerStyle={styles.calendarStripContent}
+          onLayout={() => {
+            // Auto-scroll to selected date on mount
+            const dayWidth = 62; // width 54 + gap 8
+            const scrollToIndex = selectedDayIndex >= 0 ? selectedDayIndex : 30; // default to today (index 30)
+            const scrollX = scrollToIndex * dayWidth - (SCREEN_WIDTH / 2) + (dayWidth / 2);
+            calendarScrollRef.current?.scrollTo({ x: Math.max(0, scrollX), animated: false });
+          }}
+        >
+          {calendarDays.map((date: Date, index: number) => {
+            const isSelected = isSameDay(date, selectedDate);
+            const isTodayDate = isSameDay(date, today);
+            const hasNote = hasNoteForDate(date);
+
+            return (
+              <Pressable
+                key={index}
+                style={[
+                  styles.dayItem,
+                  isSelected && styles.dayItemSelected,
+                ]}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setSelectedDate(date);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.dayName,
+                    isSelected && styles.dayNameSelected,
+                    !isSelected && isTodayDate && styles.dayNameToday
+                  ]}
+                >
+                  {format(date, 'EEE')}
+                </Text>
+                <Text
+                  style={[
+                    styles.dayNumber,
+                    isSelected && styles.dayNumberSelected,
+                    !isSelected && isTodayDate && styles.dayNumberToday
+                  ]}
+                >
+                  {format(date, 'd')}
+                </Text>
+                {hasNote && !isSelected && (
+                  <View style={styles.noteDot} />
+                )}
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        <ScrollView
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 100 }}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Date Heading */}
+          <View style={styles.pageHeader}>
+            <Text style={styles.subDate}>
+              {dayName.toUpperCase()} {isToday && <Text style={{ color: '#5856D6' }}>• TODAY</Text>}
+            </Text>
+            <Text style={styles.mainDate}>{formattedSelectedDate}</Text>
+          </View>
+
+          {/* Tasks Section */}
+          <View style={styles.sectionContainer}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleRow}>
-                <Target size={20} color="#5856D6" />
-                <Text style={styles.sectionLabel}>Habits</Text>
+                <ListTodo size={20} color="#000" />
+                <Text style={styles.sectionLabel}>{isPastDate ? 'Completed' : 'Tasks'}</Text>
               </View>
-              <Pressable onPress={() => router.push('/add-habit')} style={styles.addButton}>
-                <Plus size={16} color="#5856D6" strokeWidth={2.5} />
-                <Text style={styles.addLink}>Add</Text>
-              </Pressable>
+              {!isPastDate && (
+                <Pressable onPress={() => router.push('/add-todo')} style={styles.addButton}>
+                  <Plus size={16} color="#5856D6" strokeWidth={2.5} />
+                  <Text style={styles.addLink}>Add</Text>
+                </Pressable>
+              )}
             </View>
+
+            {todosForDate.length === 0 ? (
+              <View style={styles.emptyStateCard}>
+                <Text style={styles.emptyText}>
+                  {isPastDate ? 'No tasks completed on this day' : 'No tasks for this day'}
+                </Text>
+                {!isPastDate && (
+                  <Pressable onPress={() => router.push('/add-todo')} style={styles.emptyAddButton}>
+                    <Text style={styles.emptyAddText}>Add a task</Text>
+                  </Pressable>
+                )}
+              </View>
+            ) : (
+              <DraggableTaskList
+                todos={todosForDate}
+                toggleTodo={toggleTodo}
+                deleteTodo={deleteTodo}
+                onReorder={(reorderedDateTodos) => {
+                  const otherTodos = allTodos.filter(t => !todosForDate.some(dt => dt.id === t.id));
+                  const newAllTodos = [...otherTodos, ...reorderedDateTodos];
+                  reorderTodos(newAllTodos);
+                }}
+              />
+            )}
           </View>
 
-          {habits.length === 0 ? (
-            <View style={styles.emptyHabitsContainer}>
-              <View style={styles.emptyStateCard}>
-                <Text style={styles.emptyText}>No habits tracked yet</Text>
-                <Pressable onPress={() => router.push('/add-habit')} style={styles.emptyAddButton}>
-                  <Text style={styles.emptyAddText}>Start a habit</Text>
+          {/* Habits Section */}
+          <View style={styles.habitsSection}>
+            <View style={styles.sectionHeaderPadding}>
+              <View style={styles.sectionHeader}>
+                <View style={styles.sectionTitleRow}>
+                  <Target size={20} color="#5856D6" />
+                  <Text style={styles.sectionLabel}>Habits</Text>
+                </View>
+                <Pressable onPress={() => router.push('/add-habit')} style={styles.addButton}>
+                  <Plus size={16} color="#5856D6" strokeWidth={2.5} />
+                  <Text style={styles.addLink}>Add</Text>
                 </Pressable>
               </View>
             </View>
-          ) : (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.habitsScrollContent}
-              decelerationRate="fast"
-              snapToInterval={142}
-              snapToAlignment="start"
-            >
-              {habits.map(habit => (
-                <HabitCard
-                  key={habit.id}
-                  habit={habit}
-                  isCompleted={isCompletedToday(habit)}
-                  onToggle={handleHabitToggle}
-                  onDelete={deleteHabit}
-                />
-              ))}
-            </ScrollView>
-          )}
-        </View>
 
-        {/* Notes Input */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.notesCard}>
-            <View style={styles.cardHeader}>
-              <View style={styles.cardHeaderLeft}>
-                <PenLine size={18} color="#5856D6" />
-                <Text style={styles.cardTitle}>Daily Note</Text>
+            {habits.length === 0 ? (
+              <View style={styles.emptyHabitsContainer}>
+                <View style={styles.emptyStateCard}>
+                  <Text style={styles.emptyText}>No habits tracked yet</Text>
+                  <Pressable onPress={() => router.push('/add-habit')} style={styles.emptyAddButton}>
+                    <Text style={styles.emptyAddText}>Start a habit</Text>
+                  </Pressable>
+                </View>
               </View>
-              <View style={styles.saveIndicator}>
-                {isSaving ? (
-                  <Text style={styles.savingText}>Saving...</Text>
-                ) : noteText.length > 0 ? (
-                  <Text style={styles.savedText}>Saved</Text>
-                ) : null}
-              </View>
-            </View>
-            <TextInput
-              style={styles.notesInput}
-              placeholder={isToday ? "How was your day? What are you grateful for?" : "What happened on this day?"}
-              placeholderTextColor="#C7C7CC"
-              multiline
-              value={noteText}
-              onChangeText={handleNoteChange}
-              textAlignVertical="top"
-            />
-            {noteText.length > 0 && (
-              <Text style={styles.characterCount}>{noteText.length} characters</Text>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.habitsScrollContent}
+                decelerationRate="fast"
+                snapToInterval={142}
+                snapToAlignment="start"
+              >
+                {habits.map(habit => (
+                  <HabitCard
+                    key={habit.id}
+                    habit={habit}
+                    isCompleted={isCompletedToday(habit)}
+                    onToggle={handleHabitToggle}
+                    onDelete={deleteHabit}
+                  />
+                ))}
+              </ScrollView>
             )}
           </View>
-        </View>
-      </ScrollView>
 
-      {/* Bottom Bar */}
-      <BottomNavBar onFabPress={handleAddPress} />
+          {/* Notes Input */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.notesCard}>
+              <View style={styles.cardHeader}>
+                <View style={styles.cardHeaderLeft}>
+                  <PenLine size={18} color="#5856D6" />
+                  <Text style={styles.cardTitle}>Daily Note</Text>
+                </View>
+                <View style={styles.saveIndicator}>
+                  {isSaving ? (
+                    <Text style={styles.savingText}>Saving...</Text>
+                  ) : noteText.length > 0 ? (
+                    <Text style={styles.savedText}>Saved</Text>
+                  ) : null}
+                </View>
+              </View>
+              <TextInput
+                style={styles.notesInput}
+                placeholder={isToday ? "How was your day? What are you grateful for?" : "What happened on this day?"}
+                placeholderTextColor="#C7C7CC"
+                multiline
+                value={noteText}
+                onChangeText={handleNoteChange}
+                textAlignVertical="top"
+              />
+              {noteText.length > 0 && (
+                <Text style={styles.characterCount}>{noteText.length} characters</Text>
+              )}
+            </View>
+          </View>
+        </ScrollView>
 
-      {/* Calendar Modal */}
-      <CalendarModal
-        visible={calendarModalVisible}
-        onClose={() => setCalendarModalVisible(false)}
-        selectedDate={selectedDate}
-        onSelectDate={setSelectedDate}
-        hasNoteForDate={hasNoteForDate}
-      />
+        {/* Bottom Bar */}
+        <BottomNavBar onFabPress={handleAddPress} />
 
-      {/* Add Options Modal */}
-      <AddOptionsModal
-        visible={addOptionsVisible}
-        onClose={() => setAddOptionsVisible(false)}
-        onAddTask={handleAddTask}
-        onAddHabit={handleAddHabit}
-      />
+        {/* Calendar Modal */}
+        <CalendarModal
+          visible={calendarModalVisible}
+          onClose={() => setCalendarModalVisible(false)}
+          selectedDate={selectedDate}
+          onSelectDate={setSelectedDate}
+          hasNoteForDate={hasNoteForDate}
+        />
 
-      {/* Celebration Overlay */}
-      <CelebrationOverlay
-        visible={showCelebration}
-        onComplete={() => setShowCelebration(false)}
-        celebrationPhrase={getCelebrationPhrase()}
-      />
+        {/* Add Options Modal */}
+        <AddOptionsModal
+          visible={addOptionsVisible}
+          onClose={() => setAddOptionsVisible(false)}
+          onAddTask={handleAddTask}
+          onAddHabit={handleAddHabit}
+        />
 
-      {/* Reflection Modal */}
-      <ReflectionModal
-        visible={showReflection}
-        habit={reflectionHabit}
-        onDismiss={() => {
-          setShowReflection(false);
-          setReflectionHabit(null);
-        }}
-      />
+        {/* Celebration Overlay */}
+        <CelebrationOverlay
+          visible={showCelebration}
+          onComplete={() => setShowCelebration(false)}
+          celebrationPhrase={getCelebrationPhrase()}
+        />
 
-      {/* Daily Summary Modal */}
-      <DailySummaryModal
-        visible={showDailySummary}
-        onDismiss={dismissDailySummary}
-        habitsCompletedYesterday={habits.filter(h => isCompletedToday(h)).length}
-        totalHabits={habits.length}
-        tasksCompletedYesterday={todosForDate.filter(t => t.completed).length}
-        pendingTasks={todosForDate.filter(t => !t.completed).length}
-      />
+        {/* Reflection Modal */}
+        <ReflectionModal
+          visible={showReflection}
+          habit={reflectionHabit}
+          onDismiss={() => {
+            setShowReflection(false);
+            setReflectionHabit(null);
+          }}
+        />
 
-    </SafeAreaView>
+        {/* Daily Summary Modal */}
+        <DailySummaryModal
+          visible={showDailySummary}
+          onDismiss={dismissDailySummary}
+          habitsCompletedYesterday={habits.filter(h => isCompletedToday(h)).length}
+          totalHabits={habits.length}
+          tasksCompletedYesterday={todosForDate.filter(t => t.completed).length}
+          pendingTasks={todosForDate.filter(t => !t.completed).length}
+        />
+
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: 'transparent',
   },
   header: {
     flexDirection: 'row',
@@ -857,7 +959,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: 'transparent',
     position: 'relative',
     height: 60,
   },
@@ -897,6 +999,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   navArrow: {
     opacity: 0.4,
     padding: 4,
@@ -923,18 +1030,19 @@ const styles = StyleSheet.create({
   dayItem: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    width: 48,
-    borderRadius: 16,
+    paddingVertical: 12,
+    width: 54,
+    borderRadius: 24,
     gap: 2,
   },
   dayItemSelected: {
     backgroundColor: '#000',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.15,
     shadowRadius: 8,
-    elevation: 5,
+    elevation: 4,
+    transform: [{ scale: 1.05 }], // Slight scale up for pop
   },
   dayItemToday: {
     // Removed border style
@@ -947,6 +1055,7 @@ const styles = StyleSheet.create({
   },
   dayNameSelected: {
     color: 'rgba(255, 255, 255, 0.6)',
+    fontWeight: '700',
   },
   dayNameToday: {
     color: '#007AFF',
@@ -959,6 +1068,8 @@ const styles = StyleSheet.create({
   },
   dayNumberSelected: {
     color: '#fff',
+    fontSize: 19,
+    fontWeight: '700',
   },
   dayNumberToday: {
     color: '#007AFF',
@@ -1147,6 +1258,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#5856D6',
     borderColor: '#5856D6',
   },
+  checkboxWork: {
+    borderRadius: 8, // Squircle shape for work
+    borderColor: '#E5E5EA',
+  },
+  checkboxWorkChecked: {
+    backgroundColor: '#5856D6', // Indigo for Work
+    borderColor: '#5856D6',
+  },
   todoText: {
     flex: 1,
     fontSize: 16,
@@ -1299,16 +1418,24 @@ const styles = StyleSheet.create({
   // Calendar Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   calendarModal: {
     backgroundColor: '#fff',
-    borderRadius: 24,
-    padding: 20,
-    width: SCREEN_WIDTH - 40,
-    maxWidth: 380,
+    borderRadius: 28,
+    width: '100%',
+    maxWidth: 340,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 20,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 30,
+    elevation: 20,
   },
   calendarHeader: {
     flexDirection: 'row',
@@ -1317,71 +1444,74 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     paddingHorizontal: 4,
   },
+  calendarMonthText: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#000',
+  },
   calendarNavButton: {
     padding: 8,
-  },
-  calendarMonthText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#000',
+    borderRadius: 50,
+    backgroundColor: 'rgba(242, 242, 247, 0.5)',
   },
   weekDayRow: {
     flexDirection: 'row',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   weekDayCell: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 8,
+    justifyContent: 'center',
   },
   weekDayText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
     color: '#8E8E93',
-    textTransform: 'uppercase',
   },
   calendarGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    marginBottom: 20,
   },
   calendarDayCell: {
-    width: `${100 / 7}%`,
+    width: '14.28%',
     aspectRatio: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 2,
   },
   calendarDaySelected: {
     backgroundColor: '#000',
     borderRadius: 20,
   },
   calendarDayToday: {
-    borderWidth: 2,
-    borderColor: '#000',
+    backgroundColor: 'rgba(242, 242, 247, 0.5)',
     borderRadius: 20,
   },
   calendarDayText: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '400',
     color: '#000',
   },
   calendarDayTextSelected: {
     color: '#fff',
-    fontWeight: '700',
+    fontWeight: '600',
   },
   calendarDayTextToday: {
-    color: '#000',
-    fontWeight: '700',
+    color: '#007AFF',
+    fontWeight: '600',
+  },
+  calendarFooter: {
+    paddingTop: 8,
   },
   todayButton: {
-    marginTop: 16,
-    paddingVertical: 12,
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
+    backgroundColor: 'rgba(242, 242, 247, 0.5)',
+    paddingVertical: 14,
+    borderRadius: 16,
     alignItems: 'center',
   },
   todayButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000',
   },
 });

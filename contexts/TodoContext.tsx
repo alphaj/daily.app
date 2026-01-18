@@ -41,7 +41,12 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
     queryClient.invalidateQueries({ queryKey: ['todos'] });
   }, [queryClient]);
 
-  const addTodo = useCallback(async (title: string, date?: Date, priority?: 'low' | 'medium' | 'high') => {
+  const addTodo = useCallback(async (
+    title: string,
+    date?: Date,
+    priority?: 'low' | 'medium' | 'high',
+    isWork?: boolean
+  ) => {
     const dueDate = date ? getDateKey(date) : getToday();
 
     const newTodo: Todo = {
@@ -50,6 +55,7 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
       completed: false,
       dueDate,
       priority,
+      isWork,
       createdAt: new Date().toISOString(),
     };
 
@@ -70,7 +76,11 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
 
     const newCompleted = !todo.completed;
     const newTodos = todos.map(t =>
-      t.id === id ? { ...t, completed: newCompleted } : t
+      t.id === id ? {
+        ...t,
+        completed: newCompleted,
+        completedAt: newCompleted ? new Date().toISOString() : undefined,
+      } : t
     );
 
     setTodos(newTodos);
@@ -120,7 +130,19 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
     setTodos(reorderedTodos);
   }, []);
 
+  /** Get todos that were completed on a specific date */
+  const getCompletedTodosForDate = useCallback((date: Date): Todo[] => {
+    const dateKey = getDateKey(date);
+    return todos.filter(todo => {
+      if (!todo.completedAt) return false;
+      const completedDateKey = todo.completedAt.split('T')[0];
+      return completedDateKey === dateKey;
+    });
+  }, [todos]);
+
   const completedCount = useMemo(() => todos.filter(t => t.completed).length, [todos]);
+  const workCompletedCount = useMemo(() => todos.filter(t => t.completed && t.isWork === true).length, [todos]);
+  const lifeCompletedCount = useMemo(() => todos.filter(t => t.completed && (t.isWork === false || t.isWork === undefined)).length, [todos]);
   const totalCount = todos.length;
 
   return {
@@ -130,10 +152,13 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
     deleteTodo,
     toggleTodo,
     getTodosForDate,
+    getCompletedTodosForDate,
     rolloverTasks,
     clearCompletedTodos,
     reorderTodos,
     completedCount,
+    workCompletedCount,
+    lifeCompletedCount,
     totalCount,
   };
 });

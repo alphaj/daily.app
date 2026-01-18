@@ -9,6 +9,7 @@ interface SwipeableRowProps {
     onDelete: () => void;
     onConvertToTask?: () => void;
     onConvertToHabit?: () => void;
+    style?: object;
 }
 
 export default class SwipeableRow extends Component<SwipeableRowProps> {
@@ -97,7 +98,7 @@ export default class SwipeableRow extends Component<SwipeableRowProps> {
     };
 
     render() {
-        const { children, onConvertToTask, onConvertToHabit } = this.props;
+        const { children, onConvertToTask, onConvertToHabit, style } = this.props;
         const hasLeftActions = onConvertToTask || onConvertToHabit;
 
         return (
@@ -109,7 +110,7 @@ export default class SwipeableRow extends Component<SwipeableRowProps> {
                 rightThreshold={40}
                 renderLeftActions={hasLeftActions ? this.renderLeftActions : undefined}
                 renderRightActions={this.renderRightActions}
-                containerStyle={styles.swipeableContainer}
+                containerStyle={[styles.swipeableContainer, style]}
             >
                 {children}
             </Swipeable>

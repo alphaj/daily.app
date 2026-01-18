@@ -14,7 +14,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useHabits } from '@/contexts/HabitContext';
+import { useWorkMode } from '@/contexts/WorkModeContext';
 import type { DayOfWeek } from '@/types/habit';
+import { WorkToggleRow } from '@/components/WorkToggleRow';
 
 // Popular habit emojis - just the essentials
 const QUICK_EMOJIS = ['💪', '📚', '🧘', '💧', '🏃', '😴', '✍️', '🎯'];
@@ -47,12 +49,14 @@ const DAYS_OF_WEEK: { label: string; short: string; value: DayOfWeek }[] = [
 export default function AddHabitScreen() {
   const router = useRouter();
   const { addHabit } = useHabits();
+  const { isWorkMode } = useWorkMode();
   const [habitName, setHabitName] = useState('');
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
   const [showAllEmojis, setShowAllEmojis] = useState(false);
   const [whyStatement, setWhyStatement] = useState('');
   const [celebrationPhrase, setCelebrationPhrase] = useState('');
   const [selectedDays, setSelectedDays] = useState<DayOfWeek[]>([0, 1, 2, 3, 4, 5, 6]); // All days by default
+  const [isWork, setIsWork] = useState(isWorkMode); // Default to current mode
 
   const handleSave = () => {
     if (habitName.trim()) {
@@ -65,7 +69,8 @@ export default function AddHabitScreen() {
         selectedEmoji || undefined,
         whyStatement.trim() || undefined,
         celebrationPhrase.trim() || undefined,
-        scheduledDays
+        scheduledDays,
+        isWork
       );
       router.back();
     }
@@ -287,6 +292,11 @@ export default function AddHabitScreen() {
               <Text style={styles.reflectionHint}>
                 We'll show these when you need motivation most
               </Text>
+            </View>
+
+            {/* Work Related Toggle */}
+            <View style={styles.workSection}>
+              <WorkToggleRow isWork={isWork} onToggle={setIsWork} />
             </View>
           </View>
         </ScrollView>
@@ -545,5 +555,15 @@ const styles = StyleSheet.create({
   },
   dayPillTextSelected: {
     color: '#fff',
+  },
+  workSection: {
+    width: '100%',
+    marginTop: 8,
+    paddingTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: '#F2F2F7',
+    backgroundColor: '#F9F9F9',
+    borderRadius: 12,
+    overflow: 'hidden',
   },
 });

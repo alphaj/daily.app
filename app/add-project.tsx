@@ -14,13 +14,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useProjects } from '@/contexts/ProjectContext';
+import { useWorkMode } from '@/contexts/WorkModeContext';
 import { PROJECT_COLORS, PROJECT_ICONS } from '@/types/project';
 import { format } from 'date-fns';
 import DatePickerWrapper from '@/components/DatePickerWrapper';
+import { WorkToggleRow } from '@/components/WorkToggleRow';
 
 export default function AddProjectScreen() {
   const router = useRouter();
   const { addProject } = useProjects();
+  const { isWorkMode } = useWorkMode();
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -30,6 +33,7 @@ export default function AddProjectScreen() {
   const [deadline, setDeadline] = useState<Date | undefined>(undefined);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [hasDeadline, setHasDeadline] = useState(false);
+  const [isWork, setIsWork] = useState(isWorkMode); // Default to current mode
 
   const handleClose = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -46,10 +50,11 @@ export default function AddProjectScreen() {
       selectedColor,
       selectedIcon,
       type,
-      deadline?.toISOString()
+      deadline?.toISOString(),
+      isWork
     );
     router.replace(`/project/${projectId}` as const);
-  }, [name, description, selectedColor, selectedIcon, type, deadline, addProject, router]);
+  }, [name, description, selectedColor, selectedIcon, type, deadline, isWork, addProject, router]);
 
   const handleColorSelect = (color: string) => {
     Haptics.selectionAsync();
@@ -241,6 +246,11 @@ export default function AddProjectScreen() {
                 />
               ))}
             </View>
+          </View>
+
+          {/* Work Related Toggle */}
+          <View style={styles.workSection}>
+            <WorkToggleRow isWork={isWork} onToggle={setIsWork} />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -524,5 +534,17 @@ const styles = StyleSheet.create({
   },
   removeDeadlineButton: {
     padding: 4,
+  },
+  workSection: {
+    marginTop: 16,
+    marginBottom: 32,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
   },
 });

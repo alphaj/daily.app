@@ -28,6 +28,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useProjects } from '@/contexts/ProjectContext';
+import SwipeableRow from '@/components/SwipeableRow';
 import type { ProjectTask } from '@/types/project';
 import { format, differenceInDays } from 'date-fns';
 
@@ -99,7 +100,7 @@ function RoadmapTask({
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         Animated.spring(pan, {
           toValue: { x: 0, y: 0 },
-          useNativeDriver: true,
+          useNativeDriver: false,
           speed: 20,
           bounciness: 8,
         }).start();
@@ -131,7 +132,7 @@ function RoadmapTask({
     setTimeout(() => {
       Animated.spring(checkmarkScaleAnim, {
         toValue: 1,
-        useNativeDriver: true,
+        useNativeDriver: false,
         tension: 150,
         friction: 6,
       }).start();
@@ -162,11 +163,11 @@ function RoadmapTask({
         Animated.timing(completionPulseAnim, {
           toValue: 1.02,
           duration: 100,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.spring(completionPulseAnim, {
           toValue: 1,
-          useNativeDriver: true,
+          useNativeDriver: false,
           tension: 100,
           friction: 10,
         }),
@@ -189,7 +190,7 @@ function RoadmapTask({
       Animated.timing(checkmarkScaleAnim, {
         toValue: 0,
         duration: 100,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
       Animated.timing(checkboxFillAnim, {
         toValue: 0,
@@ -314,36 +315,46 @@ function RoadmapTask({
           )}
         </View>
 
-        <Pressable
-          style={[styles.taskContent, showCompleted && styles.taskContentCompleted]}
-          onPress={handlePress}
-          onLongPress={handleLongPress}
-          delayLongPress={500}
-        >
-          <View style={styles.taskMain}>
-            <Text style={[styles.taskNumber, { color: projectColor }]}>Step {index + 1}</Text>
-            <View style={styles.taskTitleContainer}>
-              <Text style={[styles.taskTitle, showCompleted && styles.taskTitleCompleted]} numberOfLines={2}>
-                {task.title}
-              </Text>
-              {/* Animated strikethrough overlay */}
-              <Animated.View
-                style={[
-                  styles.strikethroughLine,
-                  {
-                    width: strikethroughAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: ['0%', '100%'],
-                    }),
-                  }
-                ]}
-              />
-            </View>
-          </View>
-          <View style={styles.taskActions} {...panResponder.panHandlers}>
-            <GripVertical size={18} color={isDraggingState ? projectColor : "#D1D1D6"} />
-          </View>
-        </Pressable>
+        {/* Swipeable wrapper for content */}
+        <View style={{ flex: 1 }}>
+          <SwipeableRow onDelete={onDelete} style={{ flex: 1 }}>
+            <Pressable
+              style={[styles.taskContent, showCompleted && styles.taskContentCompleted]}
+              onPress={handlePress}
+              onLongPress={handleLongPress}
+              delayLongPress={500}
+            >
+              <View style={styles.taskMain}>
+                <Text style={[styles.taskNumber, { color: projectColor }]}>Step {index + 1}</Text>
+                <View style={styles.taskTitleContainer}>
+                  <Text style={[styles.taskTitle, showCompleted && styles.taskTitleCompleted]} numberOfLines={2}>
+                    {task.title}
+                  </Text>
+                  {/* Animated strikethrough overlay */}
+                  <Animated.View
+                    style={[
+                      styles.strikethroughLine,
+                      {
+                        width: strikethroughAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: ['0%', '100%'],
+                        }),
+                      }
+                    ]}
+                  />
+                </View>
+              </View>
+              <View
+                style={[styles.taskActions, isDraggingState && styles.taskActionsDragging]}
+                {...panResponder.panHandlers}
+              >
+                <View style={styles.dragHandleArea}>
+                  <GripVertical size={18} color={isDraggingState ? projectColor : "#D1D1D6"} />
+                </View>
+              </View>
+            </Pressable>
+          </SwipeableRow>
+        </View>
       </Animated.View>
       {showSpacerBelow && <View style={styles.dropSpacer} />}
     </>
@@ -1307,7 +1318,19 @@ const styles = StyleSheet.create({
     marginTop: -0.75,
   },
   taskActions: {
-    paddingLeft: 12,
+    paddingLeft: 8,
+    marginLeft: 4,
+    marginRight: -8,
+  },
+  taskActionsDragging: {
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderRadius: 8,
+  },
+  dragHandleArea: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   emptyTasks: {
     alignItems: 'center',
@@ -1380,11 +1403,14 @@ const styles = StyleSheet.create({
   },
   taskRowDragging: {
     zIndex: 1000,
-    elevation: 8,
+    elevation: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    opacity: 0.95,
   },
   dropSpacer: {
     height: TASK_HEIGHT,

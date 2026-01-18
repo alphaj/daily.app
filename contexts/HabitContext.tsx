@@ -84,7 +84,8 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
     emoji?: string,
     whyStatement?: string,
     celebrationPhrase?: string,
-    scheduledDays?: DayOfWeek[]
+    scheduledDays?: DayOfWeek[],
+    isWork?: boolean
   ) => {
     const newHabit: Habit = {
       id: generateId(),
@@ -98,6 +99,7 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
       whyStatement,
       celebrationPhrase,
       scheduledDays,
+      isWork,
     };
 
     const newHabits = [...habits, newHabit];

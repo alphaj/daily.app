@@ -22,6 +22,8 @@ export interface Habit {
   celebrationPhrase?: string;
   /** Days of week this habit should be tracked (0-6, Sunday-Saturday). Empty/undefined = every day */
   scheduledDays?: DayOfWeek[];
+  /** Whether this is a work-related habit */
+  isWork?: boolean;
 }
 
 export interface HabitStats {

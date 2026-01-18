@@ -17,6 +17,8 @@ export interface Project {
   tasks: ProjectTask[];
   createdAt: string;
   completedAt?: string;
+  /** Whether this is a work-related project */
+  isWork?: boolean;
 }
 
 export const PROJECT_COLORS = [

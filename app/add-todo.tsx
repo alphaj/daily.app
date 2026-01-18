@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Audio } from 'expo-av';
 import { useTodos } from '@/contexts/TodoContext';
+import { useWorkMode } from '@/contexts/WorkModeContext';
 import { format, isToday, isTomorrow, addDays } from 'date-fns';
 import { DatePickerModal } from '@/components/DatePickerModal';
 import { PriorityPickerModal } from '@/components/PriorityPickerModal';
@@ -23,6 +24,7 @@ import { PriorityPickerModal } from '@/components/PriorityPickerModal';
 export default function AddTodoScreen() {
     const router = useRouter();
     const { addTodo } = useTodos();
+    const { isWorkMode } = useWorkMode();
     const [title, setTitle] = useState('');
     const [priority, setPriority] = useState<'low' | 'medium' | 'high' | undefined>(undefined);
     const [dueDate, setDueDate] = useState<Date | null>(new Date());
@@ -168,12 +170,12 @@ export default function AddTodoScreen() {
     };
 
     const handleSave = () => {
-        console.log('[AddTodo] handleSave called', { title, dueDate, priority });
+        console.log('[AddTodo] handleSave called', { title, dueDate, priority, isWorkMode });
         if (title.trim()) {
             console.log('[AddTodo] title is valid, adding todo...');
             try {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                addTodo(title.trim(), dueDate || new Date(), priority);
+                addTodo(title.trim(), dueDate || new Date(), priority, isWorkMode);
                 console.log('[AddTodo] todo added, navigating back...');
                 router.back();
             } catch (error) {
