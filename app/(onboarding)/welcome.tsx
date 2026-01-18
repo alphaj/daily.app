@@ -8,7 +8,7 @@ import {
     Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Sparkles } from 'lucide-react-native';
+import { SuccessGraphic } from '@/components/SuccessGraphic';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 
 const PERSONALIZED_MESSAGES: Record<string, string> = {
@@ -70,9 +70,7 @@ export default function WelcomeScreen() {
             >
                 {/* Icon */}
                 <View style={styles.iconContainer}>
-                    <View style={styles.iconCircle}>
-                        <Sparkles size={48} color="#007AFF" strokeWidth={1.5} />
-                    </View>
+                    <SuccessGraphic size={120} />
                 </View>
 
                 <Text style={styles.title}>You're all set!</Text>
@@ -129,14 +127,7 @@ const styles = StyleSheet.create({
     },
     iconContainer: {
         marginBottom: 24,
-    },
-    iconCircle: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        backgroundColor: '#F0F7FF',
         alignItems: 'center',
-        justifyContent: 'center',
     },
     title: {
         fontSize: 36,

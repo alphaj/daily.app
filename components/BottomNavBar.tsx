@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     },
     fabWrapper: {
         position: 'absolute',
-        top: -20,
+        bottom: 50,
         alignSelf: 'center',
         zIndex: 10,
     },

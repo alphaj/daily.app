@@ -12,6 +12,7 @@ import {
     Heart,
     CheckCircle2,
     Zap,
+    Palette,
 } from 'lucide-react-native';
 import React from 'react';
 import {
@@ -254,6 +255,17 @@ export default function MenuScreen() {
                             title="Sign Out"
                             onPress={handleSignOut}
                             danger
+                            isLast
+                        />
+                    </MenuSection>
+
+                    {/* Developer */}
+                    <MenuSection title="DEVELOPER">
+                        <MenuItem
+                            icon={<View style={[styles.iconBox, { backgroundColor: '#5856D6' }]}><Palette size={18} color="white" strokeWidth={2.5} /></View>}
+                            title="Note Concepts"
+                            subtitle="Explore daily note design ideas"
+                            onPress={() => router.push('/note-concepts')}
                             isLast
                         />
                     </MenuSection>

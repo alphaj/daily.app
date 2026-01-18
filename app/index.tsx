@@ -7,7 +7,6 @@ import {
   Plus,
   Check,
   Flame,
-  PenLine,
   ListTodo,
   GripVertical,
   Target,
@@ -47,6 +46,7 @@ import { BottomNavBar } from '@/components/BottomNavBar';
 import { DailySummaryModal, useDailySummary } from '@/components/DailySummaryModal';
 import { WorkModeIndicator } from '@/components/WorkModeIndicator';
 import { useWorkMode } from '@/contexts/WorkModeContext';
+import { CaptureBar } from '@/components/CaptureBar';
 
 
 
@@ -856,37 +856,18 @@ export default function HomeScreen() {
             )}
           </View>
 
-          {/* Notes Input */}
-          <View style={styles.sectionContainer}>
-            <View style={styles.notesCard}>
-              <View style={styles.cardHeader}>
-                <View style={styles.cardHeaderLeft}>
-                  <PenLine size={18} color="#5856D6" />
-                  <Text style={styles.cardTitle}>Daily Note</Text>
-                </View>
-                <View style={styles.saveIndicator}>
-                  {isSaving ? (
-                    <Text style={styles.savingText}>Saving...</Text>
-                  ) : noteText.length > 0 ? (
-                    <Text style={styles.savedText}>Saved</Text>
-                  ) : null}
-                </View>
-              </View>
-              <TextInput
-                style={styles.notesInput}
-                placeholder={isToday ? "How was your day? What are you grateful for?" : "What happened on this day?"}
-                placeholderTextColor="#C7C7CC"
-                multiline
-                value={noteText}
-                onChangeText={handleNoteChange}
-                textAlignVertical="top"
-              />
-              {noteText.length > 0 && (
-                <Text style={styles.characterCount}>{noteText.length} characters</Text>
-              )}
-            </View>
-          </View>
+
         </ScrollView>
+
+        {/* Capture Bar - Floating Note Input */}
+        <CaptureBar
+          noteText={noteText}
+          onNoteChange={handleNoteChange}
+          isSaving={isSaving}
+          selectedDate={selectedDate}
+          isToday={isToday}
+          bottomOffset={135}
+        />
 
         {/* Bottom Bar */}
         <BottomNavBar onFabPress={handleAddPress} />
@@ -1090,61 +1071,6 @@ const styles = StyleSheet.create({
   sectionContainer: {
     paddingHorizontal: 20,
     marginBottom: 24,
-  },
-  notesCard: {
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 2,
-    minHeight: 180,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  cardHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#000',
-  },
-  saveIndicator: {
-    minWidth: 60,
-    alignItems: 'flex-end',
-  },
-  savingText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#FF9500',
-  },
-  savedText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#34C759',
-  },
-  notesInput: {
-    fontSize: 16,
-    color: '#000',
-    lineHeight: 24,
-    minHeight: 80,
-    maxHeight: 200,
-  },
-  characterCount: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: '#8E8E93',
-    marginTop: 8,
-    textAlign: 'right',
   },
   noteDot: {
     width: 4,
