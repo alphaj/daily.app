@@ -1,8 +1,11 @@
 import React, { Component } from 'react';
-import { Animated, StyleSheet, View, I18nManager } from 'react-native';
+import { Animated, StyleSheet, View, I18nManager, Dimensions } from 'react-native';
 import { RectButton } from 'react-native-gesture-handler';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { Trash2, CheckCircle2, Zap } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 interface SwipeableRowProps {
     children: React.ReactNode;
@@ -17,17 +20,29 @@ export default class SwipeableRow extends Component<SwipeableRowProps> {
 
     private renderRightActions = (
         progress: Animated.AnimatedInterpolation<number>,
-        _dragAnimatedValue: Animated.AnimatedInterpolation<number>
+        dragAnimatedValue: Animated.AnimatedInterpolation<number>
     ) => {
-        const trans = progress.interpolate({
-            inputRange: [0, 1],
-            outputRange: [64, 0],
+        const trans = dragAnimatedValue.interpolate({
+            inputRange: [-80, 0],
+            outputRange: [0, 80],
+            extrapolate: 'clamp',
         });
+
         return (
-            <View style={{ width: 64, flexDirection: I18nManager.isRTL ? 'row-reverse' : 'row' }}>
-                <Animated.View style={{ flex: 1, transform: [{ translateX: trans }] }}>
+            <View style={{ width: 80, flexDirection: 'row' }}>
+                <Animated.View
+                    style={[
+                        {
+                            flex: 1,
+                            backgroundColor: '#FF3B30',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            transform: [{ translateX: trans }],
+                        },
+                    ]}
+                >
                     <RectButton
-                        style={[styles.rightAction, { backgroundColor: '#FF3B30' }]}
+                        style={styles.rightAction}
                         onPress={this.handleDelete}
                     >
                         <Trash2 size={24} color="#fff" />
@@ -43,7 +58,6 @@ export default class SwipeableRow extends Component<SwipeableRowProps> {
     ) => {
         const { onConvertToTask, onConvertToHabit } = this.props;
 
-        // Only show left actions if handlers are provided
         if (!onConvertToTask && !onConvertToHabit) return null;
 
         const trans = progress.interpolate({
@@ -85,6 +99,7 @@ export default class SwipeableRow extends Component<SwipeableRowProps> {
     private handleDelete = () => {
         this.swipeableRow?.close();
         this.props.onDelete();
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     };
 
     private handleConvertToTask = () => {
@@ -97,6 +112,14 @@ export default class SwipeableRow extends Component<SwipeableRowProps> {
         this.props.onConvertToHabit?.();
     };
 
+    private handleSwipeableOpen = (direction: 'left' | 'right') => {
+        // Only provide haptic feedback when fully swiped
+        // User must tap the delete button to actually delete
+        if (direction === 'right') {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        }
+    };
+
     render() {
         const { children, onConvertToTask, onConvertToHabit, style } = this.props;
         const hasLeftActions = onConvertToTask || onConvertToHabit;
@@ -106,10 +129,11 @@ export default class SwipeableRow extends Component<SwipeableRowProps> {
                 ref={this.updateRef}
                 friction={2}
                 enableTrackpadTwoFingerGesture
-                leftThreshold={hasLeftActions ? 40 : undefined}
-                rightThreshold={40}
+                overshootRight={true}
+                rightThreshold={80} // Threshold for full wipe
                 renderLeftActions={hasLeftActions ? this.renderLeftActions : undefined}
                 renderRightActions={this.renderRightActions}
+                onSwipeableOpen={this.handleSwipeableOpen}
                 containerStyle={[styles.swipeableContainer, style]}
             >
                 {children}
@@ -132,6 +156,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         flex: 1,
         justifyContent: 'center',
+        width: 80, // Fixed width for the button hit area
     },
     swipeableContainer: {
         backgroundColor: 'transparent',

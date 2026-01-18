@@ -259,8 +259,7 @@ export default function MenuScreen() {
                     </MenuSection>
 
                     <Text style={styles.footerText}>
-                        Designed with ❤️ for You{'\n'}
-                        Daily Inc. © 2024
+                        Designed with ❤️ for us
                     </Text>
                 </ScrollView>
             </SafeAreaView>

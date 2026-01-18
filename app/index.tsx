@@ -48,15 +48,7 @@ import { DailySummaryModal, useDailySummary } from '@/components/DailySummaryMod
 import { WorkModeIndicator } from '@/components/WorkModeIndicator';
 import { useWorkMode } from '@/contexts/WorkModeContext';
 
-// Wrapper for direct toggle action
-function WorkModeToggleWrapper() {
-  const { toggleMode } = useWorkMode();
 
-  return <WorkModeIndicator onPress={() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    toggleMode();
-  }} />;
-}
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ITEM_HEIGHT = 68;
@@ -660,7 +652,7 @@ export default function HomeScreen() {
         <View style={styles.header}>
           {/* Work Mode Indicator - leftmost */}
           {/* Work Mode Indicator - leftmost */}
-          <WorkModeToggleWrapper />
+          <WorkModeIndicator />
 
           <View style={styles.headerCenter} pointerEvents="box-none">
             <View style={styles.dateNav}>

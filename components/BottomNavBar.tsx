@@ -16,7 +16,7 @@ const NAV_ITEMS: { route: NavRoute; path: string; icon: any; label: string }[] =
     { route: 'home', path: '/', icon: LayoutGrid, label: 'Home' },
     { route: 'projects', path: '/projects', icon: Target, label: 'Projects' },
     { route: 'habits', path: '/habits', icon: ListTodo, label: 'Habits' },
-    { route: 'menu', path: '/menu', icon: Settings, label: 'Menu' },
+    { route: 'menu', path: '/menu', icon: Settings, label: 'Settings' },
 ];
 
 function getActiveRoute(pathname: string): NavRoute {

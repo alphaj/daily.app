@@ -3,6 +3,7 @@ import {
     Zap,
     Flame,
     Check,
+    Plus,
 } from 'lucide-react-native';
 import React from 'react';
 import {
@@ -139,12 +140,16 @@ export default function HabitsScreen() {
         <SafeAreaView style={styles.container} edges={['top']}>
             {/* Header */}
             <View style={styles.header}>
-                <View style={styles.headerCenter}>
-                    <Text style={styles.logoText}>daily.app</Text>
-                    <Text style={styles.headerTitle}>Habits</Text>
+                <Text style={styles.headerTitle}>Habits</Text>
+                <View style={styles.headerButtons}>
+                    <Pressable
+                        style={styles.headerButton}
+                        onPress={handleAddPress}
+                        hitSlop={10}
+                    >
+                        <Plus size={26} color="#000" />
+                    </Pressable>
                 </View>
-
-
             </View>
 
             <ScrollView
@@ -215,24 +220,34 @@ const styles = StyleSheet.create({
         backgroundColor: '#F2F2F7', // System Gray 6
     },
     header: {
+        flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 8,
+        justifyContent: 'space-between',
+        paddingHorizontal: 24,
+        paddingVertical: 16,
+        paddingBottom: 24,
     },
-    headerCenter: {
-        alignItems: 'center',
-        gap: 2,
-    },
-    logoText: {
-        fontSize: 16, // Slightly smaller
-        fontWeight: '800',
+    headerTitle: {
+        fontSize: 34,
+        fontWeight: '700',
         color: '#000',
         letterSpacing: -0.5,
     },
-    headerTitle: {
-        fontSize: 13,
-        fontWeight: '500',
-        color: '#8E8E93',
+    headerButtons: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    headerButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: '#fff',
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
     },
     content: {
         flex: 1,

@@ -11,6 +11,7 @@ import {
     Platform,
     ActivityIndicator,
     Animated,
+    ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -37,8 +38,6 @@ export default function AddTodoScreen() {
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
     const pulseAnim = useRef(new Animated.Value(1)).current;
-
-    // ... (keep existing pulse/recording functions unchanged) ...
 
     const startPulse = () => {
         Animated.loop(
@@ -226,14 +225,21 @@ export default function AddTodoScreen() {
                 style={styles.keyboardView}
             >
                 <View style={styles.header}>
-                    <Pressable style={[styles.closeButton, { backgroundColor: '#fff', borderRadius: 22, alignItems: 'center' }]} onPress={handleCancel}>
-                        <ChevronLeft size={24} color="#000" strokeWidth={1.5} />
+                    <Pressable
+                        style={({ pressed }) => [
+                            styles.closeButton,
+                            pressed && styles.buttonPressed
+                        ]}
+                        onPress={handleCancel}
+                    >
+                        <ChevronLeft size={24} color="#000" strokeWidth={2} />
                     </Pressable>
                     <Text style={styles.headerTitle}>New Task</Text>
                     <Pressable
-                        style={[
+                        style={({ pressed }) => [
                             styles.saveButton,
                             !title.trim() && styles.saveButtonDisabled,
+                            pressed && title.trim() && styles.buttonPressed
                         ]}
                         onPress={handleSave}
                         disabled={!title.trim()}
@@ -249,76 +255,92 @@ export default function AddTodoScreen() {
                     </Pressable>
                 </View>
 
-                <View style={styles.content}>
-                    <View style={styles.section}>
-                        <Text style={styles.label}>What do you need to do today?</Text>
-                        <View style={styles.inputRow}>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="e.g. Call mom, Buy groceries"
-                                placeholderTextColor="#C7C7CC"
-                                value={title}
-                                onChangeText={setTitle}
-                                autoFocus
-                                returnKeyType="done"
-                                onSubmitEditing={handleSave}
-                            />
-                            <Pressable
-                                style={[
-                                    styles.voiceButton,
-                                    isRecording && styles.voiceButtonRecording,
-                                ]}
-                                onPress={handleVoicePress}
-                                disabled={isTranscribing}
-                            >
-                                {isTranscribing ? (
-                                    <ActivityIndicator size="small" color={isRecording ? "#fff" : "#007AFF"} />
-                                ) : isRecording ? (
-                                    <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-                                        <Square size={16} color="#fff" fill="#fff" />
-                                    </Animated.View>
-                                ) : (
-                                    <Mic size={20} color="#007AFF" />
-                                )}
-                            </Pressable>
+                <ScrollView contentContainerStyle={styles.scrollContent}>
+                    <View style={styles.content}>
+                        <View style={styles.section}>
+                            <Text style={styles.label}>WHAT DO YOU NEED TO DO TODAY?</Text>
+                            <View style={styles.inputCard}>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="e.g. Call mom, Buy groceries"
+                                    placeholderTextColor="#C7C7CC"
+                                    value={title}
+                                    onChangeText={setTitle}
+                                    autoFocus
+                                    multiline
+                                    scrollEnabled={false}
+                                />
+                                <Pressable
+                                    style={[
+                                        styles.voiceButton,
+                                        isRecording && styles.voiceButtonRecording,
+                                    ]}
+                                    onPress={handleVoicePress}
+                                    disabled={isTranscribing}
+                                >
+                                    {isTranscribing ? (
+                                        <ActivityIndicator size="small" color={isRecording ? "#fff" : "#007AFF"} />
+                                    ) : isRecording ? (
+                                        <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+                                            <Square size={16} color="#fff" fill="#fff" />
+                                        </Animated.View>
+                                    ) : (
+                                        <Mic size={22} color="#007AFF" />
+                                    )}
+                                </Pressable>
+                            </View>
+                        </View>
+
+                        <View style={styles.section}>
+                            <Text style={styles.label}>DETAILS</Text>
+                            <View style={styles.detailsCard}>
+                                <Pressable
+                                    style={({ pressed }) => [
+                                        styles.detailRow,
+                                        pressed && styles.detailRowPressed
+                                    ]}
+                                    onPress={openDatePicker}
+                                >
+                                    <View style={styles.detailLeft}>
+                                        <View style={[styles.iconContainer, { backgroundColor: '#007AFF' }]}>
+                                            <Calendar size={18} color="#fff" strokeWidth={2.5} />
+                                        </View>
+                                        <Text style={styles.detailLabel}>Due Date</Text>
+                                    </View>
+                                    <View style={styles.detailRight}>
+                                        <Text style={styles.detailValue}>
+                                            {!dueDate ? 'No Date' : isToday(dueDate) ? 'Today' : isTomorrow(dueDate) ? 'Tomorrow' : format(dueDate, 'MMM d')}
+                                        </Text>
+                                        <ChevronRight size={16} color="#C7C7CC" strokeWidth={2} />
+                                    </View>
+                                </Pressable>
+
+                                <View style={styles.separatorContainer}>
+                                    <View style={styles.separator} />
+                                </View>
+
+                                <Pressable
+                                    style={({ pressed }) => [
+                                        styles.detailRow,
+                                        pressed && styles.detailRowPressed
+                                    ]}
+                                    onPress={openPriorityPicker}
+                                >
+                                    <View style={styles.detailLeft}>
+                                        <View style={[styles.iconContainer, { backgroundColor: getPriorityColor() }]}>
+                                            <Flag size={18} color="#fff" strokeWidth={2.5} />
+                                        </View>
+                                        <Text style={styles.detailLabel}>Priority</Text>
+                                    </View>
+                                    <View style={styles.detailRight}>
+                                        <Text style={styles.detailValue}>{getPriorityLabel()}</Text>
+                                        <ChevronRight size={16} color="#C7C7CC" strokeWidth={2} />
+                                    </View>
+                                </Pressable>
+                            </View>
                         </View>
                     </View>
-
-                    <View style={styles.section}>
-                        <Text style={styles.label}>Details</Text>
-                        <View style={styles.detailsCard}>
-                            <Pressable style={styles.detailRow} onPress={openDatePicker}>
-                                <View style={styles.detailLeft}>
-                                    <View style={[styles.iconContainer, { backgroundColor: '#007AFF' }]}>
-                                        <Calendar size={18} color="#fff" />
-                                    </View>
-                                    <Text style={styles.detailLabel}>Due Date</Text>
-                                </View>
-                                <View style={styles.detailRight}>
-                                    <Text style={styles.detailValue}>
-                                        {!dueDate ? 'No Date' : isToday(dueDate) ? 'Today' : isTomorrow(dueDate) ? 'Tomorrow' : format(dueDate, 'MMM d')}
-                                    </Text>
-                                    <ChevronRight size={16} color="#C7C7CC" />
-                                </View>
-                            </Pressable>
-
-                            <View style={styles.separator} />
-
-                            <Pressable style={styles.detailRow} onPress={openPriorityPicker}>
-                                <View style={styles.detailLeft}>
-                                    <View style={[styles.iconContainer, { backgroundColor: getPriorityColor() }]}>
-                                        <Flag size={18} color="#fff" />
-                                    </View>
-                                    <Text style={styles.detailLabel}>Priority</Text>
-                                </View>
-                                <View style={styles.detailRight}>
-                                    <Text style={styles.detailValue}>{getPriorityLabel()}</Text>
-                                    <ChevronRight size={16} color="#C7C7CC" />
-                                </View>
-                            </Pressable>
-                        </View>
-                    </View>
-                </View>
+                </ScrollView>
             </KeyboardAvoidingView>
 
             <DatePickerModal
@@ -353,6 +375,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 12,
         backgroundColor: '#F2F2F7',
+        zIndex: 10,
     },
     closeButton: {
         width: 40,
@@ -361,6 +384,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         backgroundColor: '#fff',
         borderRadius: 20,
+        // Soft shadow
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
@@ -373,115 +397,119 @@ const styles = StyleSheet.create({
         color: '#000',
     },
     saveButton: {
-        height: 40,
-        paddingHorizontal: 20,
+        height: 36,
+        paddingHorizontal: 18,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#007AFF', // Filled button for "Add"
-        borderRadius: 20,
-        shadowColor: '#007AFF',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
-        elevation: 2,
+        backgroundColor: '#E5E5EA', // Default disabled-ish look, overridden if active
+        borderRadius: 18,
+    },
+    saveButtonDisabled: {
+        backgroundColor: '#E5E5EA',
     },
     saveButtonText: {
         fontSize: 16,
         fontWeight: '600',
-        color: '#fff',
+        color: '#000', // Or gray if disabled? Let's check logic
     },
     saveButtonTextDisabled: {
         color: '#8E8E93',
     },
-    saveButtonDisabled: {
-        backgroundColor: '#E5E5EA', // Gray when disabled
-        shadowOpacity: 0,
-        elevation: 0,
+    buttonPressed: {
+        opacity: 0.7,
+    },
+    scrollContent: {
+        paddingBottom: 40,
     },
     content: {
         padding: 20,
-        gap: 24,
+        gap: 28,
     },
     section: {
         gap: 8,
     },
     label: {
         fontSize: 13,
-        textTransform: 'uppercase',
-        color: '#6e6e73',
+        color: '#8E8E93',
         fontWeight: '500',
-        marginLeft: 12, // Indent slightly for section header look
-        marginBottom: 4,
+        marginLeft: 16, // Align with detailed content
+        marginBottom: 2,
+        letterSpacing: 0.5,
     },
-    inputRow: {
+    inputCard: {
         flexDirection: 'row',
-        alignItems: 'center',
+        alignItems: 'flex-start', // Top align for multiline
         backgroundColor: '#fff',
-        borderRadius: 20, // Rounded unified card
-        paddingHorizontal: 16,
-        paddingVertical: 8,
+        borderRadius: 24, // Squircle-ish
+        padding: 16,
+        minHeight: 80,
+        // Soft shadow
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 2,
-        minHeight: 60, // Ensure good touch target
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.04,
+        shadowRadius: 12,
+        elevation: 3,
     },
     input: {
         flex: 1,
-        fontSize: 17,
+        fontSize: 19,
         color: '#000',
-        paddingVertical: 8,
-        marginRight: 8,
+        marginTop: 0, // Align with icon
+        marginRight: 12,
+        minHeight: 40,
+        textAlignVertical: 'top',
+        lineHeight: 24,
     },
     voiceButton: {
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: '#F2F2F7', // Subtle background inside card
+        backgroundColor: '#F2F2F7',
         justifyContent: 'center',
         alignItems: 'center',
     },
     voiceButtonRecording: {
         backgroundColor: '#FF3B30',
-        shadowColor: '#FF3B30',
     },
     detailsCard: {
         backgroundColor: '#fff',
-        borderRadius: 12, // Slightly tighter radius for inner items usually, keeping 16 or 12 based on pref. Screenshot looks like 12-14. Let's stick to 12.
-        paddingLeft: 16,
-        // Common grouped style shadow
+        borderRadius: 16,
+        overflow: 'hidden',
+        // Shadow
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
+        shadowOpacity: 0.04,
         shadowRadius: 8,
         elevation: 2,
-        overflow: 'hidden', // Ensure separator doesn't bleed if we had one at bottom
     },
     detailRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingVertical: 16, // Increased spacing
-        paddingRight: 16,
-        minHeight: 56, // Taller minimum height
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        backgroundColor: '#fff',
+        minHeight: 56,
+    },
+    detailRowPressed: {
+        backgroundColor: '#F9F9F9',
     },
     detailLeft: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
+        gap: 14,
     },
     iconContainer: {
-        width: 30,
-        height: 30,
-        borderRadius: 7, // Smooth squircle 
+        width: 32,
+        height: 32,
+        borderRadius: 8, // Smooth corners
         justifyContent: 'center',
         alignItems: 'center',
     },
     detailLabel: {
         fontSize: 17,
         color: '#000',
-        fontWeight: '400', // Regular weight matches screenshot
+        fontWeight: '500',
     },
     detailRight: {
         flexDirection: 'row',
@@ -492,8 +520,12 @@ const styles = StyleSheet.create({
         fontSize: 17,
         color: '#8E8E93',
     },
+    separatorContainer: {
+        paddingLeft: 60, // Indent separator to match text start
+        backgroundColor: '#fff',
+    },
     separator: {
         height: StyleSheet.hairlineWidth,
-        backgroundColor: '#C6C6C8',
+        backgroundColor: '#E5E5EA',
     },
 });

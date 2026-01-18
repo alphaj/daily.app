@@ -46,9 +46,9 @@ function RootLayoutNav() {
     <Stack screenOptions={{ headerBackTitle: "Back" }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
-      <Stack.Screen name="habits" options={{ headerShown: false, animation: 'none' }} />
-      <Stack.Screen name="inbox" options={{ headerShown: false, animation: 'none' }} />
-      <Stack.Screen name="menu" options={{ headerShown: false, gestureEnabled: false, fullScreenGestureEnabled: false, animation: 'slide_from_right' }} />
+      <Stack.Screen name="habits" options={{ headerShown: false }} />
+      <Stack.Screen name="inbox" options={{ headerShown: false }} />
+      <Stack.Screen name="menu" options={{ headerShown: false, animation: 'slide_from_right' }} />
       <Stack.Screen name="add-habit" options={{ presentation: "modal", headerShown: false }} />
       <Stack.Screen name="add-todo" options={{ presentation: "modal", headerShown: false }} />
       <Stack.Screen name="projects" options={{ headerShown: false }} />

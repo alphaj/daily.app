@@ -4,7 +4,8 @@ import {
   Plus,
   Check,
   Trash2,
-  GripVertical,
+  ChevronUp,
+  ChevronDown,
   Flag,
   PartyPopper,
   Trophy,
@@ -19,8 +20,6 @@ import {
   TextInput,
   Alert,
   Animated,
-  PanResponder,
-  LayoutChangeEvent,
   Easing,
   Modal,
   Dimensions,
@@ -41,14 +40,10 @@ function RoadmapTask({
   projectColor,
   onToggle,
   onDelete,
-  onDragStart,
-  onDragEnd,
-  isDragging,
-  draggedOverIndex,
-  pan,
+  onMoveUp,
+  onMoveDown,
   isFirst,
   isLast,
-  onCompleteAnimationDone,
 }: {
   task: ProjectTask;
   index: number;
@@ -56,19 +51,11 @@ function RoadmapTask({
   projectColor: string;
   onToggle: () => void;
   onDelete: () => void;
-  onDragStart: (index: number) => void;
-  onDragEnd: () => void;
-  isDragging: boolean;
-  draggedOverIndex: number | null;
-  pan: Animated.ValueXY;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
   isFirst: boolean;
   isLast: boolean;
-  onCompleteAnimationDone?: () => void;
 }) {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const [isDraggingState, setIsDraggingState] = useState(false);
-
-  // Animation values for iOS-style completion
   const checkboxFillAnim = useRef(new Animated.Value(task.completed ? 1 : 0)).current;
   const checkmarkScaleAnim = useRef(new Animated.Value(task.completed ? 1 : 0)).current;
   const strikethroughAnim = useRef(new Animated.Value(task.completed ? 1 : 0)).current;
@@ -77,49 +64,13 @@ function RoadmapTask({
   const [isAnimating, setIsAnimating] = useState(false);
   const [showCompleted, setShowCompleted] = useState(task.completed);
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        return Math.abs(gestureState.dy) > 5;
-      },
-      onPanResponderGrant: () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        setIsDraggingState(true);
-        onDragStart(index);
-        pan.setOffset({
-          x: 0,
-          y: 0,
-        });
-      },
-      onPanResponderMove: Animated.event([null, { dy: pan.y }], {
-        useNativeDriver: false,
-      }),
-      onPanResponderRelease: () => {
-        setIsDraggingState(false);
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        Animated.spring(pan, {
-          toValue: { x: 0, y: 0 },
-          useNativeDriver: false,
-          speed: 20,
-          bounciness: 8,
-        }).start();
-        pan.flattenOffset();
-        onDragEnd();
-      },
-    })
-  ).current;
-
   const runCompletionAnimation = () => {
     setIsAnimating(true);
     setShowCompleted(true);
 
-    // 1. Haptic feedback
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    // Sequence the animations for that satisfying iOS feel
     Animated.sequence([
-      // 2. Checkbox fills with spring
       Animated.spring(checkboxFillAnim, {
         toValue: 1,
         useNativeDriver: false,
@@ -128,7 +79,6 @@ function RoadmapTask({
       }),
     ]).start();
 
-    // 3. Checkmark pops in after checkbox fills
     setTimeout(() => {
       Animated.spring(checkmarkScaleAnim, {
         toValue: 1,
@@ -136,11 +86,9 @@ function RoadmapTask({
         tension: 150,
         friction: 6,
       }).start();
-      // Success haptic when checkmark appears
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }, 100);
 
-    // 4. Strikethrough sweeps across + card dims
     setTimeout(() => {
       Animated.parallel([
         Animated.timing(strikethroughAnim, {
@@ -157,7 +105,6 @@ function RoadmapTask({
       ]).start();
     }, 150);
 
-    // 5. Subtle pulse on the whole card
     setTimeout(() => {
       Animated.sequence([
         Animated.timing(completionPulseAnim, {
@@ -173,7 +120,6 @@ function RoadmapTask({
         }),
       ]).start(() => {
         setIsAnimating(false);
-        onCompleteAnimationDone?.();
       });
     }, 200);
 
@@ -185,7 +131,6 @@ function RoadmapTask({
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    // Reverse animations
     Animated.parallel([
       Animated.timing(checkmarkScaleAnim, {
         toValue: 0,
@@ -216,7 +161,7 @@ function RoadmapTask({
   };
 
   const handlePress = () => {
-    if (isDraggingState || isAnimating) return;
+    if (isAnimating) return;
 
     if (task.completed) {
       runUncheckAnimation();
@@ -225,22 +170,6 @@ function RoadmapTask({
     }
   };
 
-  const handleLongPress = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    Alert.alert(
-      'Delete Step',
-      `Remove "${task.title}" from this project?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: onDelete },
-      ]
-    );
-  };
-
-  const showSpacerAbove = draggedOverIndex !== null && draggedOverIndex === index && !isDraggingState;
-  const showSpacerBelow = draggedOverIndex !== null && draggedOverIndex === index + 1 && !isDraggingState;
-
-  // Animated checkbox background color
   const checkboxBackgroundColor = checkboxFillAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['#FFFFFF', projectColor],
@@ -252,112 +181,110 @@ function RoadmapTask({
   });
 
   return (
-    <>
-      {showSpacerAbove && <View style={styles.dropSpacer} />}
-      <Animated.View
-        style={[
-          styles.taskRow,
-          {
-            transform: [
-              { scale: Animated.multiply(scaleAnim, completionPulseAnim) },
-              { translateY: isDraggingState ? pan.y : 0 },
-            ],
-            opacity: cardOpacityAnim,
-          },
-          isDraggingState && styles.taskRowDragging,
-        ]}
-      >
-        <View style={styles.timelineContainer}>
-          {!isFirst && (
-            <Animated.View
-              style={[
-                styles.timelineLineTop,
-                {
-                  backgroundColor: checkboxFillAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: ['#E5E5EA', projectColor],
-                  })
-                }
-              ]}
-            />
-          )}
-          <Pressable
-            onPress={handlePress}
-            onLongPress={handleLongPress}
-            delayLongPress={500}
+    <Animated.View
+      style={[
+        styles.taskRow,
+        {
+          transform: [{ scale: completionPulseAnim }],
+          opacity: cardOpacityAnim,
+        },
+      ]}
+    >
+      <View style={styles.timelineContainer}>
+        {!isFirst && (
+          <Animated.View
+            style={[
+              styles.timelineLineTop,
+              {
+                backgroundColor: checkboxFillAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['#E5E5EA', projectColor],
+                })
+              }
+            ]}
+          />
+        )}
+        <Pressable onPress={handlePress}>
+          <Animated.View
+            style={[
+              styles.timelineNode,
+              {
+                backgroundColor: checkboxBackgroundColor,
+                borderColor: checkboxBorderColor,
+              },
+            ]}
           >
-            <Animated.View
-              style={[
-                styles.timelineNode,
-                {
-                  backgroundColor: checkboxBackgroundColor,
-                  borderColor: checkboxBorderColor,
-                },
-              ]}
-            >
-              <Animated.View style={{ transform: [{ scale: checkmarkScaleAnim }] }}>
-                {showCompleted && <Check size={14} color="#fff" strokeWidth={3} />}
-              </Animated.View>
+            <Animated.View style={{ transform: [{ scale: checkmarkScaleAnim }] }}>
+              {showCompleted && <Check size={14} color="#fff" strokeWidth={3} />}
             </Animated.View>
-          </Pressable>
-          {!isLast && (
-            <Animated.View
-              style={[
-                styles.timelineLineBottom,
-                {
-                  backgroundColor: checkboxFillAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: ['#E5E5EA', projectColor],
-                  })
-                }
-              ]}
-            />
-          )}
-        </View>
+          </Animated.View>
+        </Pressable>
+        {!isLast && (
+          <Animated.View
+            style={[
+              styles.timelineLineBottom,
+              {
+                backgroundColor: checkboxFillAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['#E5E5EA', projectColor],
+                })
+              }
+            ]}
+          />
+        )}
+      </View>
 
-        {/* Swipeable wrapper for content */}
-        <View style={{ flex: 1 }}>
-          <SwipeableRow onDelete={onDelete} style={{ flex: 1 }}>
-            <Pressable
-              style={[styles.taskContent, showCompleted && styles.taskContentCompleted]}
-              onPress={handlePress}
-              onLongPress={handleLongPress}
-              delayLongPress={500}
-            >
-              <View style={styles.taskMain}>
-                <Text style={[styles.taskNumber, { color: projectColor }]}>Step {index + 1}</Text>
-                <View style={styles.taskTitleContainer}>
-                  <Text style={[styles.taskTitle, showCompleted && styles.taskTitleCompleted]} numberOfLines={2}>
-                    {task.title}
-                  </Text>
-                  {/* Animated strikethrough overlay */}
-                  <Animated.View
-                    style={[
-                      styles.strikethroughLine,
-                      {
-                        width: strikethroughAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: ['0%', '100%'],
-                        }),
-                      }
-                    ]}
-                  />
-                </View>
+      <View style={{ flex: 1 }}>
+        <SwipeableRow onDelete={onDelete} style={{ flex: 1 }}>
+          <Pressable
+            style={[styles.taskContent, showCompleted && styles.taskContentCompleted]}
+            onPress={handlePress}
+          >
+            <View style={styles.taskMain}>
+              <Text style={[styles.taskNumber, { color: projectColor }]}>Step {index + 1}</Text>
+              <View style={styles.taskTitleContainer}>
+                <Text style={[styles.taskTitle, showCompleted && styles.taskTitleCompleted]} numberOfLines={2}>
+                  {task.title}
+                </Text>
+                <Animated.View
+                  style={[
+                    styles.strikethroughLine,
+                    {
+                      width: strikethroughAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ['0%', '100%'],
+                      }),
+                    }
+                  ]}
+                />
               </View>
-              <View
-                style={[styles.taskActions, isDraggingState && styles.taskActionsDragging]}
-                {...panResponder.panHandlers}
+            </View>
+            <View style={styles.reorderButtons}>
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  onMoveUp();
+                }}
+                style={[styles.reorderButton, isFirst && styles.reorderButtonDisabled]}
+                disabled={isFirst}
               >
-                <View style={styles.dragHandleArea}>
-                  <GripVertical size={18} color={isDraggingState ? projectColor : "#D1D1D6"} />
-                </View>
-              </View>
-            </Pressable>
-          </SwipeableRow>
-        </View>
-      </Animated.View>
-      {showSpacerBelow && <View style={styles.dropSpacer} />}
-    </>
+                <ChevronUp size={16} color={isFirst ? "#D1D1D6" : "#8E8E93"} strokeWidth={2} />
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  onMoveDown();
+                }}
+                style={[styles.reorderButton, isLast && styles.reorderButtonDisabled]}
+                disabled={isLast}
+              >
+                <ChevronDown size={16} color={isLast ? "#D1D1D6" : "#8E8E93"} strokeWidth={2} />
+              </Pressable>
+            </View>
+          </Pressable>
+        </SwipeableRow>
+      </View>
+    </Animated.View>
   );
 }
 
@@ -767,13 +694,8 @@ export default function ProjectDetailScreen() {
 
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [isAddingTask, setIsAddingTask] = useState(false);
-  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
-  const [draggedOverIndex, setDraggedOverIndex] = useState<number | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
   const inputRef = useRef<TextInput>(null);
-  const scrollViewRef = useRef<ScrollView>(null);
-  const taskLayoutsRef = useRef<{ y: number; height: number }[]>([]);
-  const pan = useRef(new Animated.ValueXY()).current;
   const previousProgressRef = useRef<number | null>(null);
   const hasCelebratedRef = useRef(false);
 
@@ -851,104 +773,21 @@ export default function ProjectDetailScreen() {
     setTimeout(() => inputRef.current?.focus(), 100);
   };
 
-  const handleDragStart = useCallback((index: number) => {
-    setDraggingIndex(index);
-  }, []);
+  // Move task up in order
+  const handleMoveUp = useCallback((taskId: string, currentIndex: number) => {
+    if (currentIndex === 0 || !id) return;
+    const newOrder = sortedTasks.map(t => t.id);
+    [newOrder[currentIndex - 1], newOrder[currentIndex]] = [newOrder[currentIndex], newOrder[currentIndex - 1]];
+    reorderTasks(id, newOrder);
+  }, [id, sortedTasks, reorderTasks]);
 
-  const handleDragRelease = useCallback(() => {
-    setDraggingIndex(null);
-  }, []);
-
-  // Scroll to the next uncompleted task after completing one
-  const scrollToNextTask = useCallback((completedIndex: number) => {
-    // Find the next uncompleted task after this one
-    const nextUncompletedIndex = sortedTasks.findIndex((task, i) => i > completedIndex && !task.completed);
-
-    if (nextUncompletedIndex !== -1 && taskLayoutsRef.current[nextUncompletedIndex]) {
-      const layout = taskLayoutsRef.current[nextUncompletedIndex];
-      // Scroll so the next task is nicely visible (not at the very top)
-      setTimeout(() => {
-        scrollViewRef.current?.scrollTo({
-          y: layout.y - 100, // Offset to give some breathing room at top
-          animated: true,
-        });
-      }, 300);
-    }
-  }, [sortedTasks]);
-
-  const handleTaskLayout = useCallback((index: number, event: LayoutChangeEvent) => {
-    const { y, height } = event.nativeEvent.layout;
-    taskLayoutsRef.current[index] = { y, height };
-  }, []);
-
-  const handleDragEnd = useCallback(() => {
-    if (draggingIndex === null || draggedOverIndex === null || !id) {
-      setDraggingIndex(null);
-      setDraggedOverIndex(null);
-      return;
-    }
-
-    if (draggingIndex !== draggedOverIndex && draggedOverIndex !== draggingIndex + 1) {
-      const newTasks = [...sortedTasks];
-      const [movedTask] = newTasks.splice(draggingIndex, 1);
-      const insertIndex = draggedOverIndex > draggingIndex ? draggedOverIndex - 1 : draggedOverIndex;
-      newTasks.splice(insertIndex, 0, movedTask);
-
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      reorderTasks(id, newTasks.map(t => t.id));
-    }
-
-    setDraggingIndex(null);
-    setDraggedOverIndex(null);
-  }, [draggingIndex, draggedOverIndex, sortedTasks, id, reorderTasks]);
-
-  React.useEffect(() => {
-    if (draggingIndex === null) {
-      setDraggedOverIndex(null);
-    }
-  }, [draggingIndex]);
-
-  const updateDraggedOverIndex = useCallback((dragY: number) => {
-    if (draggingIndex === null) return;
-
-    const draggedTaskY = taskLayoutsRef.current[draggingIndex]?.y || 0;
-    const absoluteDragY = draggedTaskY + dragY;
-
-    let newIndex = draggingIndex;
-    for (let i = 0; i < sortedTasks.length; i++) {
-      const layout = taskLayoutsRef.current[i];
-      if (!layout) continue;
-
-      const taskMiddle = layout.y + layout.height / 2;
-      if (absoluteDragY < taskMiddle) {
-        newIndex = i;
-        break;
-      }
-      newIndex = i + 1;
-    }
-
-    if (newIndex !== draggedOverIndex) {
-      setDraggedOverIndex(newIndex);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-  }, [draggingIndex, sortedTasks.length, draggedOverIndex]);
-
-  React.useEffect(() => {
-    if (draggingIndex !== null) {
-      const listener = pan.y.addListener(({ value }) => {
-        updateDraggedOverIndex(value);
-      });
-      return () => {
-        pan.y.removeListener(listener);
-      };
-    }
-  }, [draggingIndex, updateDraggedOverIndex, pan.y]);
-
-  React.useEffect(() => {
-    if (draggingIndex === null && draggedOverIndex !== null) {
-      handleDragEnd();
-    }
-  }, [draggingIndex, draggedOverIndex, handleDragEnd]);
+  // Move task down in order
+  const handleMoveDown = useCallback((taskId: string, currentIndex: number) => {
+    if (currentIndex >= sortedTasks.length - 1 || !id) return;
+    const newOrder = sortedTasks.map(t => t.id);
+    [newOrder[currentIndex], newOrder[currentIndex + 1]] = [newOrder[currentIndex + 1], newOrder[currentIndex]];
+    reorderTasks(id, newOrder);
+  }, [id, sortedTasks, reorderTasks]);
 
   if (!project) {
     return (
@@ -977,12 +816,10 @@ export default function ProjectDetailScreen() {
       </View>
 
       <ScrollView
-        ref={scrollViewRef}
         style={styles.content}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
-        scrollEnabled={draggingIndex === null}
       >
         <View style={styles.projectHeader}>
           <View style={[styles.projectIconContainer, { backgroundColor: `${project.color}15` }]}>
@@ -1035,24 +872,19 @@ export default function ProjectDetailScreen() {
           ) : (
             <View style={styles.roadmap}>
               {sortedTasks.map((task, index) => (
-                <View key={task.id} onLayout={(e) => handleTaskLayout(index, e)}>
-                  <RoadmapTask
-                    task={task}
-                    index={index}
-                    totalTasks={sortedTasks.length}
-                    projectColor={project.color}
-                    onToggle={() => handleToggleTask(task.id)}
-                    onDelete={() => handleDeleteTask(task.id)}
-                    onDragStart={handleDragStart}
-                    onDragEnd={handleDragRelease}
-                    isDragging={draggingIndex === index}
-                    draggedOverIndex={draggedOverIndex}
-                    pan={pan}
-                    isFirst={index === 0}
-                    isLast={index === sortedTasks.length - 1 && !isAddingTask}
-                    onCompleteAnimationDone={() => scrollToNextTask(index)}
-                  />
-                </View>
+                <RoadmapTask
+                  key={task.id}
+                  task={task}
+                  index={index}
+                  totalTasks={sortedTasks.length}
+                  projectColor={project.color}
+                  onToggle={() => handleToggleTask(task.id)}
+                  onDelete={() => handleDeleteTask(task.id)}
+                  onMoveUp={() => handleMoveUp(task.id, index)}
+                  onMoveDown={() => handleMoveDown(task.id, index)}
+                  isFirst={index === 0}
+                  isLast={index === sortedTasks.length - 1 && !isAddingTask}
+                />
               ))}
 
               {isAddingTask && (
@@ -1461,5 +1293,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#C7C7CC',
     fontWeight: '500',
+  },
+  reorderButtons: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  reorderButton: {
+    padding: 4,
+  },
+  reorderButtonDisabled: {
+    opacity: 0.3,
   },
 });
