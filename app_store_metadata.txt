@@ -4,7 +4,7 @@ Name: Daily: Habit & Task Tracker
 Subtitle: Build habits, track tasks & focus.
 
 Description:
-Daily is your all-in-one companion for building getter habits, organizing tasks, and capturing ideas. Designed with a stunning, minimalist interface, Daily combines the power of a habit tracker, a to-do list, and a quick-capture note tool into a single, seamless experience.
+Daily is your all-in-one companion for building better habits, organizing tasks, and capturing ideas. Designed with a stunning, minimalist interface, Daily combines the power of a habit tracker, a to-do list, and a quick-capture note tool into a single, seamless experience.
 
 Key Features:
 • Habit Tracking: Build streaks and visualize your progress with beautiful charts.
@@ -19,6 +19,7 @@ Whether you're trying to drink more water, finish a project, or just organize yo
 Keywords:
 habit tracker, daily planner, to do list, routine, goal setter, task manager, focus timer, productivity, journal, streak, minimalist, self care, adhd, notes, agenda
 
-Support URL: https://rork.com/support
-Marketing URL: https://rork.com/daily
-Privacy Policy URL: https://daily-support-haven.lovable.app
+Support URL: https://trydailyapp.com/support
+Marketing URL: https://trydailyapp.com
+Privacy Policy URL: https://trydailyapp.com/privacy
+

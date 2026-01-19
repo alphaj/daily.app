@@ -115,7 +115,7 @@ export default function PrivacyPolicyScreen() {
                         <Text style={styles.paragraph}>
                             If you have questions about this Privacy Policy, please contact us at:
                         </Text>
-                        <Text style={styles.email}>support@dailyme.app</Text>
+                        <Text style={styles.email}>support@trydailyapp.com</Text>
                     </View>
                 </View>
             </ScrollView>

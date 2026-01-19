@@ -33,7 +33,7 @@ export default function GetStartedScreen() {
             <SafeAreaView style={styles.safeArea}>
                 <View style={styles.visualsContainer}>
                     <LottieView
-                        source={{ uri: 'https://lottie.host/31fe9cf1-2133-4ddf-a6ba-d91dec6b01bf/QRCpfFYMb5.lottie' }}
+                        source={require('../../assets/animations/get-started.lottie')}
                         style={styles.lottieAnimation}
                         autoPlay
                         loop
@@ -66,11 +66,7 @@ export default function GetStartedScreen() {
                             </Text>
                             <View style={styles.disclaimerLinks}>
                                 <Pressable onPress={() => router.push('/privacy-policy')}>
-                                    <Text style={[styles.disclaimerText, styles.disclaimerLink]}>Terms of Use</Text>
-                                </Pressable>
-                                <Text style={styles.disclaimerText}> and </Text>
-                                <Pressable onPress={() => router.push('/privacy-policy')}>
-                                    <Text style={[styles.disclaimerText, styles.disclaimerLink]}>Privacy Notice</Text>
+                                    <Text style={[styles.disclaimerText, styles.disclaimerLink]}>Terms & Privacy Policy</Text>
                                 </Pressable>
                             </View>
                         </View>

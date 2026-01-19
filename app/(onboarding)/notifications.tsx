@@ -67,11 +67,11 @@ export default function NotificationsScreen() {
                     Quick pings for your habits. No noise, just momentum.
                 </Text>
 
-                {/* Stats callout */}
+                {/* Benefit callout */}
                 <View style={styles.statCard}>
                     <Text style={styles.statText}>
-                        <Text style={styles.statHighlight}>87% of users</Text> who enable notifications
-                        complete more habits in their first week
+                        <Text style={styles.statHighlight}>Gentle reminders</Text> help you stay consistent
+                        and build habits that actually stick.
                     </Text>
                 </View>
             </View>

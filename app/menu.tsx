@@ -25,11 +25,13 @@ import {
     Linking,
 } from 'react-native';
 import * as StoreReview from 'expo-store-review';
+import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { WorkModeToggle } from '@/components/WorkModeToggle';
 import { useTodos } from '@/contexts/TodoContext';
+import { useOnboarding } from '@/contexts/OnboardingContext';
 
 interface MenuItemProps {
     icon: React.ReactNode;
@@ -122,6 +124,7 @@ function StatCard({
 export default function MenuScreen() {
     const router = useRouter();
     const { completedCount, workCompletedCount, lifeCompletedCount } = useTodos();
+    const { resetOnboarding } = useOnboarding();
 
     const handleGoBack = () => {
         router.replace('/');
@@ -139,7 +142,8 @@ export default function MenuScreen() {
                     onPress: async () => {
                         try {
                             await AsyncStorage.clear();
-                            router.replace('/(onboarding)/welcome');
+                            await resetOnboarding();
+                            router.replace('/(onboarding)/get-started');
                         } catch (error) {
                             console.log('Error signing out:', error);
                         }
@@ -258,7 +262,7 @@ export default function MenuScreen() {
                             title="Rate the App"
                             onPress={handleRateApp}
                             isLast
-                            value="v1.0.0"
+                            value={`v${Constants.expoConfig?.version || '1.0.0'}`}
                         />
                     </MenuSection>
 

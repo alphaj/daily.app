@@ -124,7 +124,7 @@ app.get("/privacy-policy", (c) => {
 
         <div class="contact-info">
             <h2>Contact Us</h2>
-            <p>Questions? Contact us at: <a href="mailto:support@dailyme.app">support@dailyme.app</a></p>
+            <p>Questions? Contact us at: <a href="mailto:support@trydailyapp.com">support@trydailyapp.com</a></p>
         </div>
     </div>
 </body>
