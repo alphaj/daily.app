@@ -35,6 +35,7 @@ import * as Haptics from 'expo-haptics';
 import { useTodos } from '@/contexts/TodoContext';
 import { useHabits } from '@/contexts/HabitContext';
 import { useNotes } from '@/contexts/NoteContext';
+import { useInbox } from '@/contexts/InboxContext';
 import type { Todo } from '@/types/todo';
 import type { Habit } from '@/types/habit';
 import { format, addDays, subDays, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths } from 'date-fns';
@@ -546,6 +547,7 @@ export default function HomeScreen() {
     getCelebrationPhrase,
   } = useHabits();
   const { getNoteForDate, updateNoteForDate, hasNoteForDate, isSaving } = useNotes();
+  const { items: inboxItems } = useInbox();
   const { shouldShowItem } = useWorkMode();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [calendarModalVisible, setCalendarModalVisible] = useState(false);
@@ -694,6 +696,11 @@ export default function HomeScreen() {
 
             <Pressable style={styles.iconButton} onPress={() => router.push('/inbox')}>
               <Inbox size={22} color="#000" strokeWidth={1.5} />
+              {inboxItems.length > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{inboxItems.length}</Text>
+                </View>
+              )}
             </Pressable>
           </View>
         </View>
@@ -1431,5 +1438,24 @@ const styles = StyleSheet.create({
   todayButtonText: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  badge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: '#FF3B30',
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 5,
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
   },
 });

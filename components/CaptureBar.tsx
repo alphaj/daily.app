@@ -50,9 +50,9 @@ export function CaptureBar({
             Animated.spring(expandAnim, {
                 toValue: 1,
                 useNativeDriver: false,
-                damping: 22,
-                stiffness: 90,
-                mass: 1,
+                damping: 30,
+                stiffness: 300,
+                mass: 0.8,
             }).start(() => {
                 inputRef.current?.focus();
             });
@@ -62,9 +62,9 @@ export function CaptureBar({
             Animated.spring(expandAnim, {
                 toValue: 0,
                 useNativeDriver: false,
-                damping: 22,
-                stiffness: 90,
-                mass: 1,
+                damping: 30,
+                stiffness: 300,
+                mass: 0.8,
             }).start();
         }
 
@@ -106,6 +106,7 @@ export function CaptureBar({
                 ]}
                 pointerEvents={isExpanded ? 'auto' : 'none'}
             >
+                <BlurView intensity={20} tint="systemThinMaterialDark" style={StyleSheet.absoluteFill} />
                 <Pressable style={StyleSheet.absoluteFill} onPress={handleDone} />
             </Animated.View>
 
@@ -211,22 +212,21 @@ export function CaptureBar({
 const styles = StyleSheet.create({
     backdrop: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0, 0, 0, 0.4)',
+        backgroundColor: 'transparent',
         zIndex: 99,
     },
     container: {
         position: 'absolute',
-        left: 16,
-        right: 16,
+        left: 12,
+        right: 12,
         backgroundColor: '#fff',
-        borderRadius: 28,
+        borderRadius: 32,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.12,
+        shadowRadius: 32,
         elevation: 10,
         zIndex: 100,
-        overflow: 'hidden',
     },
     keyboardView: {
         flex: 1,
@@ -276,7 +276,8 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'flex-start',
         paddingHorizontal: 24,
-        marginBottom: 16,
+        marginBottom: 24,
+        marginTop: 8,
     },
     expandedHeaderLeft: {
         flex: 1,
@@ -284,27 +285,28 @@ const styles = StyleSheet.create({
     expandedDate: {
         fontSize: 13,
         fontWeight: '600',
-        color: '#8E8E93',
-        marginBottom: 4,
+        color: '#86868b',
+        marginBottom: 8,
         textTransform: 'uppercase',
-        letterSpacing: 0.5,
+        letterSpacing: 0.6,
     },
     expandedTitle: {
-        fontSize: 28,
-        fontWeight: '800',
+        fontSize: 34,
+        fontWeight: '700',
         color: '#000',
-        letterSpacing: -0.5,
+        letterSpacing: -0.8,
+        lineHeight: 40,
     },
     doneButton: {
-        backgroundColor: '#5856D6',
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        borderRadius: 20,
+        backgroundColor: '#F2F2F7',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 100,
     },
     doneButtonText: {
         fontSize: 15,
-        fontWeight: '700',
-        color: '#fff',
+        fontWeight: '600',
+        color: '#000',
     },
 
     // Input
@@ -314,9 +316,9 @@ const styles = StyleSheet.create({
     },
     textInput: {
         flex: 1,
-        fontSize: 17,
-        lineHeight: 26,
-        color: '#000',
+        fontSize: 19,
+        lineHeight: 28,
+        color: '#1d1d1f',
         textAlignVertical: 'top',
     },
 
