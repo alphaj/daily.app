@@ -1,0 +1,24 @@
+App Store Metadata
+
+Name: Daily: Habit & Task Tracker
+Subtitle: Build habits, track tasks & focus.
+
+Description:
+Daily is your all-in-one companion for building getter habits, organizing tasks, and capturing ideas. Designed with a stunning, minimalist interface, Daily combines the power of a habit tracker, a to-do list, and a quick-capture note tool into a single, seamless experience.
+
+Key Features:
+• Habit Tracking: Build streaks and visualize your progress with beautiful charts.
+• Task Management: Organize your to-dos with flexible lists, "Later" bins for future ideas, and a "Brain Dump" area for quick thoughts.
+• Projects & Goals: Break down big goals into manageable projects and steps.
+• Focus Mode: Stay in the zone with dedicated focus timers.
+• Privacy First: Your data is stored locally on your device.
+• Stunning Design: A premium, fluid interface that feels right at home on your iPhone.
+
+Whether you're trying to drink more water, finish a project, or just organize your day, Daily helps you stay on track without the clutter.
+
+Keywords:
+habit tracker, daily planner, to do list, routine, goal setter, task manager, focus timer, productivity, journal, streak, minimalist, self care, adhd, notes, agenda
+
+Support URL: https://rork.com/support
+Marketing URL: https://rork.com/daily
+Privacy Policy URL: https://daily-support-haven.lovable.app

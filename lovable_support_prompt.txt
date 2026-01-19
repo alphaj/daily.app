@@ -1,0 +1,27 @@
+Please create a modern, minimalist support website for an iOS app called "Daily: Habit & Task Tracker". The design should be premium, clean, and use a monochrome color palette (Black, White, Gray) to match the app's iOS native aesthetic.
+
+The page must include the following sections to satisfy App Store Review Guidelines:
+
+1. **Hero Section**:
+   - Headline: "Help & Support"
+   - Subheadline: "How can we help you get the most out of Daily?"
+
+2. **FAQ Section (Accordion style)**:
+   - **Q: Where is my data stored?**
+     - A: Daily is a local-first application. All your habits, tasks, and notes are stored securely on your device. We do not have access to your personal data.
+   - **Q: How do I backup my data?**
+     - A: If you have iCloud Backup enabled on your iPhone, your Daily data is automatically backed up.
+   - **Q: Can I request account deletion?**
+     - A: Since Daily does not create a cloud account for you, there is no account to delete. Simply deleting the app from your device will remove all associated data.
+   - **Q: How do I restore my purchase?**
+     - A: Go to Settings in the app and tap "Restore Purchases" to retrieve your premium features.
+
+3. **Contact Section**:
+   - Text: "Still need help? Reach out to us directly."
+   - Email: support@rork.com (make this a mailto link)
+
+4. **Footer**:
+   - Links: Privacy Policy | Terms of Service
+   - Copyright © 2024 Daily.
+
+**Important**: Please ensure the typography is clean (Inter or San Francisco style) and the layout is responsive for mobile and desktop.

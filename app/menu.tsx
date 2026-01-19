@@ -12,7 +12,6 @@ import {
     Heart,
     CheckCircle2,
     Zap,
-    Palette,
 } from 'lucide-react-native';
 import React from 'react';
 import {
@@ -23,7 +22,9 @@ import {
     ScrollView,
     Alert,
     Platform,
+    Linking,
 } from 'react-native';
+import * as StoreReview from 'expo-store-review';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -148,6 +149,26 @@ export default function MenuScreen() {
         );
     };
 
+    const handleRateApp = async () => {
+        try {
+            const isAvailable = await StoreReview.isAvailableAsync();
+            if (isAvailable) {
+                await StoreReview.requestReview();
+            } else {
+                // Fallback: open App Store directly
+                const appStoreUrl = Platform.OS === 'ios'
+                    ? 'https://apps.apple.com/app/id6740611817?action=write-review'
+                    : 'market://details?id=app.rork.daily-habit-tracker-t8o4w6l';
+                await Linking.openURL(appStoreUrl);
+            }
+        } catch (error) {
+            console.log('Error requesting review:', error);
+            // Fallback: open App Store directly
+            const appStoreUrl = 'https://apps.apple.com/app/id6740611817?action=write-review';
+            Linking.openURL(appStoreUrl);
+        }
+    };
+
     return (
         <View style={styles.container}>
             <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -225,14 +246,17 @@ export default function MenuScreen() {
                         <MenuItem
                             icon={<View style={[styles.iconBox, { backgroundColor: '#5856D6' }]}><HelpCircle size={18} color="white" strokeWidth={2.5} /></View>}
                             title="Help & FAQ"
+                            onPress={() => Linking.openURL('https://trydailyapp.com')}
                         />
                         <MenuItem
                             icon={<View style={[styles.iconBox, { backgroundColor: '#34C759' }]}><MessageSquare size={18} color="white" strokeWidth={2.5} /></View>}
                             title="Contact Us"
+                            onPress={() => Linking.openURL('mailto:support@trydailyapp.com?subject=Daily%20App%20Support')}
                         />
                         <MenuItem
                             icon={<View style={[styles.iconBox, { backgroundColor: '#FFCC00' }]}><Star size={18} color="white" strokeWidth={2.5} /></View>}
                             title="Rate the App"
+                            onPress={handleRateApp}
                             isLast
                             value="v1.0.0"
                         />
@@ -259,16 +283,7 @@ export default function MenuScreen() {
                         />
                     </MenuSection>
 
-                    {/* Developer */}
-                    <MenuSection title="DEVELOPER">
-                        <MenuItem
-                            icon={<View style={[styles.iconBox, { backgroundColor: '#5856D6' }]}><Palette size={18} color="white" strokeWidth={2.5} /></View>}
-                            title="Note Concepts"
-                            subtitle="Explore daily note design ideas"
-                            onPress={() => router.push('/note-concepts')}
-                            isLast
-                        />
-                    </MenuSection>
+
 
                     <Text style={styles.footerText}>
                         Designed with ❤️ for us
