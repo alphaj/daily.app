@@ -15,11 +15,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useHabits } from '@/contexts/HabitContext';
 import { useWorkMode } from '@/contexts/WorkModeContext';
-import type { DayOfWeek } from '@/types/habit';
+import type { DayOfWeek, HabitType } from '@/types/habit';
 import { WorkToggleRow } from '@/components/WorkToggleRow';
 
-// Popular habit emojis - just the essentials
-const QUICK_EMOJIS = ['💪', '📚', '🧘', '💧', '🏃', '😴', '✍️', '🎯'];
+// Popular habit emojis - just the essentials for building habits
+const QUICK_EMOJIS_BUILDING = ['💪', '📚', '🧘', '💧', '🏃', '😴', '✍️', '🎯'];
+
+// Popular emojis for breaking habits
+const QUICK_EMOJIS_BREAKING = ['🚫', '🙅', '💪', '🧘', '🍃', '✨', '🎯', '🌟'];
 
 // Full emoji list for expanded view
 const ALL_EMOJIS = [
@@ -57,6 +60,11 @@ export default function AddHabitScreen() {
   const [celebrationPhrase, setCelebrationPhrase] = useState('');
   const [selectedDays, setSelectedDays] = useState<DayOfWeek[]>([0, 1, 2, 3, 4, 5, 6]); // All days by default
   const [isWork, setIsWork] = useState(isWorkMode); // Default to current mode
+  const [habitType, setHabitType] = useState<HabitType>('building');
+  const [triggerNotes, setTriggerNotes] = useState('');
+
+  // Get appropriate emojis based on habit type
+  const QUICK_EMOJIS = habitType === 'building' ? QUICK_EMOJIS_BUILDING : QUICK_EMOJIS_BREAKING;
 
   const handleSave = () => {
     if (habitName.trim()) {
@@ -70,7 +78,9 @@ export default function AddHabitScreen() {
         whyStatement.trim() || undefined,
         celebrationPhrase.trim() || undefined,
         scheduledDays,
-        isWork
+        isWork,
+        habitType,
+        habitType === 'breaking' ? triggerNotes.trim() || undefined : undefined
       );
       router.back();
     }
@@ -141,17 +151,57 @@ export default function AddHabitScreen() {
         >
           {/* Main Content */}
           <View style={styles.content}>
+            {/* Type Selector */}
+            <View style={styles.typeSelector}>
+              <Pressable
+                style={[
+                  styles.typeCard,
+                  habitType === 'building' && styles.typeCardActive,
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setHabitType('building');
+                  setSelectedEmoji(null);
+                }}
+              >
+                <Text style={styles.typeCardEmoji}>🌱</Text>
+                <Text style={[styles.typeCardTitle, habitType === 'building' && styles.typeCardTitleActive]}>
+                  Build
+                </Text>
+                <Text style={styles.typeCardSubtitle}>Start doing</Text>
+              </Pressable>
+
+              <Pressable
+                style={[
+                  styles.typeCard,
+                  habitType === 'breaking' && styles.typeCardActiveBreaking,
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setHabitType('breaking');
+                  setSelectedEmoji(null);
+                }}
+              >
+                <Text style={styles.typeCardEmoji}>🚫</Text>
+                <Text style={[styles.typeCardTitle, habitType === 'breaking' && styles.typeCardTitleActiveBreaking]}>
+                  Break
+                </Text>
+                <Text style={styles.typeCardSubtitle}>Stop doing</Text>
+              </Pressable>
+            </View>
+
             {/* Selected Emoji Display */}
             <Pressable
               style={[
                 styles.emojiDisplay,
                 selectedEmoji && styles.emojiDisplayActive,
+                selectedEmoji && habitType === 'breaking' && styles.emojiDisplayActiveBreaking,
                 needsIcon && styles.emojiDisplayNeedsSelection
               ]}
               onPress={() => setSelectedEmoji(null)}
             >
               <Text style={styles.emojiDisplayText}>
-                {selectedEmoji || '✨'}
+                {selectedEmoji || (habitType === 'building' ? '🌱' : '🚫')}
               </Text>
             </Pressable>
             {needsIcon && (
@@ -161,11 +211,11 @@ export default function AddHabitScreen() {
             {/* Habit Input */}
             <TextInput
               style={styles.input}
-              placeholder="What habit are you building?"
+              placeholder={habitType === 'building' ? "What habit are you building?" : "What habit are you breaking?"}
               placeholderTextColor="#C7C7CC"
               value={habitName}
               onChangeText={setHabitName}
-              autoFocus
+              autoFocus={false}
               returnKeyType="done"
               onSubmitEditing={handleSave}
             />
@@ -320,7 +370,7 @@ export default function AddHabitScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#FAFAFA',
   },
   keyboardView: {
     flex: 1,
@@ -329,93 +379,174 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
   },
   closeButton: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 20,
-    backgroundColor: '#F2F2F7',
+    borderRadius: 18,
+    backgroundColor: '#fff',
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
+    paddingBottom: 40,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 24,
+    paddingHorizontal: 20,
+    paddingTop: 16,
     alignItems: 'center',
-    gap: 24,
+    gap: 28,
   },
   emojiDisplay: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#F2F2F7',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
   emojiDisplayActive: {
-    backgroundColor: '#EEF0FF',
+    backgroundColor: '#F0F4FF',
+  },
+  emojiDisplayActiveBreaking: {
+    backgroundColor: '#FFF0F0',
   },
   emojiDisplayNeedsSelection: {
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: '#5856D6',
     borderStyle: 'dashed',
   },
-  iconHint: {
+  // Type Selector Styles
+  typeSelector: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  typeCard: {
+    flex: 1,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    gap: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  typeCardActive: {
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#34C759',
+    shadowColor: '#34C759',
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+  },
+  typeCardActiveBreaking: {
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#FF6B6B',
+    shadowColor: '#FF6B6B',
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+  },
+  typeCardEmoji: {
+    fontSize: 32,
+    marginBottom: 4,
+  },
+  typeCardTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#999',
+    letterSpacing: -0.2,
+  },
+  typeCardTitleActive: {
+    color: '#34C759',
+  },
+  typeCardTitleActiveBreaking: {
+    color: '#FF6B6B',
+  },
+  typeCardSubtitle: {
     fontSize: 13,
+    color: '#AEAEB2',
+    letterSpacing: -0.1,
+  },
+  iconHint: {
+    fontSize: 14,
     color: '#5856D6',
     fontWeight: '500',
-    marginTop: -12,
+    marginTop: -16,
   },
   emojiDisplayText: {
-    fontSize: 36,
+    fontSize: 40,
   },
   input: {
     width: '100%',
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '500',
-    color: '#000',
+    color: '#1C1C1E',
     textAlign: 'center',
-    paddingVertical: 16,
+    paddingVertical: 12,
+    letterSpacing: -0.3,
   },
   emojiSection: {
     width: '100%',
     alignItems: 'center',
     gap: 16,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
   emojiRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 8,
+    gap: 10,
     flexWrap: 'wrap',
   },
   emojiButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#F2F2F7',
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#F5F5F7',
     alignItems: 'center',
     justifyContent: 'center',
   },
   emojiButtonSmall: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F2F2F7',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F5F5F7',
     alignItems: 'center',
     justifyContent: 'center',
   },
   emojiButtonSelected: {
     backgroundColor: '#5856D6',
-    transform: [{ scale: 1.1 }],
+    transform: [{ scale: 1.08 }],
+    shadowColor: '#5856D6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   emojiText: {
     fontSize: 22,
@@ -428,24 +559,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
+    marginTop: 4,
   },
   moreButtonText: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#5856D6',
     fontWeight: '500',
+    letterSpacing: -0.2,
   },
   allEmojisGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: 8,
+    gap: 10,
     paddingTop: 8,
   },
   footer: {
-    paddingHorizontal: 24,
-    paddingBottom: 24,
-    paddingTop: 16,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    paddingTop: 12,
+    backgroundColor: '#FAFAFA',
   },
   addButton: {
     flexDirection: 'row',
@@ -453,81 +587,109 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     backgroundColor: '#5856D6',
-    paddingVertical: 16,
-    borderRadius: 14,
+    paddingVertical: 18,
+    borderRadius: 16,
+    shadowColor: '#5856D6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 4,
   },
   addButtonDisabled: {
-    opacity: 0.4,
+    opacity: 0.35,
+    shadowOpacity: 0,
   },
   addButtonText: {
     fontSize: 17,
     fontWeight: '600',
     color: '#fff',
+    letterSpacing: -0.2,
   },
   reflectionSection: {
     width: '100%',
-    marginTop: 8,
-    paddingTop: 24,
-    borderTopWidth: 1,
-    borderTopColor: '#F2F2F7',
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
   reflectionLabel: {
     fontSize: 13,
     fontWeight: '600',
     color: '#8E8E93',
-    marginBottom: 8,
-    marginTop: 16,
+    marginBottom: 10,
+    marginTop: 0,
+    letterSpacing: -0.1,
   },
   reflectionInput: {
     fontSize: 16,
-    color: '#000',
-    backgroundColor: '#F9F9F9',
-    borderRadius: 12,
-    padding: 14,
-    minHeight: 48,
+    color: '#1C1C1E',
+    backgroundColor: '#F5F5F7',
+    borderRadius: 14,
+    padding: 16,
+    minHeight: 52,
     textAlignVertical: 'top',
+    marginBottom: 16,
   },
   celebrationInput: {
-    minHeight: 48,
+    minHeight: 52,
   },
   reflectionHint: {
-    fontSize: 12,
-    color: '#C7C7CC',
-    marginTop: 12,
+    fontSize: 13,
+    color: '#AEAEB2',
+    marginTop: 4,
     textAlign: 'center',
-    fontStyle: 'italic',
+    fontStyle: 'normal',
+    letterSpacing: -0.1,
   },
   // Day Selector Styles
   daySection: {
     width: '100%',
-    paddingTop: 8,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
   daySectionLabel: {
     fontSize: 13,
     fontWeight: '600',
     color: '#8E8E93',
-    marginBottom: 12,
+    marginBottom: 16,
     textAlign: 'center',
+    letterSpacing: -0.1,
   },
   quickSelectRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 12,
-    marginBottom: 16,
+    gap: 10,
+    marginBottom: 20,
   },
   quickSelectButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: '#F2F2F7',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 24,
+    backgroundColor: '#F5F5F7',
   },
   quickSelectButtonActive: {
     backgroundColor: '#5856D6',
+    shadowColor: '#5856D6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 2,
   },
   quickSelectText: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 15,
+    fontWeight: '600',
     color: '#8E8E93',
+    letterSpacing: -0.2,
   },
   quickSelectTextActive: {
     color: '#fff',
@@ -535,35 +697,42 @@ const styles = StyleSheet.create({
   dayPillsRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
   },
   dayPill: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F2F2F7',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#F5F5F7',
     alignItems: 'center',
     justifyContent: 'center',
   },
   dayPillSelected: {
     backgroundColor: '#5856D6',
+    shadowColor: '#5856D6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 2,
   },
   dayPillText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#8E8E93',
+    color: '#AEAEB2',
+    letterSpacing: -0.2,
   },
   dayPillTextSelected: {
     color: '#fff',
   },
   workSection: {
     width: '100%',
-    marginTop: 8,
-    paddingTop: 24,
-    borderTopWidth: 1,
-    borderTopColor: '#F2F2F7',
-    backgroundColor: '#F9F9F9',
-    borderRadius: 12,
+    backgroundColor: '#fff',
+    borderRadius: 20,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
 });

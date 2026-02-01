@@ -2,11 +2,11 @@ import React from 'react';
 import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LayoutGrid, Settings, Target, ListTodo, Plus } from 'lucide-react-native';
+import { LayoutGrid, Settings, Target, ListTodo, Plus, Inbox, Wallet } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
 
-export type NavRoute = 'home' | 'menu' | 'projects' | 'habits';
+export type NavRoute = 'home' | 'menu' | 'projects' | 'habits' | 'money';
 
 interface BottomNavBarProps {
     onFabPress?: () => void;
@@ -15,6 +15,7 @@ interface BottomNavBarProps {
 const NAV_ITEMS: { route: NavRoute; path: string; icon: any; label: string }[] = [
     { route: 'home', path: '/', icon: LayoutGrid, label: 'Home' },
     { route: 'projects', path: '/projects', icon: Target, label: 'Projects' },
+    { route: 'money', path: '/money', icon: Wallet, label: 'Money' },
     { route: 'habits', path: '/habits', icon: ListTodo, label: 'Habits' },
     { route: 'menu', path: '/menu', icon: Settings, label: 'Settings' },
 ];
@@ -24,6 +25,7 @@ function getActiveRoute(pathname: string): NavRoute {
     if (pathname === '/menu') return 'menu';
     if (pathname === '/projects' || pathname.startsWith('/project/')) return 'projects';
     if (pathname === '/habits' || pathname === '/habit-detail') return 'habits';
+    if (pathname === '/money') return 'money';
 
     return 'home';
 }
@@ -37,35 +39,13 @@ export function BottomNavBar({ onFabPress }: BottomNavBarProps) {
     const handleNavPress = (route: NavRoute, path: string) => {
         if (route === activeRoute) return;
         Haptics.selectionAsync();
-        // Use push for menu so swipe-back gesture works
+        // Use push for Settings so swipe-back gesture works
         if (route === 'menu') {
             router.push(path as any);
         } else {
             router.replace(path as any);
         }
     };
-
-    const handleFabPress = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        if (onFabPress) {
-            onFabPress();
-        } else {
-            switch (activeRoute) {
-                case 'habits':
-                    router.push('/add-habit');
-                    break;
-                case 'projects':
-                    router.push('/add-project');
-                    break;
-                default:
-                    router.push('/add-todo');
-                    break;
-            }
-        }
-    };
-
-    const leftItems = NAV_ITEMS.slice(0, 2);
-    const rightItems = NAV_ITEMS.slice(2);
 
     const ContainerComponent = Platform.OS === 'web' ? View : BlurView;
     const containerProps = Platform.OS === 'web'
@@ -74,43 +54,12 @@ export function BottomNavBar({ onFabPress }: BottomNavBarProps) {
 
     return (
         <View style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-            {/* FAB positioned absolutely to avoid clipping */}
-            <Pressable style={styles.fabWrapper} onPress={handleFabPress}>
-                <View style={styles.fabInner}>
-                    <Plus size={24} color="#fff" strokeWidth={3} />
-                </View>
-            </Pressable>
-
             <ContainerComponent
                 style={styles.container}
                 {...containerProps}
             >
                 <View style={styles.navContent}>
-                    {leftItems.map((item) => {
-                        const Icon = item.icon;
-                        const isActive = activeRoute === item.route;
-                        return (
-                            <Pressable
-                                key={item.route}
-                                style={styles.tab}
-                                onPress={() => handleNavPress(item.route, item.path)}
-                            >
-                                <Icon
-                                    size={24}
-                                    color={isActive ? '#000' : '#8E8E93'}
-                                    strokeWidth={isActive ? 2.5 : 2}
-                                />
-                                <Text style={[styles.label, isActive && styles.labelActive]}>
-                                    {item.label}
-                                </Text>
-                            </Pressable>
-                        );
-                    })}
-
-                    {/* Spacer for FAB */}
-                    <View style={styles.fabSpacer} />
-
-                    {rightItems.map((item) => {
+                    {NAV_ITEMS.map((item) => {
                         const Icon = item.icon;
                         const isActive = activeRoute === item.route;
                         return (

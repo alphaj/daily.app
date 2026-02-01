@@ -15,7 +15,15 @@
       }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_RORK_API_BASE_URL": "https://api.rivet.dev",
+        "EXPO_PUBLIC_RORK_DB_ENDPOINT": "https://api.rivet.dev",
+        "EXPO_PUBLIC_RORK_DB_NAMESPACE": "rork-74b4-djcx1bh0dd5m4r1q-8644",
+        "EXPO_PUBLIC_RORK_DB_TOKEN": "bWvRCQhrWaJtF2uwObKlMOuuisrILRnhM1FqU0NhDFX4G20IRLJQDDgKpZtOh0LV",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://ofalegjymxluripjnlzx.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9mYWxlZ2p5bXhsdXJpcGpubHp4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MDIzNjYsImV4cCI6MjA4NDE3ODM2Nn0.Ty-xAJ481yWQbpO8UJR98N_i4_QvYrU8B5h2fAdKQH0"
+      }
     }
   },
   "submit": {

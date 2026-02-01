@@ -22,7 +22,7 @@ import { CelebrationOverlay } from '@/components/CelebrationOverlay';
 export default function HabitDetailScreen() {
     const router = useRouter();
     const { id } = useLocalSearchParams<{ id: string }>();
-    const { habits, deleteHabit, toggleHabitCompletion, isCompletedToday } = useHabits();
+    const { habits, deleteHabit, toggleHabitCompletion, isCompletedToday, logSlip } = useHabits();
     const [showCelebration, setShowCelebration] = useState(false);
 
     const habit = habits.find(h => h.id === id);
@@ -75,6 +75,24 @@ export default function HabitDetailScreen() {
         );
     };
 
+    const handleSlip = () => {
+        Alert.alert(
+            'Log a Slip',
+            'This will reset your streak. Are you sure?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Log Slip',
+                    style: 'destructive',
+                    onPress: () => {
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                        logSlip(habit.id);
+                    },
+                },
+            ]
+        );
+    };
+
     // Calculate next milestone
     const milestones = [7, 30, 100, 365];
     const nextMilestone = milestones.find(m => m > habit.currentStreak) || 365;
@@ -107,24 +125,31 @@ export default function HabitDetailScreen() {
                 contentContainerStyle={{ paddingBottom: 40 }}
             >
                 {/* Habit Hero Section */}
-                <View style={styles.card}>
+                <View style={[styles.card, habit.type === 'breaking' && styles.cardBreaking]}>
                     <View style={styles.heroContent}>
                         {habit.emoji ? (
-                            <View style={styles.heroEmoji}>
+                            <View style={[styles.heroEmoji, habit.type === 'breaking' && styles.heroEmojiBreaking]}>
                                 <Text style={styles.heroEmojiText}>{habit.emoji}</Text>
                             </View>
                         ) : (
-                            <View style={styles.heroIcon}>
-                                <Repeat size={40} color="#5856D6" />
+                            <View style={[styles.heroIcon, habit.type === 'breaking' && styles.heroIconBreaking]}>
+                                <Repeat size={40} color={habit.type === 'breaking' ? "#FF6B6B" : "#5856D6"} />
                             </View>
                         )}
                         <Text style={styles.heroName}>{habit.name}</Text>
+
+                        {/* Type Badge */}
+                        <View style={[styles.typeBadge, habit.type === 'breaking' && styles.typeBadgeBreaking]}>
+                            <Text style={[styles.typeBadgeText, habit.type === 'breaking' && styles.typeBadgeTextBreaking]}>
+                                {habit.type === 'building' ? '🌱 Building' : '🚫 Breaking'}
+                            </Text>
+                        </View>
 
                         {/* Today's Toggle */}
                         <Pressable
                             style={[
                                 styles.todayButton,
-                                completed && styles.todayButtonCompleted
+                                completed && (habit.type === 'breaking' ? styles.todayButtonCompletedBreaking : styles.todayButtonCompleted)
                             ]}
                             onPress={handleToggleToday}
                         >
@@ -132,9 +157,22 @@ export default function HabitDetailScreen() {
                                 styles.todayButtonText,
                                 completed && styles.todayButtonTextCompleted
                             ]}>
-                                {completed ? '✓ Completed Today' : 'Mark as Complete'}
+                                {habit.type === 'building'
+                                    ? (completed ? '✓ Completed Today' : 'Mark as Complete')
+                                    : (completed ? '💪 Still Strong!' : "I'm Still Strong")
+                                }
                             </Text>
                         </Pressable>
+
+                        {/* Slip Button for Breaking Habits */}
+                        {habit.type === 'breaking' && (
+                            <Pressable
+                                style={styles.slipButton}
+                                onPress={handleSlip}
+                            >
+                                <Text style={styles.slipButtonText}>I Slipped</Text>
+                            </Pressable>
+                        )}
                     </View>
                 </View>
 
@@ -321,6 +359,9 @@ const styles = StyleSheet.create({
     todayButtonCompleted: {
         backgroundColor: '#34C759',
     },
+    todayButtonCompletedBreaking: {
+        backgroundColor: '#FF6B6B',
+    },
     todayButtonText: {
         fontSize: 16,
         fontWeight: '700',
@@ -328,6 +369,49 @@ const styles = StyleSheet.create({
     },
     todayButtonTextCompleted: {
         color: '#fff',
+    },
+    // Breaking Habit Styles
+    cardBreaking: {
+        borderWidth: 1,
+        borderColor: '#FFE5E5',
+    },
+    heroEmojiBreaking: {
+        backgroundColor: '#FFE5E5',
+    },
+    heroIconBreaking: {
+        backgroundColor: '#FFE5E5',
+    },
+    typeBadge: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+        backgroundColor: '#E8F5E8',
+        marginBottom: 16,
+    },
+    typeBadgeBreaking: {
+        backgroundColor: '#FFE5E5',
+    },
+    typeBadgeText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#34C759',
+    },
+    typeBadgeTextBreaking: {
+        color: '#FF6B6B',
+    },
+    slipButton: {
+        marginTop: 12,
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#FF6B6B',
+        backgroundColor: 'transparent',
+    },
+    slipButtonText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#FF6B6B',
     },
     milestoneContainer: {
         flexDirection: 'row',

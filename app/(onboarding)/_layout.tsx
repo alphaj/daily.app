@@ -5,15 +5,12 @@ export default function OnboardingLayout() {
         <Stack
             screenOptions={{
                 headerShown: false,
-                animation: 'slide_from_right',
+                animation: 'fade',
                 gestureEnabled: true,
-                contentStyle: { backgroundColor: '#000000' },
+                contentStyle: { backgroundColor: '#FFFFFF' },
             }}
         >
             <Stack.Screen name="get-started" />
-            <Stack.Screen name="sign-up-email" />
-            <Stack.Screen name="create-password" />
-            <Stack.Screen name="login" />
             <Stack.Screen name="notifications" />
             <Stack.Screen name="loses-day" />
             <Stack.Screen name="falls-through" />

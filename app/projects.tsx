@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import {
   Plus,
   Inbox,
+  Settings,
   Home,
   Brain,
   FolderKanban,
@@ -170,23 +171,14 @@ export default function ProjectsScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Overview</Text>
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-          <Pressable
-            style={styles.headerButton}
-            onPress={() => router.push('/inbox')}
-            hitSlop={10}
-          >
-            <Inbox size={22} color="#000" strokeWidth={1.5} />
-          </Pressable>
-          <Pressable
-            style={styles.headerButton}
-            onPress={handleAddProject}
-            hitSlop={10}
-          >
-            <Plus size={26} color="#000" />
-          </Pressable>
-        </View>
+        <Text style={styles.headerTitle}>Projects</Text>
+        <Pressable
+          style={styles.headerButton}
+          onPress={handleAddProject}
+          hitSlop={10}
+        >
+          <Plus size={26} color="#000" />
+        </Pressable>
       </View>
 
       <ScrollView

@@ -7,11 +7,17 @@ export interface ImplementationIntention {
 /** Day of week indices (0 = Sunday, 1 = Monday, ..., 6 = Saturday) */
 export type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
+/** Type of habit: building (want to do) vs breaking (want to stop) */
+export type HabitType = 'building' | 'breaking';
+
 export interface Habit {
   id: string;
   name: string;
+  /** Type of habit: 'building' for positive habits, 'breaking' for habits to quit */
+  type: HabitType;
   emoji?: string;
   createdAt: string;
+  /** For building: dates completed. For breaking: dates maintained (clean days) */
   completedDates: string[];
   currentStreak: number;
   bestStreak: number;
@@ -24,6 +30,10 @@ export interface Habit {
   scheduledDays?: DayOfWeek[];
   /** Whether this is a work-related habit */
   isWork?: boolean;
+  /** For breaking habits: optional notes about triggers */
+  triggerNotes?: string;
+  /** For breaking habits: dates when user slipped */
+  slipDates?: string[];
 }
 
 export interface HabitStats {

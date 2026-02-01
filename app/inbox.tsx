@@ -299,9 +299,6 @@ export default function InboxScreen() {
                 {/* Header */}
                 <View style={styles.header}>
                     <Text style={styles.headerTitle}>Inbox</Text>
-                    <Pressable style={styles.headerButton} onPress={() => router.push('/menu')}>
-                        <Settings size={22} color="#000" strokeWidth={1.5} />
-                    </Pressable>
                 </View>
 
                 {/* Main Content */}

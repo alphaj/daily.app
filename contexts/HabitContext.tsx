@@ -2,7 +2,7 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Habit, ImplementationIntention, DayCompletion, HabitStats, DayOfWeek } from '@/types/habit';
+import type { Habit, ImplementationIntention, DayCompletion, HabitStats, DayOfWeek, HabitType } from '@/types/habit';
 
 const HABITS_STORAGE_KEY = 'daily_habits';
 
@@ -63,7 +63,13 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
     queryKey: ['habits'],
     queryFn: async () => {
       const stored = await AsyncStorage.getItem(HABITS_STORAGE_KEY);
-      return stored ? JSON.parse(stored) : [];
+      const parsed = stored ? JSON.parse(stored) : [];
+      // Migrate existing habits without type to 'building'
+      return parsed.map((h: Habit) => ({
+        ...h,
+        type: h.type || 'building',
+        slipDates: h.slipDates || [],
+      }));
     },
   });
 
@@ -85,11 +91,14 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
     whyStatement?: string,
     celebrationPhrase?: string,
     scheduledDays?: DayOfWeek[],
-    isWork?: boolean
+    isWork?: boolean,
+    habitType: HabitType = 'building',
+    triggerNotes?: string
   ) => {
     const newHabit: Habit = {
       id: generateId(),
       name,
+      type: habitType,
       emoji,
       createdAt: new Date().toISOString(),
       completedDates: [],
@@ -100,6 +109,8 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
       celebrationPhrase,
       scheduledDays,
       isWork,
+      triggerNotes,
+      slipDates: [],
     };
 
     const newHabits = [...habits, newHabit];
@@ -220,13 +231,52 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
     );
   }, [habits]);
 
+  /** Log a slip for a breaking habit - resets streak */
+  const logSlip = useCallback(async (id: string): Promise<void> => {
+    const today = getToday();
+    const habit = habits.find(h => h.id === id);
+    if (!habit || habit.type !== 'breaking') return;
+
+    const newSlipDates = [...(habit.slipDates || []), today];
+    // Remove today from completed dates if present
+    const newCompletedDates = habit.completedDates.filter(d => d !== today);
+
+    const newHabits = habits.map(h =>
+      h.id === id
+        ? {
+          ...h,
+          slipDates: newSlipDates,
+          completedDates: newCompletedDates,
+          currentStreak: 0  // Reset streak on slip
+        }
+        : h
+    );
+
+    setHabits(newHabits);
+    await saveHabits(newHabits);
+  }, [habits, saveHabits]);
+
+  /** Get habits filtered by type */
+  const getHabitsByType = useCallback((type: HabitType): Habit[] => {
+    return habits.filter(h => h.type === type);
+  }, [habits]);
+
+  /** Get building habits */
+  const buildingHabits = useMemo(() => habits.filter(h => h.type === 'building'), [habits]);
+
+  /** Get breaking habits */
+  const breakingHabits = useMemo(() => habits.filter(h => h.type === 'breaking'), [habits]);
+
   return {
     habits,
+    buildingHabits,
+    breakingHabits,
     isLoading: habitsQuery.isLoading,
     addHabit,
     updateHabit,
     deleteHabit,
     toggleHabitCompletion,
+    logSlip,
     isCompletedToday,
     getWeeklyProgress,
     getOverallStats,
@@ -234,5 +284,6 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
     getAllHabitsCompleted,
     getCelebrationPhrase,
     getStreakAtRiskHabits,
+    getHabitsByType,
   };
 });

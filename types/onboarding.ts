@@ -18,7 +18,7 @@ export interface OnboardingState {
 }
 
 export const ONBOARDING_STEPS = [
-    'email',
+    'get-started',
     'notifications',
     'loses-day',
     'falls-through',

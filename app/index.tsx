@@ -4,6 +4,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Inbox,
+  Settings,
   Plus,
   Check,
   Flame,
@@ -47,7 +48,9 @@ import { BottomNavBar } from '@/components/BottomNavBar';
 import { DailySummaryModal, useDailySummary } from '@/components/DailySummaryModal';
 import { WorkModeIndicator } from '@/components/WorkModeIndicator';
 import { useWorkMode } from '@/contexts/WorkModeContext';
-import { CaptureBar } from '@/components/CaptureBar';
+
+import { BlurView } from 'expo-blur';
+import { AmbientBackground } from '@/components/AmbientBackground';
 
 
 
@@ -266,8 +269,6 @@ function DraggableTaskList({
     </View>
   );
 }
-
-import { BlurView } from 'expo-blur';
 
 function CalendarModal({
   visible,
@@ -500,12 +501,14 @@ function HabitCard({
       <Animated.View
         style={[
           styles.habitCard,
-          isCompleted ? styles.habitCardCompleted : styles.habitCardIncomplete,
+          habit.type === 'breaking'
+            ? (isCompleted ? styles.habitCardCompletedBreaking : styles.habitCardIncompleteBreaking)
+            : (isCompleted ? styles.habitCardCompleted : styles.habitCardIncomplete),
           { transform: [{ scale: scaleAnim }] }
         ]}
       >
         <View style={styles.habitCardHeader}>
-          <Text style={styles.habitEmoji}>{habit.emoji || '⚡️'}</Text>
+          <Text style={styles.habitEmoji}>{habit.emoji || (habit.type === 'breaking' ? '🚫' : '⚡️')}</Text>
           {habit.currentStreak > 0 && (
             <View style={[styles.habitCardStreak, isCompleted && styles.habitCardStreakCompleted]}>
               <Flame size={10} color={isCompleted ? "#FFD60A" : "#FF9500"} fill={isCompleted ? "#FFD60A" : "#FF9500"} />
@@ -523,15 +526,16 @@ function HabitCard({
           {habit.name}
         </Text>
 
-        <View style={[styles.habitStatusIcon, isCompleted && styles.habitStatusIconCompleted]}>
+        <View style={[
+          styles.habitStatusIcon,
+          isCompleted && (habit.type === 'breaking' ? styles.habitStatusIconCompletedBreaking : styles.habitStatusIconCompleted)
+        ]}>
           {isCompleted ? <Check size={14} color="#000" strokeWidth={4} /> : null}
         </View>
       </Animated.View>
     </Pressable>
   );
 }
-
-import { AmbientBackground } from '@/components/AmbientBackground';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -546,13 +550,13 @@ export default function HomeScreen() {
     deleteHabit,
     getCelebrationPhrase,
   } = useHabits();
-  const { getNoteForDate, updateNoteForDate, hasNoteForDate, isSaving } = useNotes();
+  const { hasNoteForDate } = useNotes();
   const { items: inboxItems } = useInbox();
   const { shouldShowItem } = useWorkMode();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [calendarModalVisible, setCalendarModalVisible] = useState(false);
   const [addOptionsVisible, setAddOptionsVisible] = useState(false);
-  const [noteText, setNoteText] = useState('');
+
 
   // Reflection & Celebration state
   const [showCelebration, setShowCelebration] = useState(false);
@@ -574,17 +578,7 @@ export default function HomeScreen() {
     : getTodosForDate(selectedDate);
   const todosForDate = allTodosForDate.filter(todo => shouldShowItem(todo.isWork));
 
-  // Load note for selected date
-  useEffect(() => {
-    const note = getNoteForDate(selectedDate);
-    setNoteText(note);
-  }, [selectedDate, getNoteForDate]);
 
-  // Save note when text changes
-  const handleNoteChange = useCallback((text: string) => {
-    setNoteText(text);
-    updateNoteForDate(selectedDate, text);
-  }, [selectedDate, updateNoteForDate]);
 
   // Calendar Strip Data - generate 60 days (30 before and 30 after today for continuous scrolling)
   const today = new Date();
@@ -781,12 +775,12 @@ export default function HomeScreen() {
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleRow}>
-                <ListTodo size={20} color="#000" />
+                <ListTodo size={20} color="#8E8E93" />
                 <Text style={styles.sectionLabel}>{isPastDate ? 'Completed' : 'Tasks'}</Text>
               </View>
               {!isPastDate && (
                 <Pressable onPress={() => router.push('/add-todo')} style={styles.addButton}>
-                  <Plus size={16} color="#5856D6" strokeWidth={2.5} />
+                  <Plus size={18} color="#007AFF" strokeWidth={2} />
                   <Text style={styles.addLink}>Add</Text>
                 </Pressable>
               )}
@@ -822,11 +816,11 @@ export default function HomeScreen() {
             <View style={styles.sectionHeaderPadding}>
               <View style={styles.sectionHeader}>
                 <View style={styles.sectionTitleRow}>
-                  <Target size={20} color="#5856D6" />
+                  <Target size={20} color="#8E8E93" />
                   <Text style={styles.sectionLabel}>Habits</Text>
                 </View>
                 <Pressable onPress={() => router.push('/add-habit')} style={styles.addButton}>
-                  <Plus size={16} color="#5856D6" strokeWidth={2.5} />
+                  <Plus size={18} color="#007AFF" strokeWidth={2} />
                   <Text style={styles.addLink}>Add</Text>
                 </Pressable>
               </View>
@@ -866,15 +860,7 @@ export default function HomeScreen() {
 
         </ScrollView>
 
-        {/* Capture Bar - Floating Note Input */}
-        <CaptureBar
-          noteText={noteText}
-          onNoteChange={handleNoteChange}
-          isSaving={isSaving}
-          selectedDate={selectedDate}
-          isToday={isToday}
-          bottomOffset={135}
-        />
+
 
         {/* Bottom Bar */}
         <BottomNavBar onFabPress={handleAddPress} />
@@ -1098,58 +1084,51 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
-    paddingHorizontal: 4,
+    marginBottom: 14,
+    paddingHorizontal: 0,
   },
   sectionTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   sectionLabel: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 22,
+    fontWeight: '700',
     color: '#000',
-    letterSpacing: -0.5,
+    letterSpacing: -0.4,
   },
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#fff',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 100,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
+    gap: 3,
+    paddingHorizontal: 0,
+    paddingVertical: 4,
   },
   addLink: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#5856D6',
+    fontSize: 17,
+    fontWeight: '400',
+    color: '#007AFF',
   },
   todoList: {
   },
   todoItemWrapper: {
-    marginBottom: 12,
+    marginBottom: 10,
   },
   todoItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    paddingVertical: 16,
+    paddingVertical: 14,
     paddingRight: 16,
-    paddingLeft: 8,
-    borderRadius: 20,
+    paddingLeft: 12,
+    borderRadius: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-    elevation: 2,
-    gap: 12,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+    gap: 10,
     minHeight: ITEM_HEIGHT,
   },
   todoItemDragging: {
@@ -1161,41 +1140,44 @@ const styles = StyleSheet.create({
     backgroundColor: '#FAFAFF',
   },
   dragHandle: {
-    padding: 8,
+    padding: 6,
     marginLeft: -4,
+    opacity: 0.5,
   },
   todoItemCompleted: {
-    opacity: 0.6,
+    opacity: 0.55,
   },
   checkboxContainer: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#E5E5EA',
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 2.5,
+    borderColor: '#D1D1D6',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#fff',
   },
   checkboxUnchecked: {
-    borderColor: '#5856D6',
+    borderColor: '#007AFF',
   },
   checkboxChecked: {
-    backgroundColor: '#5856D6',
-    borderColor: '#5856D6',
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
   },
   checkboxWork: {
-    borderRadius: 8, // Squircle shape for work
-    borderColor: '#E5E5EA',
+    borderRadius: 13,
+    borderColor: '#D1D1D6',
   },
   checkboxWorkChecked: {
-    backgroundColor: '#5856D6', // Indigo for Work
-    borderColor: '#5856D6',
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
   },
   todoText: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 17,
     color: '#000',
-    fontWeight: '500',
+    fontWeight: '400',
+    letterSpacing: -0.2,
   },
   todoTextChecked: {
     color: '#8E8E93',
@@ -1203,33 +1185,32 @@ const styles = StyleSheet.create({
   },
   emptyStateCard: {
     backgroundColor: '#fff',
-    borderRadius: 24,
-    padding: 32, // Increased padding
+    borderRadius: 16,
+    padding: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 16,
-    // Replaced dashed border with Shadow
+    gap: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: 15,
     color: '#8E8E93',
-    fontWeight: '500',
+    fontWeight: '400',
   },
   emptyAddButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: '#F2F2F7',
-    borderRadius: 100,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#007AFF',
+    borderRadius: 20,
   },
   emptyAddText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#000',
+    color: '#fff',
   },
   habitsSection: {
     marginBottom: 24,
@@ -1263,6 +1244,14 @@ const styles = StyleSheet.create({
   },
   habitCardCompleted: {
     backgroundColor: '#000',
+  },
+  habitCardIncompleteBreaking: {
+    backgroundColor: '#FFF5F5',
+    borderWidth: 1,
+    borderColor: '#FFE5E5',
+  },
+  habitCardCompletedBreaking: {
+    backgroundColor: '#FF6B6B',
   },
   habitCardHeader: {
     flexDirection: 'row',
@@ -1315,6 +1304,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   habitStatusIconCompleted: {
+    backgroundColor: '#fff',
+    borderColor: '#fff',
+  },
+  habitStatusIconCompletedBreaking: {
     backgroundColor: '#fff',
     borderColor: '#fff',
   },

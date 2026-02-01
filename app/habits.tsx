@@ -5,7 +5,7 @@ import {
     Check,
     Plus,
 } from 'lucide-react-native';
-import React from 'react';
+import React, { useState } from 'react';
 import {
     View,
     Text,
@@ -18,6 +18,7 @@ import * as Haptics from 'expo-haptics';
 import { useHabits } from '@/contexts/HabitContext';
 import SwipeableRow from '@/components/SwipeableRow';
 import { BottomNavBar } from '@/components/BottomNavBar';
+import type { Habit, DayCompletion, HabitType } from '@/types/habit';
 
 function HabitItem({
     habit,
@@ -27,9 +28,9 @@ function HabitItem({
     onDelete,
     onPress,
 }: {
-    habit: any;
-    isCompletedToday: (h: any) => boolean;
-    getWeeklyProgress: (h: any) => any[];
+    habit: Habit;
+    isCompletedToday: (h: Habit) => boolean;
+    getWeeklyProgress: (h: Habit) => DayCompletion[];
     onToggle: (id: string) => void;
     onDelete: (id: string) => void;
     onPress: (id: string) => void;
@@ -113,13 +114,21 @@ export default function HabitsScreen() {
     const router = useRouter();
     const {
         habits,
+        buildingHabits,
+        breakingHabits,
         toggleHabitCompletion,
         isCompletedToday,
         getWeeklyProgress,
         getMotivationalMessage,
         getOverallStats,
         deleteHabit,
+        logSlip,
     } = useHabits();
+
+    const [activeTab, setActiveTab] = useState<HabitType>('building');
+
+    // Filter habits based on active tab
+    const filteredHabits = activeTab === 'building' ? buildingHabits : breakingHabits;
 
     const stats = getOverallStats;
     const message = getMotivationalMessage();
@@ -133,8 +142,8 @@ export default function HabitsScreen() {
         router.push({ pathname: '/habit-detail', params: { id } });
     };
 
-    const completedToday = habits.filter((h) => isCompletedToday(h)).length;
-    const totalHabits = habits.length;
+    const completedToday = filteredHabits.filter((h) => isCompletedToday(h)).length;
+    const totalHabits = filteredHabits.length;
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
@@ -157,15 +166,59 @@ export default function HabitsScreen() {
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 100 }}
             >
+                {/* Segmented Control */}
+                <View style={styles.segmentedControl}>
+                    <Pressable
+                        style={[
+                            styles.segmentButton,
+                            activeTab === 'building' && styles.segmentButtonActive,
+                        ]}
+                        onPress={() => {
+                            Haptics.selectionAsync();
+                            setActiveTab('building');
+                        }}
+                    >
+                        <Text style={[
+                            styles.segmentText,
+                            activeTab === 'building' && styles.segmentTextActive
+                        ]}>
+                            🌱 Build
+                        </Text>
+                    </Pressable>
+                    <Pressable
+                        style={[
+                            styles.segmentButton,
+                            activeTab === 'breaking' && styles.segmentButtonActiveBreaking,
+                        ]}
+                        onPress={() => {
+                            Haptics.selectionAsync();
+                            setActiveTab('breaking');
+                        }}
+                    >
+                        <Text style={[
+                            styles.segmentText,
+                            activeTab === 'breaking' && styles.segmentTextActiveBreaking
+                        ]}>
+                            🚫 Break
+                        </Text>
+                    </Pressable>
+                </View>
+
                 {/* Stats Card */}
-                <View style={styles.statsCard}>
-                    <Text style={styles.statsMessage}>{message}</Text>
+                <View style={[styles.statsCard, activeTab === 'breaking' && styles.statsCardBreaking]}>
+                    <Text style={styles.statsMessage}>
+                        {filteredHabits.length === 0
+                            ? (activeTab === 'building' ? 'Start building good habits' : 'No habits to break yet')
+                            : message}
+                    </Text>
                     <View style={styles.statsRow}>
                         <View style={styles.statItem}>
                             <Text style={styles.statValue}>
                                 {completedToday}/{totalHabits}
                             </Text>
-                            <Text style={styles.statLabel}>Today</Text>
+                            <Text style={styles.statLabel}>
+                                {activeTab === 'building' ? 'Today' : 'Clean Today'}
+                            </Text>
                         </View>
                         <View style={styles.statDivider} />
                         <View style={styles.statItem}>
@@ -177,23 +230,29 @@ export default function HabitsScreen() {
                             <Text style={styles.statValue}>
                                 {Math.round(stats.weeklyCompletionRate * 100)}%
                             </Text>
-                            <Text style={styles.statLabel}>This Week</Text>
+                            <Text style={styles.statLabel}>
+                                {activeTab === 'building' ? 'This Week' : 'Days Strong'}
+                            </Text>
                         </View>
                     </View>
                 </View>
 
                 {/* Habits List */}
                 <View style={styles.habitsList}>
-                    {habits.length === 0 ? (
+                    {filteredHabits.length === 0 ? (
                         <View style={styles.emptyState}>
                             <Zap size={48} color="#C7C7CC" strokeWidth={1} />
-                            <Text style={styles.emptyTitle}>No habits yet</Text>
+                            <Text style={styles.emptyTitle}>
+                                {activeTab === 'building' ? 'No habits to build' : 'No habits to break'}
+                            </Text>
                             <Text style={styles.emptySubtitle}>
-                                Tap the + button to add your first habit
+                                {activeTab === 'building'
+                                    ? 'Tap the + button to add a new habit to build'
+                                    : 'Tap the + button to add a habit you want to stop'}
                             </Text>
                         </View>
                     ) : (
-                        habits.map((habit) => (
+                        filteredHabits.map((habit) => (
                             <HabitItem
                                 key={habit.id}
                                 habit={habit}
@@ -252,6 +311,46 @@ const styles = StyleSheet.create({
     content: {
         flex: 1,
     },
+    // Segmented Control Styles
+    segmentedControl: {
+        flexDirection: 'row',
+        marginHorizontal: 20,
+        marginTop: 12,
+        backgroundColor: '#E5E5EA',
+        borderRadius: 12,
+        padding: 4,
+    },
+    segmentButton: {
+        flex: 1,
+        paddingVertical: 10,
+        alignItems: 'center',
+        borderRadius: 10,
+    },
+    segmentButtonActive: {
+        backgroundColor: '#fff',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+    },
+    segmentButtonActiveBreaking: {
+        backgroundColor: '#fff',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+    },
+    segmentText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#8E8E93',
+    },
+    segmentTextActive: {
+        color: '#34C759',
+    },
+    segmentTextActiveBreaking: {
+        color: '#FF6B6B',
+    },
     statsCard: {
         marginHorizontal: 20,
         marginTop: 12,
@@ -265,6 +364,10 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.06,
         shadowRadius: 12,
         elevation: 4,
+    },
+    statsCardBreaking: {
+        borderWidth: 1,
+        borderColor: '#FFE5E5',
     },
     statsMessage: {
         fontSize: 16,

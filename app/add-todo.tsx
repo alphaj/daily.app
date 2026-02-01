@@ -21,6 +21,7 @@ import { useWorkMode } from '@/contexts/WorkModeContext';
 import { format, isToday, isTomorrow, addDays } from 'date-fns';
 import { DatePickerModal } from '@/components/DatePickerModal';
 import { PriorityPickerModal } from '@/components/PriorityPickerModal';
+import { Alert } from 'react-native';
 
 export default function AddTodoScreen() {
     const router = useRouter();
@@ -152,9 +153,13 @@ export default function AddTodoScreen() {
                     setTitle(prev => prev ? `${prev} ${data.text}` : data.text);
                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 }
+            } else {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                Alert.alert('Transcription Failed', 'Voice transcription is temporarily unavailable. Please type your task instead.');
             }
         } catch (error) {
-            console.log('Error stopping recording:', error);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            Alert.alert('No Connection', 'Unable to transcribe voice. Please check your internet connection.');
         } finally {
             setIsTranscribing(false);
         }
@@ -169,19 +174,10 @@ export default function AddTodoScreen() {
     };
 
     const handleSave = () => {
-        console.log('[AddTodo] handleSave called', { title, dueDate, priority, isWorkMode });
         if (title.trim()) {
-            console.log('[AddTodo] title is valid, adding todo...');
-            try {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                addTodo(title.trim(), dueDate || new Date(), priority, isWorkMode);
-                console.log('[AddTodo] todo added, navigating back...');
-                router.back();
-            } catch (error) {
-                console.error('[AddTodo] Error in handleSave:', error);
-            }
-        } else {
-            console.log('[AddTodo] title is empty, not saving');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            addTodo(title.trim(), dueDate || new Date(), priority, isWorkMode);
+            router.back();
         }
     };
 
@@ -269,6 +265,10 @@ export default function AddTodoScreen() {
                                     autoFocus
                                     multiline
                                     scrollEnabled={false}
+                                    onSubmitEditing={handleSave}
+                                    blurOnSubmit={true}
+                                    submitBehavior="submit"
+                                    returnKeyType="done"
                                 />
                                 <Pressable
                                     style={[
@@ -432,9 +432,8 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: '#8E8E93',
         fontWeight: '500',
-        marginLeft: 16, // Align with detailed content
+        marginLeft: 16,
         marginBottom: 2,
-        letterSpacing: 0.5,
     },
     inputCard: {
         flexDirection: 'row',

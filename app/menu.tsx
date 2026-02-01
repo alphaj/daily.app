@@ -13,7 +13,7 @@ import {
     CheckCircle2,
     Zap,
 } from 'lucide-react-native';
-import React from 'react';
+import React, { useRef } from 'react';
 import {
     View,
     Text,
@@ -23,6 +23,7 @@ import {
     Alert,
     Platform,
     Linking,
+    Animated,
 } from 'react-native';
 import * as StoreReview from 'expo-store-review';
 import Constants from 'expo-constants';
@@ -32,6 +33,8 @@ import * as Haptics from 'expo-haptics';
 import { WorkModeToggle } from '@/components/WorkModeToggle';
 import { useTodos } from '@/contexts/TodoContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { BlurView } from 'expo-blur';
+import { AmbientBackground } from '@/components/AmbientBackground';
 
 interface MenuItemProps {
     icon: React.ReactNode;
@@ -77,7 +80,7 @@ function MenuItem({
             </View>
             <View style={styles.menuRight}>
                 {value && <Text style={styles.menuValue}>{value}</Text>}
-                {showChevron && <ChevronRight size={16} color="#C7C7CC" strokeWidth={2} />}
+                {showChevron && <ChevronRight size={18} color="#C7C7CC" strokeWidth={2} />}
             </View>
         </Pressable>
     );
@@ -126,10 +129,6 @@ export default function MenuScreen() {
     const { completedCount, workCompletedCount, lifeCompletedCount } = useTodos();
     const { resetOnboarding } = useOnboarding();
 
-    const handleGoBack = () => {
-        router.replace('/');
-    };
-
     const handleSignOut = () => {
         Alert.alert(
             'Sign Out',
@@ -159,7 +158,6 @@ export default function MenuScreen() {
             if (isAvailable) {
                 await StoreReview.requestReview();
             } else {
-                // Fallback: open App Store directly
                 const appStoreUrl = Platform.OS === 'ios'
                     ? 'https://apps.apple.com/app/id6740611817?action=write-review'
                     : 'market://details?id=app.rork.daily-habit-tracker-t8o4w6l';
@@ -167,7 +165,6 @@ export default function MenuScreen() {
             }
         } catch (error) {
             console.log('Error requesting review:', error);
-            // Fallback: open App Store directly
             const appStoreUrl = 'https://apps.apple.com/app/id6740611817?action=write-review';
             Linking.openURL(appStoreUrl);
         }
@@ -175,18 +172,11 @@ export default function MenuScreen() {
 
     return (
         <View style={styles.container}>
+            <AmbientBackground />
             <SafeAreaView style={styles.safeArea} edges={['top']}>
                 {/* Header */}
                 <View style={styles.header}>
-                    <Pressable
-                        style={({ pressed }) => [styles.headerButton, pressed && styles.headerButtonPressed]}
-                        onPress={handleGoBack}
-                    >
-                        <ChevronLeft size={20} color="#007AFF" strokeWidth={2.5} />
-                        <Text style={styles.headerBackText}>Back</Text>
-                    </Pressable>
-                    <Text style={styles.headerTitle}>Settings</Text>
-                    <View style={styles.headerRight} />
+                    <Text style={styles.headerTitleLarge}>Settings</Text>
                 </View>
 
                 <ScrollView
@@ -197,20 +187,25 @@ export default function MenuScreen() {
                     {/* Dashboard / Stats */}
                     <View style={styles.dashboardContainer}>
                         <View style={styles.dashboardHeader}>
-                            <View>
-                                <Text style={styles.dashboardTitle}>Overview</Text>
-                                <Text style={styles.dashboardSubtitle}>Your productivity journey</Text>
+                            <View style={styles.avatarCircle}>
+                                <Text style={styles.avatarInitial}>Y</Text>
+                            </View>
+                            <View style={styles.dashboardHeaderText}>
+                                <Text style={styles.dashboardTitle}>Your Journey</Text>
+                                <Text style={styles.dashboardSubtitle}>Continuous Progress</Text>
                             </View>
                             <View style={styles.completionBadge}>
                                 <Zap size={14} color="#FF9500" fill="#FF9500" />
-                                <Text style={styles.completionBadgeText}>{completedCount} done</Text>
+                                <Text style={styles.completionBadgeText}>{completedCount}</Text>
                             </View>
                         </View>
+
+                        <View style={styles.statsSeparator} />
 
                         <View style={styles.statsGrid}>
                             <View style={styles.statItem}>
                                 <View style={[styles.statIcon, { backgroundColor: '#E0F2FE' }]}>
-                                    <Briefcase size={20} color="#0EA5E9" />
+                                    <Briefcase size={22} color="#0EA5E9" />
                                 </View>
                                 <View>
                                     <Text style={styles.statNumber}>{workCompletedCount}</Text>
@@ -220,7 +215,7 @@ export default function MenuScreen() {
                             <View style={styles.statDivider} />
                             <View style={styles.statItem}>
                                 <View style={[styles.statIcon, { backgroundColor: '#FFE4E6' }]}>
-                                    <Heart size={20} color="#E11D48" />
+                                    <Heart size={22} color="#E11D48" />
                                 </View>
                                 <View>
                                     <Text style={styles.statNumber}>{lifeCompletedCount}</Text>
@@ -231,7 +226,6 @@ export default function MenuScreen() {
                     </View>
 
                     {/* Focus Mode */}
-                    <Text style={styles.sectionTitle}>FOCUS</Text>
                     <View style={styles.focusSection}>
                         <WorkModeToggle />
                     </View>
@@ -301,18 +295,15 @@ export default function MenuScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F2F2F7', // iOS Grouped Table Background
+        backgroundColor: 'transparent',
     },
     safeArea: {
         flex: 1,
     },
     header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 8,
-        height: 44, // Standard iOS header height
-        marginBottom: 8,
+        paddingHorizontal: 24,
+        paddingVertical: 16,
+        paddingBottom: 24,
     },
     headerButton: {
         flexDirection: 'row',
@@ -325,7 +316,7 @@ const styles = StyleSheet.create({
     },
     headerBackText: {
         fontSize: 17,
-        color: '#007AFF', // iOS Blue
+        color: '#007AFF',
         marginLeft: -4,
         fontWeight: '400',
     },
@@ -334,51 +325,83 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#000',
     },
+    headerTitleLarge: {
+        fontSize: 34,
+        fontWeight: '700',
+        color: '#000',
+        letterSpacing: -0.5,
+    },
     headerRight: {
-        width: 60, // Balance the left side
+        width: 60,
+    },
+    headerLeft: {
+        width: 60,
     },
     scrollView: {
         flex: 1,
     },
     scrollContent: {
-        paddingTop: 16,
         paddingBottom: 40,
+        paddingHorizontal: 0, // Cards will have margin
+    },
+    largeTitle: {
+        fontSize: 34,
+        fontWeight: '700',
+        color: '#000',
+        letterSpacing: -1,
+        marginLeft: 20,
+        marginBottom: 20,
+        marginTop: 10,
     },
     dashboardContainer: {
-        marginHorizontal: 16,
+        marginHorizontal: 20,
         marginBottom: 24,
         backgroundColor: '#fff',
-        borderRadius: 16,
-        padding: 20,
-        ...Platform.select({
-            ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.05,
-                shadowRadius: 8,
-            },
-            android: {
-                elevation: 3,
-            },
-        }),
+        borderRadius: 16, // Refined native border radius
+        padding: 24,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+        elevation: 2,
     },
     dashboardHeader: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         marginBottom: 20,
     },
+    avatarCircle: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: '#F2F2F7',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 12,
+    },
+    avatarInitial: {
+        fontSize: 20,
+        fontWeight: '600',
+        color: '#1C1C1E',
+    },
+    dashboardHeaderText: {
+        flex: 1,
+    },
     dashboardTitle: {
-        fontSize: 22,
+        fontSize: 18,
         fontWeight: '700',
         color: '#1C1C1E',
-        letterSpacing: -0.5,
-        marginBottom: 4,
+        letterSpacing: -0.4,
     },
     dashboardSubtitle: {
         fontSize: 13,
         color: '#8E8E93',
-        fontWeight: '500',
+        fontWeight: '400',
+    },
+    statsSeparator: {
+        height: 1,
+        backgroundColor: '#F2F2F7',
+        marginBottom: 20,
     },
     completionBadge: {
         flexDirection: 'row',
@@ -391,7 +414,7 @@ const styles = StyleSheet.create({
     },
     completionBadgeText: {
         fontSize: 12,
-        fontWeight: '600',
+        fontWeight: '700',
         color: '#FF9500',
     },
     statsGrid: {
@@ -406,9 +429,9 @@ const styles = StyleSheet.create({
     },
     statDivider: {
         width: 1,
-        height: 32,
-        backgroundColor: '#E5E5EA',
-        marginHorizontal: 16,
+        height: 36,
+        backgroundColor: '#F2F2F7',
+        marginHorizontal: 20,
     },
     statIcon: {
         width: 40,
@@ -474,21 +497,31 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#8E8E93',
         marginBottom: 8,
-        marginLeft: 16,
+        marginLeft: 16, // Align with the start of the section box
         textTransform: 'uppercase',
-        letterSpacing: -0.2,
+        letterSpacing: 0.3,
     },
     sectionContent: {
         backgroundColor: '#fff',
-        borderRadius: 12,
+        borderRadius: 12, // Native Inset Grouped radius
         overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.03,
+        shadowRadius: 8,
+        elevation: 1,
     },
     focusSection: {
-        marginBottom: 24,
+        marginBottom: 32,
         marginHorizontal: 16,
         backgroundColor: '#fff',
         borderRadius: 12,
-        padding: 4, // Padding to match the inset look
+        padding: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.03,
+        shadowRadius: 8,
+        elevation: 1,
     },
     menuItem: {
         flexDirection: 'row',
@@ -502,8 +535,8 @@ const styles = StyleSheet.create({
     },
     menuItemBorder: {
         borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: '#E5E5EA',
-        marginLeft: 52, // Indent separator to align with text
+        borderBottomColor: '#F2F2F7',
+        marginLeft: 64, // Exactly align with text start: padding(16) + icon(36) + margin(12)
     },
     menuIconContainer: {
         width: 36,
@@ -529,10 +562,10 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     menuTitle: {
-        fontSize: 16, // iOS Body size
-        fontWeight: '400',
-        color: '#000',
-        letterSpacing: -0.3,
+        fontSize: 17, // iOS Body size
+        fontWeight: '500',
+        color: '#1C1C1E',
+        letterSpacing: -0.4,
     },
     menuTitleDanger: {
         color: '#FF3B30',
@@ -548,9 +581,11 @@ const styles = StyleSheet.create({
     },
     footerText: {
         textAlign: 'center',
-        color: '#C7C7CC',
-        fontSize: 12,
+        color: '#8E8E93',
+        fontSize: 13,
         lineHeight: 18,
-        marginTop: 12,
+        marginTop: 24,
+        fontWeight: '500',
+        opacity: 0.6,
     },
 });

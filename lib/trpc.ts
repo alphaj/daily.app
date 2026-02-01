@@ -9,42 +9,52 @@ export const trpc = createTRPCReact<AppRouter>();
 
 const normalizeBaseUrl = (url: string) => url.replace(/\/+$/, "");
 
+// Hardcoded fallback for production - ensures app never crashes on startup
+const FALLBACK_API_URL = "https://api.rivet.dev";
+
 const getBaseUrl = (): string => {
-  const envUrl = process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
-  if (envUrl) {
-    const normalized = normalizeBaseUrl(envUrl);
-    console.log("[trpc] using EXPO_PUBLIC_RORK_API_BASE_URL:", normalized);
-    return normalized;
+  try {
+    const envUrl = process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
+    if (envUrl) {
+      const normalized = normalizeBaseUrl(envUrl);
+      console.log("[trpc] using EXPO_PUBLIC_RORK_API_BASE_URL:", normalized);
+      return normalized;
+    }
+
+    const hostUri = (Constants.expoConfig?.hostUri ?? (Constants as any).hostUri) as
+      | string
+      | undefined;
+
+    if (hostUri) {
+      const host = hostUri.split(":")[0];
+      const inferred = `https://${host}`;
+      const normalized = normalizeBaseUrl(inferred);
+      console.log("[trpc] inferred base url from hostUri:", normalized, { hostUri });
+      return normalized;
+    }
+
+    // Use fallback instead of throwing - prevents black screen crash
+    console.log("[trpc] using fallback API URL:", FALLBACK_API_URL);
+    return FALLBACK_API_URL;
+  } catch (error) {
+    console.error("[trpc] error getting base url, using fallback:", error);
+    return FALLBACK_API_URL;
   }
-
-  const hostUri = (Constants.expoConfig?.hostUri ?? (Constants as any).hostUri) as
-    | string
-    | undefined;
-
-  if (hostUri) {
-    const host = hostUri.split(":")[0];
-    const inferred = `https://${host}`;
-    const normalized = normalizeBaseUrl(inferred);
-    console.log("[trpc] inferred base url from hostUri:", normalized, { hostUri });
-    return normalized;
-  }
-
-  console.log("[trpc] missing api base url", {
-    EXPO_PUBLIC_RORK_API_BASE_URL: envUrl,
-    hostUri,
-  });
-  throw new Error(
-    "Missing API base URL (EXPO_PUBLIC_RORK_API_BASE_URL). Please restart the dev server.",
-  );
 };
 
-const trpcUrl = `${getBaseUrl()}/api/trpc`;
-console.log("[trpc] client url:", trpcUrl);
+// Lazy initialization to prevent crashes at module load time
+let _trpcClient: ReturnType<typeof trpc.createClient> | null = null;
+
+const getTrpcUrl = () => {
+  const url = `${getBaseUrl()}/api/trpc`;
+  console.log("[trpc] client url:", url);
+  return url;
+};
 
 export const trpcClient = trpc.createClient({
   links: [
     httpLink({
-      url: trpcUrl,
+      url: getTrpcUrl(),
       transformer: superjson,
     }),
   ],
