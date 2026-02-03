@@ -1,5 +1,5 @@
-import { useRouter } from 'expo-router';
-import { X, Mic, Square, ChevronLeft, Calendar, Flag, ChevronRight } from 'lucide-react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { X, ChevronLeft, Calendar, Clock, Palette, FileText } from 'lucide-react-native';
 import React, { useState, useRef } from 'react';
 import {
     View,
@@ -12,27 +12,36 @@ import {
     ActivityIndicator,
     Animated,
     ScrollView,
+    Switch,
+    Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Audio } from 'expo-av';
-import { useTodos } from '@/contexts/TodoContext';
-import { useWorkMode } from '@/contexts/WorkModeContext';
-import { format, isToday, isTomorrow, addDays } from 'date-fns';
+import { useCalendarEvents } from '@/contexts/CalendarEventContext';
+import { EVENT_COLORS } from '@/types/event';
+import { format, isToday, isTomorrow, parse } from 'date-fns';
 import { DatePickerModal } from '@/components/DatePickerModal';
-import { PriorityPickerModal } from '@/components/PriorityPickerModal';
+import { Mic, Square, ChevronRight } from 'lucide-react-native';
 import { Alert } from 'react-native';
 
-export default function AddTodoScreen() {
+export default function AddEventScreen() {
     const router = useRouter();
-    const { addTodo } = useTodos();
-    const { isWorkMode } = useWorkMode();
+    const params = useLocalSearchParams<{ date?: string }>();
+    const { addEvent } = useCalendarEvents();
+
     const [title, setTitle] = useState('');
-    const [priority, setPriority] = useState<'low' | 'medium' | 'high' | undefined>(undefined);
-    const [dueDate, setDueDate] = useState<Date | null>(new Date());
-    const [energyLevel, setEnergyLevel] = useState<'low' | 'medium' | 'high'>('medium');
+    const [selectedDate, setSelectedDate] = useState<Date>(
+        params.date ? parse(params.date, 'yyyy-MM-dd', new Date()) : new Date()
+    );
+    const [isAllDay, setIsAllDay] = useState(true);
+    const [startTime, setStartTime] = useState('09:00');
+    const [endTime, setEndTime] = useState('10:00');
+    const [selectedColor, setSelectedColor] = useState(EVENT_COLORS[4]); // Blue default
+    const [notes, setNotes] = useState('');
+
     const [showDatePicker, setShowDatePicker] = useState(false);
-    const [showPriorityPicker, setShowPriorityPicker] = useState(false);
+    const [showColorPicker, setShowColorPicker] = useState(false);
 
     const [isRecording, setIsRecording] = useState(false);
     const [isTranscribing, setIsTranscribing] = useState(false);
@@ -156,7 +165,7 @@ export default function AddTodoScreen() {
                 }
             } else {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-                Alert.alert('Transcription Failed', 'Voice transcription is temporarily unavailable. Please type your task instead.');
+                Alert.alert('Transcription Failed', 'Voice transcription is temporarily unavailable. Please type your event instead.');
             }
         } catch (error) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -174,10 +183,18 @@ export default function AddTodoScreen() {
         }
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (title.trim()) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            addTodo(title.trim(), dueDate || new Date(), priority, isWorkMode, energyLevel);
+            await addEvent(
+                title.trim(),
+                format(selectedDate, 'yyyy-MM-dd'),
+                isAllDay,
+                selectedColor,
+                isAllDay ? undefined : startTime,
+                isAllDay ? undefined : endTime,
+                notes.trim() || undefined
+            );
             router.back();
         }
     };
@@ -191,28 +208,15 @@ export default function AddTodoScreen() {
         }
     };
 
-    const openPriorityPicker = () => {
-        Haptics.selectionAsync();
-        setShowPriorityPicker(true);
-    };
-
     const openDatePicker = () => {
         Haptics.selectionAsync();
         setShowDatePicker(true);
     };
 
-    const getPriorityColor = () => {
-        switch (priority) {
-            case 'high': return '#FF3B30';
-            case 'medium': return '#FF9500';
-            case 'low': return '#34C759';
-            default: return '#8E8E93';
-        }
-    };
-
-    const getPriorityLabel = () => {
-        if (!priority) return 'None';
-        return priority.charAt(0).toUpperCase() + priority.slice(1);
+    const getDateLabel = () => {
+        if (isToday(selectedDate)) return 'Today';
+        if (isTomorrow(selectedDate)) return 'Tomorrow';
+        return format(selectedDate, 'MMM d, yyyy');
     };
 
     return (
@@ -231,7 +235,7 @@ export default function AddTodoScreen() {
                     >
                         <ChevronLeft size={24} color="#000" strokeWidth={2} />
                     </Pressable>
-                    <Text style={styles.headerTitle}>New Task</Text>
+                    <Text style={styles.headerTitle}>New Event</Text>
                     <Pressable
                         style={({ pressed }) => [
                             styles.saveButton,
@@ -255,11 +259,11 @@ export default function AddTodoScreen() {
                 <ScrollView contentContainerStyle={styles.scrollContent}>
                     <View style={styles.content}>
                         <View style={styles.section}>
-                            <Text style={styles.label}>WHAT DO YOU NEED TO DO TODAY?</Text>
+                            <Text style={styles.label}>EVENT TITLE</Text>
                             <View style={styles.inputCard}>
                                 <TextInput
                                     style={styles.input}
-                                    placeholder="e.g. Call mom, Buy groceries"
+                                    placeholder="e.g. Doctor's appointment, Meeting"
                                     placeholderTextColor="#C7C7CC"
                                     value={title}
                                     onChangeText={setTitle}
@@ -295,6 +299,7 @@ export default function AddTodoScreen() {
                         <View style={styles.section}>
                             <Text style={styles.label}>DETAILS</Text>
                             <View style={styles.detailsCard}>
+                                {/* Date */}
                                 <Pressable
                                     style={({ pressed }) => [
                                         styles.detailRow,
@@ -303,15 +308,13 @@ export default function AddTodoScreen() {
                                     onPress={openDatePicker}
                                 >
                                     <View style={styles.detailLeft}>
-                                        <View style={[styles.iconContainer, { backgroundColor: '#007AFF' }]}>
+                                        <View style={[styles.iconContainer, { backgroundColor: '#FF3B30' }]}>
                                             <Calendar size={18} color="#fff" strokeWidth={2.5} />
                                         </View>
-                                        <Text style={styles.detailLabel}>Due Date</Text>
+                                        <Text style={styles.detailLabel}>Date</Text>
                                     </View>
                                     <View style={styles.detailRight}>
-                                        <Text style={styles.detailValue}>
-                                            {!dueDate ? 'No Date' : isToday(dueDate) ? 'Today' : isTomorrow(dueDate) ? 'Tomorrow' : format(dueDate, 'MMM d')}
-                                        </Text>
+                                        <Text style={styles.detailValue}>{getDateLabel()}</Text>
                                         <ChevronRight size={16} color="#C7C7CC" strokeWidth={2} />
                                     </View>
                                 </Pressable>
@@ -320,54 +323,99 @@ export default function AddTodoScreen() {
                                     <View style={styles.separator} />
                                 </View>
 
+                                {/* All Day Toggle */}
+                                <View style={styles.detailRow}>
+                                    <View style={styles.detailLeft}>
+                                        <View style={[styles.iconContainer, { backgroundColor: '#FF9500' }]}>
+                                            <Clock size={18} color="#fff" strokeWidth={2.5} />
+                                        </View>
+                                        <Text style={styles.detailLabel}>All-day</Text>
+                                    </View>
+                                    <Switch
+                                        value={isAllDay}
+                                        onValueChange={setIsAllDay}
+                                        trackColor={{ false: '#E5E5EA', true: '#34C759' }}
+                                        thumbColor="#fff"
+                                    />
+                                </View>
+
+                                {!isAllDay && (
+                                    <>
+                                        <View style={styles.separatorContainer}>
+                                            <View style={styles.separator} />
+                                        </View>
+
+                                        {/* Start Time */}
+                                        <View style={styles.detailRow}>
+                                            <Text style={styles.timeLabel}>Starts</Text>
+                                            <TextInput
+                                                style={styles.timeInput}
+                                                value={startTime}
+                                                onChangeText={setStartTime}
+                                                placeholder="09:00"
+                                                placeholderTextColor="#C7C7CC"
+                                                keyboardType="numbers-and-punctuation"
+                                            />
+                                        </View>
+
+                                        <View style={styles.separatorContainer}>
+                                            <View style={styles.separator} />
+                                        </View>
+
+                                        {/* End Time */}
+                                        <View style={styles.detailRow}>
+                                            <Text style={styles.timeLabel}>Ends</Text>
+                                            <TextInput
+                                                style={styles.timeInput}
+                                                value={endTime}
+                                                onChangeText={setEndTime}
+                                                placeholder="10:00"
+                                                placeholderTextColor="#C7C7CC"
+                                                keyboardType="numbers-and-punctuation"
+                                            />
+                                        </View>
+                                    </>
+                                )}
+
+                                <View style={styles.separatorContainer}>
+                                    <View style={styles.separator} />
+                                </View>
+
+                                {/* Color */}
                                 <Pressable
                                     style={({ pressed }) => [
                                         styles.detailRow,
                                         pressed && styles.detailRowPressed
                                     ]}
-                                    onPress={openPriorityPicker}
+                                    onPress={() => setShowColorPicker(true)}
                                 >
                                     <View style={styles.detailLeft}>
-                                        <View style={[styles.iconContainer, { backgroundColor: getPriorityColor() }]}>
-                                            <Flag size={18} color="#fff" strokeWidth={2.5} />
+                                        <View style={[styles.iconContainer, { backgroundColor: selectedColor }]}>
+                                            <Palette size={18} color="#fff" strokeWidth={2.5} />
                                         </View>
-                                        <Text style={styles.detailLabel}>Priority</Text>
+                                        <Text style={styles.detailLabel}>Color</Text>
                                     </View>
                                     <View style={styles.detailRight}>
-                                        <Text style={styles.detailValue}>{getPriorityLabel()}</Text>
+                                        <View style={[styles.colorPreview, { backgroundColor: selectedColor }]} />
                                         <ChevronRight size={16} color="#C7C7CC" strokeWidth={2} />
                                     </View>
                                 </Pressable>
                             </View>
                         </View>
+
                         <View style={styles.section}>
-                            <Text style={styles.label}>ENERGY COST</Text>
-                            <View style={styles.energyRow}>
-                                {[
-                                    { level: 'low', emoji: '🔋', label: 'Easy' },
-                                    { level: 'medium', emoji: '⚡️', label: 'Normal' },
-                                    { level: 'high', emoji: '🎯', label: 'Deep' },
-                                ].map((item) => (
-                                    <Pressable
-                                        key={item.level}
-                                        style={[
-                                            styles.energyButton,
-                                            energyLevel === item.level && styles.energyButtonActive,
-                                        ]}
-                                        onPress={() => {
-                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                            setEnergyLevel(item.level as 'low' | 'medium' | 'high');
-                                        }}
-                                    >
-                                        <Text style={styles.energyEmoji}>{item.emoji}</Text>
-                                        <Text style={[
-                                            styles.energyLabelText,
-                                            energyLevel === item.level && styles.energyLabelTextActive
-                                        ]}>
-                                            {item.label}
-                                        </Text>
-                                    </Pressable>
-                                ))}
+                            <Text style={styles.label}>NOTES</Text>
+                            <View style={styles.notesCard}>
+                                <TextInput
+                                    style={styles.notesInput}
+                                    placeholder="Add any additional details..."
+                                    placeholderTextColor="#C7C7CC"
+                                    value={notes}
+                                    onChangeText={setNotes}
+                                    multiline
+                                    numberOfLines={4}
+                                    textAlignVertical="top"
+                                />
                             </View>
                         </View>
                     </View>
@@ -377,16 +425,43 @@ export default function AddTodoScreen() {
             <DatePickerModal
                 visible={showDatePicker}
                 onClose={() => setShowDatePicker(false)}
-                selectedDate={dueDate}
-                onSelectDate={setDueDate}
+                selectedDate={selectedDate}
+                onSelectDate={setSelectedDate}
             />
 
-            <PriorityPickerModal
-                visible={showPriorityPicker}
-                onClose={() => setShowPriorityPicker(false)}
-                selectedPriority={priority}
-                onSelectPriority={setPriority}
-            />
+            {/* Color Picker Modal */}
+            <Modal
+                visible={showColorPicker}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setShowColorPicker(false)}
+            >
+                <Pressable
+                    style={styles.colorModalOverlay}
+                    onPress={() => setShowColorPicker(false)}
+                >
+                    <View style={styles.colorModalContent}>
+                        <Text style={styles.colorModalTitle}>Choose Color</Text>
+                        <View style={styles.colorGrid}>
+                            {EVENT_COLORS.map((color) => (
+                                <Pressable
+                                    key={color}
+                                    style={[
+                                        styles.colorOption,
+                                        { backgroundColor: color },
+                                        selectedColor === color && styles.colorOptionSelected,
+                                    ]}
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        setSelectedColor(color);
+                                        setShowColorPicker(false);
+                                    }}
+                                />
+                            ))}
+                        </View>
+                    </View>
+                </Pressable>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -415,7 +490,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         backgroundColor: '#fff',
         borderRadius: 20,
-        // Soft shadow
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
@@ -432,7 +506,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 18,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#E5E5EA', // Default disabled-ish look, overridden if active
+        backgroundColor: '#007AFF',
         borderRadius: 18,
     },
     saveButtonDisabled: {
@@ -441,7 +515,7 @@ const styles = StyleSheet.create({
     saveButtonText: {
         fontSize: 16,
         fontWeight: '600',
-        color: '#000', // Or gray if disabled? Let's check logic
+        color: '#fff',
     },
     saveButtonTextDisabled: {
         color: '#8E8E93',
@@ -468,12 +542,11 @@ const styles = StyleSheet.create({
     },
     inputCard: {
         flexDirection: 'row',
-        alignItems: 'flex-start', // Top align for multiline
+        alignItems: 'flex-start',
         backgroundColor: '#fff',
-        borderRadius: 24, // Squircle-ish
+        borderRadius: 24,
         padding: 16,
         minHeight: 80,
-        // Soft shadow
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.04,
@@ -484,7 +557,7 @@ const styles = StyleSheet.create({
         flex: 1,
         fontSize: 19,
         color: '#000',
-        marginTop: 0, // Align with icon
+        marginTop: 0,
         marginRight: 12,
         minHeight: 40,
         textAlignVertical: 'top',
@@ -505,7 +578,6 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
         borderRadius: 16,
         overflow: 'hidden',
-        // Shadow
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.04,
@@ -532,7 +604,7 @@ const styles = StyleSheet.create({
     iconContainer: {
         width: 32,
         height: 32,
-        borderRadius: 8, // Smooth corners
+        borderRadius: 8,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -551,46 +623,85 @@ const styles = StyleSheet.create({
         color: '#8E8E93',
     },
     separatorContainer: {
-        paddingLeft: 60, // Indent separator to match text start
+        paddingLeft: 60,
         backgroundColor: '#fff',
     },
     separator: {
         height: StyleSheet.hairlineWidth,
         backgroundColor: '#E5E5EA',
     },
-    energyRow: {
-        flexDirection: 'row',
-        gap: 12,
+    timeLabel: {
+        fontSize: 17,
+        color: '#000',
+        fontWeight: '500',
+        marginLeft: 46,
     },
-    energyButton: {
-        flex: 1,
+    timeInput: {
+        fontSize: 17,
+        color: '#007AFF',
+        fontWeight: '500',
+        textAlign: 'right',
+        minWidth: 60,
+    },
+    colorPreview: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+    },
+    notesCard: {
         backgroundColor: '#fff',
         borderRadius: 16,
-        paddingVertical: 14,
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 4,
+        padding: 16,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.04,
         shadowRadius: 8,
         elevation: 2,
-        borderWidth: 1,
-        borderColor: 'transparent',
     },
-    energyButtonActive: {
-        backgroundColor: '#F2F2F7',
-        borderColor: '#007AFF',
+    notesInput: {
+        fontSize: 16,
+        color: '#000',
+        minHeight: 100,
+        textAlignVertical: 'top',
     },
-    energyEmoji: {
-        fontSize: 20,
+    colorModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.4)',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
-    energyLabelText: {
-        fontSize: 13,
-        fontWeight: '600',
-        color: '#8E8E93',
+    colorModalContent: {
+        backgroundColor: '#fff',
+        borderRadius: 20,
+        padding: 24,
+        width: '80%',
+        maxWidth: 320,
     },
-    energyLabelTextActive: {
-        color: '#007AFF',
+    colorModalTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#000',
+        textAlign: 'center',
+        marginBottom: 20,
+    },
+    colorGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+        gap: 16,
+    },
+    colorOption: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+    },
+    colorOptionSelected: {
+        borderWidth: 3,
+        borderColor: '#fff',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 4,
     },
 });

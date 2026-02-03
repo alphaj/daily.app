@@ -9,4 +9,6 @@ export interface Todo {
   priority?: 'low' | 'medium' | 'high';
   /** Whether this is a work-related todo */
   isWork?: boolean;
+  /** Energy cost of the task */
+  energyLevel?: 'low' | 'medium' | 'high';
 }

@@ -17,8 +17,9 @@ import {
     Inbox as InboxIcon,
     Archive,
     RotateCcw,
+    ChevronRight,
 } from 'lucide-react-native';
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
     View,
     Text,
@@ -39,6 +40,7 @@ import { useHabits } from '@/contexts/HabitContext';
 import { TYPE_CONFIG, AREA_CONFIG, type InboxItem, type InboxItemType } from '@/types/inbox';
 import { formatDistanceToNow } from 'date-fns';
 import { BottomNavBar } from '@/components/BottomNavBar';
+import SwipeableRow from '@/components/SwipeableRow';
 
 const ICON_MAP: Record<string, any> = {
     MessageCircle,
@@ -55,6 +57,8 @@ function InboxItemCard({
     onArchive,
     onConvertToTask,
     onConvertToHabit,
+    isFirst,
+    isLast,
 }: {
     item: InboxItem;
     onDelete: (id: string) => void;
@@ -62,136 +66,75 @@ function InboxItemCard({
     onArchive: (id: string) => void;
     onConvertToTask: (id: string, content: string) => void;
     onConvertToHabit: (id: string, content: string) => void;
+    isFirst?: boolean;
+    isLast?: boolean;
 }) {
-    const [isExpanded, setIsExpanded] = useState(false);
     const config = TYPE_CONFIG[item.type];
     const IconComponent = ICON_MAP[config.icon] || MessageCircle;
-    const scaleAnim = useRef(new Animated.Value(1)).current;
 
-    const handlePressIn = () => {
-        Animated.spring(scaleAnim, {
-            toValue: 0.98,
-            useNativeDriver: true,
-            speed: 20,
-        }).start();
-    };
+    const timeAgo = formatDistanceToNow(new Date(item.createdAt), { addSuffix: false });
+    const formattedTime = timeAgo.replace('about ', '').replace(' days', 'd').replace(' day', 'd').replace(' hours', 'h').replace(' hour', 'h').replace(' minutes', 'm').replace(' minute', 'm');
 
-    const handlePressOut = () => {
-        Animated.spring(scaleAnim, {
-            toValue: 1,
-            useNativeDriver: true,
-            speed: 20,
-        }).start();
-    };
-
-    const handlePress = () => {
-        Haptics.selectionAsync();
-        setIsExpanded(!isExpanded);
-    };
-
-    const handlePin = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        onTogglePin(item.id);
-    };
-
-    const handleDelete = () => {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    const handleDelete = useCallback(() => {
         onDelete(item.id);
-    };
+    }, [item.id, onDelete]);
 
-    const handleArchive = () => {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        onArchive(item.id);
-    };
-
-    const handleConvertToTask = () => {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    const handleConvertToTask = useCallback(() => {
         onConvertToTask(item.id, item.content);
-    };
+    }, [item.id, item.content, onConvertToTask]);
 
-    const handleConvertToHabit = () => {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    const handleConvertToHabit = useCallback(() => {
         onConvertToHabit(item.id, item.content);
-    };
+    }, [item.id, item.content, onConvertToHabit]);
 
-    const timeAgo = formatDistanceToNow(new Date(item.createdAt), { addSuffix: true });
-    const areaConfig = item.area ? AREA_CONFIG[item.area] : null;
+    const handleLongPress = useCallback(() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        Alert.alert(
+            item.content,
+            undefined,
+            [
+                { text: 'Convert to Task', onPress: handleConvertToTask },
+                { text: 'Convert to Habit', onPress: handleConvertToHabit },
+                { text: 'Archive', onPress: () => onArchive(item.id) },
+                { text: item.isPinned ? 'Unpin' : 'Pin', onPress: () => onTogglePin(item.id) },
+                { text: 'Delete', style: 'destructive', onPress: handleDelete },
+                { text: 'Cancel', style: 'cancel' },
+            ]
+        );
+    }, [item, handleConvertToTask, handleConvertToHabit, handleDelete, onTogglePin, onArchive]);
 
     return (
-        <Animated.View style={[styles.itemWrapper, { transform: [{ scale: scaleAnim }] }]}>
+        <SwipeableRow
+            onDelete={handleDelete}
+            onConvertToTask={handleConvertToTask}
+            onConvertToHabit={handleConvertToHabit}
+        >
             <Pressable
-                style={[styles.inboxItem, isExpanded && styles.inboxItemExpanded]}
-                onPress={handlePress}
-                onPressIn={handlePressIn}
-                onPressOut={handlePressOut}
-                onLongPress={handlePin}
+                style={[
+                    styles.inboxItem,
+                    isFirst && styles.inboxItemFirst,
+                    isLast && styles.inboxItemLast,
+                ]}
+                onLongPress={handleLongPress}
+                delayLongPress={300}
             >
-                <View style={styles.itemHeader}>
-                    <View style={[styles.typeIndicator, { backgroundColor: config.color + '20' }]}>
-                        <IconComponent size={16} color={config.color} strokeWidth={2.5} />
-                    </View>
-                    <View style={styles.itemContent}>
-                        <Text style={styles.itemText}>{item.content}</Text>
-                        {item.note && (
-                            <Text style={styles.itemNote} numberOfLines={isExpanded ? undefined : 1}>
-                                {item.note}
-                            </Text>
-                        )}
-                        <View style={styles.metaRow}>
-                            <Text style={styles.itemMeta}>
-                                {config.label} • {timeAgo}
-                            </Text>
-                            {areaConfig && (
-                                <View style={[styles.areaBadge, { backgroundColor: areaConfig.color + '15' }]}>
-                                    <Text style={{ fontSize: 10 }}>{areaConfig.emoji}</Text>
-                                    <Text style={[styles.areaText, { color: areaConfig.color }]}>
-                                        {areaConfig.label}
-                                    </Text>
-                                </View>
-                            )}
-                            {item.isPinned && (
-                                <View style={styles.pinBadge}>
-                                    <Pin size={10} color="#5856D6" strokeWidth={2.5} />
-                                    <Text style={styles.pinText}>Pinned</Text>
-                                </View>
-                            )}
-                        </View>
-                    </View>
+                <View style={[styles.typeIndicator, { backgroundColor: config.color + '12' }]}>
+                    <IconComponent size={18} color={config.color} strokeWidth={2} />
                 </View>
-
-                {isExpanded && (
-                    <View style={styles.actionBar}>
-                        <View style={styles.divider} />
-                        <View style={styles.actionButtons}>
-                            <Pressable style={styles.actionButton} onPress={handleConvertToTask}>
-                                <View style={[styles.actionIcon, { backgroundColor: '#34C75915' }]}>
-                                    <CheckCircle2 size={18} color="#34C759" strokeWidth={2} />
-                                </View>
-                                <Text style={styles.actionText}>Task</Text>
-                            </Pressable>
-                            <Pressable style={styles.actionButton} onPress={handleConvertToHabit}>
-                                <View style={[styles.actionIcon, { backgroundColor: '#5856D615' }]}>
-                                    <Zap size={18} color="#5856D6" strokeWidth={2} />
-                                </View>
-                                <Text style={styles.actionText}>Habit</Text>
-                            </Pressable>
-                            <Pressable style={styles.actionButton} onPress={handleArchive}>
-                                <View style={[styles.actionIcon, { backgroundColor: '#8E8E9315' }]}>
-                                    <Archive size={18} color="#8E8E93" strokeWidth={2} />
-                                </View>
-                                <Text style={styles.actionText}>Archive</Text>
-                            </Pressable>
-                            <Pressable style={styles.actionButton} onPress={handleDelete}>
-                                <View style={[styles.actionIcon, { backgroundColor: '#FF3B3015' }]}>
-                                    <Trash2 size={18} color="#FF3B30" strokeWidth={2} />
-                                </View>
-                                <Text style={[styles.actionText, { color: '#FF3B30' }]}>Delete</Text>
-                            </Pressable>
-                        </View>
+                <View style={styles.itemContent}>
+                    <View style={styles.itemTitleRow}>
+                        <Text style={styles.itemText} numberOfLines={2}>{item.content}</Text>
+                        {item.isPinned && (
+                            <Pin size={12} color="#FF9500" strokeWidth={2.5} fill="#FF9500" />
+                        )}
                     </View>
-                )}
+                    <Text style={styles.itemMeta}>
+                        {config.label} • {formattedTime}
+                    </Text>
+                </View>
+                {!isLast && <View style={styles.separator} />}
             </Pressable>
-        </Animated.View>
+        </SwipeableRow>
     );
 }
 
@@ -241,6 +184,7 @@ function ArchivedRow({
                     <Trash2 size={18} color="#FF3B30" strokeWidth={2} />
                 </Pressable>
             </View>
+            <View style={styles.archivedSeparator} />
         </View>
     );
 }
@@ -296,18 +240,19 @@ export default function InboxScreen() {
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={styles.flex}
             >
-                {/* Header */}
-                <View style={styles.header}>
-                    <Text style={styles.headerTitle}>Inbox</Text>
-                </View>
-
                 {/* Main Content */}
                 <ScrollView
-                    style={styles.content}
+                    style={styles.scrollView}
+                    contentContainerStyle={styles.scrollContent}
                     showsVerticalScrollIndicator={false}
-                    contentContainerStyle={{ paddingBottom: 100 }}
                     keyboardShouldPersistTaps="handled"
                 >
+                    {/* Header */}
+                    <View style={styles.header}>
+                        <Text style={styles.headerTitle}>Inbox</Text>
+                        <Text style={styles.headerSubtitle}>Capture thoughts before they slip away</Text>
+                    </View>
+
                     {/* Input Card */}
                     <View style={styles.inputCard}>
                         <TextInput
@@ -335,46 +280,53 @@ export default function InboxScreen() {
                     {/* Pinned Section */}
                     {pinnedItems.length > 0 && (
                         <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>Pinned</Text>
-                            {pinnedItems.map((item) => (
-                                <InboxItemCard
-                                    key={item.id}
-                                    item={item}
-                                    onDelete={deleteItem}
-                                    onTogglePin={togglePin}
-                                    onArchive={archiveItem}
-                                    onConvertToTask={handleConvertToTask}
-                                    onConvertToHabit={handleConvertToHabit}
-                                />
-                            ))}
+                            <Text style={styles.sectionTitle}>PINNED</Text>
+                            <View style={styles.listContainer}>
+                                {pinnedItems.map((item, index) => (
+                                    <InboxItemCard
+                                        key={item.id}
+                                        item={item}
+                                        onDelete={deleteItem}
+                                        onTogglePin={togglePin}
+                                        onArchive={archiveItem}
+                                        onConvertToTask={handleConvertToTask}
+                                        onConvertToHabit={handleConvertToHabit}
+                                        isFirst={index === 0}
+                                        isLast={index === pinnedItems.length - 1}
+                                    />
+                                ))}
+                            </View>
                         </View>
                     )}
 
                     {/* Recent Section */}
                     <View style={styles.section}>
-                        {pinnedItems.length > 0 && <Text style={styles.sectionTitle}>Recent</Text>}
                         {unpinnedItems.length === 0 && pinnedItems.length === 0 ? (
                             <View style={styles.emptyState}>
                                 <View style={styles.emptyIconContainer}>
-                                    <InboxIcon size={48} color="#C7C7CC" strokeWidth={1} />
+                                    <InboxIcon size={40} color="#C7C7CC" strokeWidth={1.5} />
                                 </View>
-                                <Text style={styles.emptyTitle}>Empty Inbox</Text>
+                                <Text style={styles.emptyTitle}>Your inbox is empty</Text>
                                 <Text style={styles.emptySubtitle}>
-                                    Capture thoughts, ideas, and tasks before they slip away.
+                                    Capture quick thoughts, ideas, and tasks before they slip away
                                 </Text>
                             </View>
                         ) : (
-                            unpinnedItems.map((item) => (
-                                <InboxItemCard
-                                    key={item.id}
-                                    item={item}
-                                    onDelete={deleteItem}
-                                    onTogglePin={togglePin}
-                                    onArchive={archiveItem}
-                                    onConvertToTask={handleConvertToTask}
-                                    onConvertToHabit={handleConvertToHabit}
-                                />
-                            ))
+                            <View style={styles.listContainer}>
+                                {unpinnedItems.map((item, index) => (
+                                    <InboxItemCard
+                                        key={item.id}
+                                        item={item}
+                                        onDelete={deleteItem}
+                                        onTogglePin={togglePin}
+                                        onArchive={archiveItem}
+                                        onConvertToTask={handleConvertToTask}
+                                        onConvertToHabit={handleConvertToHabit}
+                                        isFirst={index === 0}
+                                        isLast={index === unpinnedItems.length - 1}
+                                    />
+                                ))}
+                            </View>
                         )}
                     </View>
 
@@ -396,13 +348,14 @@ export default function InboxScreen() {
 
                             {showArchive && (
                                 <View style={styles.archivedList}>
-                                    {archivedItems.map((item) => (
+                                    {archivedItems.map((item, index) => (
                                         <ArchivedRow
                                             key={item.id}
                                             item={item}
                                             onRestore={restoreItem}
                                             onDelete={deleteItem}
                                         />
+                                        // TODO: Pass isLast to ArchiveRow to hide separator on last item if needed, but for now strict line is fine or we update style
                                     ))}
                                 </View>
                             )}
@@ -425,54 +378,53 @@ const styles = StyleSheet.create({
     flex: {
         flex: 1,
     },
+    scrollView: {
+        flex: 1,
+    },
+    scrollContent: {
+        paddingHorizontal: 16,
+        paddingBottom: 120,
+        paddingTop: 16,
+    },
     header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 24,
-        paddingVertical: 16,
-        paddingBottom: 16,
+        marginTop: 24,
+        marginBottom: 32,
+        paddingHorizontal: 4,
     },
     headerTitle: {
         fontSize: 34,
         fontWeight: '700',
         color: '#000',
-        letterSpacing: -0.5,
+        letterSpacing: 0.35,
     },
-    headerButton: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: '#fff',
-        alignItems: 'center',
-        justifyContent: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-    },
-    content: {
-        flex: 1,
-        paddingHorizontal: 20,
+    headerSubtitle: {
+        fontSize: 15,
+        color: '#8E8E93',
+        marginTop: 8,
+        fontWeight: '400',
+        letterSpacing: -0.2,
     },
     inputCard: {
         backgroundColor: '#fff',
-        borderRadius: 24,
+        borderRadius: 16,
         padding: 16,
-        marginBottom: 32,
+        marginBottom: 24,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
+        shadowOpacity: 0.06,
         shadowRadius: 12,
         elevation: 2,
+        // @ts-ignore - native only
+        cornerCurve: 'continuous',
     },
     input: {
         fontSize: 17,
         color: '#000',
-        fontWeight: '500',
+        fontWeight: '400',
         minHeight: 24,
-        maxHeight: 120,
+        maxHeight: 100,
         marginBottom: 12,
+        letterSpacing: -0.3,
     },
     inputFooter: {
         flexDirection: 'row',
@@ -480,202 +432,175 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     hintText: {
-        fontSize: 12,
+        fontSize: 13,
         color: '#8E8E93',
         fontWeight: '500',
+        letterSpacing: -0.1,
     },
     sendButton: {
         width: 32,
         height: 32,
         borderRadius: 16,
-        backgroundColor: '#5856D6',
+        backgroundColor: '#007AFF',
         alignItems: 'center',
         justifyContent: 'center',
+        shadowColor: '#007AFF',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
     },
     section: {
         marginBottom: 24,
     },
     sectionTitle: {
-        fontSize: 20,
-        fontWeight: '700',
-        color: '#000',
-        marginBottom: 16,
-        marginLeft: 4,
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#8E8E93',
+        marginBottom: 10,
+        marginLeft: 16,
+        letterSpacing: -0.1,
+        textTransform: 'uppercase',
     },
-    itemWrapper: {
-        marginBottom: 12,
-    },
-    inboxItem: {
+    listContainer: {
         backgroundColor: '#fff',
-        borderRadius: 20,
-        padding: 16,
+        borderRadius: 16,
+        overflow: 'hidden',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.03,
+        shadowOpacity: 0.04,
         shadowRadius: 8,
         elevation: 1,
+        // @ts-ignore - native only
+        cornerCurve: 'continuous',
     },
-    inboxItemExpanded: {
-        shadowOpacity: 0.08,
-        shadowRadius: 12,
-    },
-    itemHeader: {
+    inboxItem: {
         flexDirection: 'row',
-        alignItems: 'flex-start',
-        gap: 12,
+        alignItems: 'center',
+        backgroundColor: '#fff',
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        gap: 14,
+    },
+    inboxItemFirst: {
+        borderTopLeftRadius: 16,
+        borderTopRightRadius: 16,
+    },
+    inboxItemLast: {
+        borderBottomLeftRadius: 16,
+        borderBottomRightRadius: 16,
+    },
+    separator: {
+        position: 'absolute',
+        bottom: 0,
+        left: 66,
+        right: 0,
+        height: StyleSheet.hairlineWidth,
+        backgroundColor: '#C6C6C8',
     },
     typeIndicator: {
-        width: 36,
-        height: 36,
+        width: 38,
+        height: 38,
         borderRadius: 12,
         alignItems: 'center',
         justifyContent: 'center',
+        // @ts-ignore - native only
+        cornerCurve: 'continuous',
     },
     itemContent: {
         flex: 1,
-        paddingTop: 2,
+        justifyContent: 'center',
+    },
+    itemTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 8,
+        marginBottom: 2,
     },
     itemText: {
-        fontSize: 16,
-        fontWeight: '500',
+        fontSize: 17,
+        fontWeight: '400',
         color: '#000',
         lineHeight: 22,
-        marginBottom: 4,
-    },
-    itemNote: {
-        fontSize: 14,
-        color: '#8E8E93',
-        lineHeight: 20,
-        marginBottom: 4,
-    },
-    metaRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        flexWrap: 'wrap',
+        flex: 1,
+        letterSpacing: -0.4, // San Francisco style tracking
     },
     itemMeta: {
-        fontSize: 12,
+        fontSize: 13,
         color: '#8E8E93',
-        fontWeight: '500',
-    },
-    areaBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 6,
-    },
-    areaText: {
-        fontSize: 10,
-        fontWeight: '600',
-    },
-    pinBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        backgroundColor: '#F2F2F7',
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 6,
-    },
-    pinText: {
-        fontSize: 10,
-        fontWeight: '600',
-        color: '#5856D6',
-    },
-    actionBar: {
-        marginTop: 12,
-    },
-    divider: {
-        height: 1,
-        backgroundColor: '#F2F2F7',
-        marginBottom: 12,
-    },
-    actionButtons: {
-        flexDirection: 'row',
-        gap: 8,
-    },
-    actionButton: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 4,
-        paddingVertical: 8,
-        borderRadius: 12,
-        backgroundColor: '#F9F9F9',
-    },
-    actionIcon: {
-        width: 24,
-        height: 24,
-        borderRadius: 8,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    actionText: {
-        fontSize: 11,
-        fontWeight: '600',
-        color: '#000',
+        fontWeight: '400',
+        letterSpacing: -0.1,
     },
     emptyState: {
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 60,
+        paddingVertical: 80,
+        paddingHorizontal: 32,
     },
     emptyIconContainer: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
+        width: 64,
+        height: 64,
+        borderRadius: 32,
         backgroundColor: '#E5E5EA',
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: 20,
+        marginBottom: 16,
     },
     emptyTitle: {
         fontSize: 20,
-        fontWeight: '700',
+        fontWeight: '600',
         color: '#000',
         marginBottom: 8,
+        textAlign: 'center',
+        letterSpacing: -0.4,
     },
     emptySubtitle: {
         fontSize: 15,
         color: '#8E8E93',
         textAlign: 'center',
-        maxWidth: 260,
-        lineHeight: 22,
+        lineHeight: 20,
+        letterSpacing: -0.2,
     },
     archiveSection: {
-        marginTop: 16,
-        marginBottom: 20,
+        marginBottom: 32,
     },
     archiveToggle: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 6,
-        paddingVertical: 12,
-        backgroundColor: '#fff',
+        gap: 8,
+        paddingVertical: 14,
+        backgroundColor: 'rgba(118, 118, 128, 0.12)', // Apple system fill
         borderRadius: 12,
-        borderWidth: 1,
-        borderColor: '#E5E5EA',
     },
     archiveToggleText: {
-        fontSize: 14,
-        fontWeight: '600',
+        fontSize: 15,
+        fontWeight: '500',
         color: '#8E8E93',
+        letterSpacing: -0.2,
     },
     archivedList: {
         marginTop: 16,
-        gap: 10,
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        overflow: 'hidden',
+        // @ts-ignore - native only
+        cornerCurve: 'continuous',
     },
     archivedRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        backgroundColor: '#EAEAEE',
-        borderRadius: 16,
-        padding: 12,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+    },
+    archivedSeparator: {
+        position: 'absolute',
+        bottom: 0,
+        left: 16,
+        right: 0,
+        height: StyleSheet.hairlineWidth,
+        backgroundColor: '#C6C6C8',
     },
     archivedContent: {
         flexDirection: 'row',
@@ -689,52 +614,25 @@ const styles = StyleSheet.create({
         borderRadius: 10,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#fff',
+        backgroundColor: '#F2F2F7',
+        // @ts-ignore - native only
+        cornerCurve: 'continuous',
     },
     archivedTitle: {
         fontSize: 15,
         color: '#8E8E93',
         flex: 1,
-        fontWeight: '500',
+        fontWeight: '400',
         textDecorationLine: 'line-through',
+        letterSpacing: -0.3,
     },
     archivedActions: {
         flexDirection: 'row',
-        gap: 12,
+        gap: 16,
         paddingLeft: 12,
+        paddingRight: 16,
     },
     archivedAction: {
-        padding: 6,
-        backgroundColor: '#fff',
-        borderRadius: 8,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-    },
-    bottomBar: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 32,
-        paddingTop: 16,
-        backgroundColor: '#fff',
-        borderTopWidth: 0.5,
-        borderTopColor: '#E5E5EA',
-    },
-    bottomTab: {
-        padding: 8,
-    },
-    bottomTabActive: {
-        opacity: 1,
-    },
-    fab: {
-        width: 52,
-        height: 52,
-        borderRadius: 26,
-        backgroundColor: '#F2F2F7',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginTop: -16,
+        padding: 4,
     },
 });

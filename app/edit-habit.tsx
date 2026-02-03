@@ -1,6 +1,6 @@
-import { useRouter } from 'expo-router';
-import { X, ChevronDown, ChevronUp, ChevronLeft } from 'lucide-react-native';
-import React, { useState } from 'react';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { ChevronDown, ChevronUp, ChevronLeft } from 'lucide-react-native';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,17 +14,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useHabits } from '@/contexts/HabitContext';
-import { useWorkMode } from '@/contexts/WorkModeContext';
-import type { DayOfWeek, HabitType } from '@/types/habit';
-import { WorkToggleRow } from '@/components/WorkToggleRow';
+import type { DayOfWeek } from '@/types/habit';
 
-// Popular habit emojis - just the essentials for building habits
-const QUICK_EMOJIS_BUILDING = ['💪', '📚', '🧘', '💧', '🏃', '😴', '✍️', '🎯'];
-
-// Popular emojis for breaking habits
-const QUICK_EMOJIS_BREAKING = ['🚫', '🙅', '💪', '🧘', '🍃', '✨', '🎯', '🌟'];
-
-// Full emoji list for expanded view
+// Full emoji list for picker
 const ALL_EMOJIS = [
   '💪', '📚', '🧘', '💧', '🏃', '😴', '✍️', '🎯',
   '🏋️', '🚴', '🤸', '🏊', '⚽', '🎾', '💊', '🩺',
@@ -36,7 +28,12 @@ const ALL_EMOJIS = [
   '👨‍👩‍👧', '💬', '📞', '🤝', '💌', '🎁', '🥰', '👋',
   '💰', '💵', '📈', '🏦', '💳', '🪙', '💎', '🏠',
   '🧹', '🧺', '🪴', '🛏️', '🧽', '🪥', '📦', '🧸',
+  '🚫', '🙅', '🍃', '🌟',
 ];
+
+// Quick emojis based on habit type
+const QUICK_EMOJIS_BUILDING = ['💪', '📚', '🧘', '💧', '🏃', '😴', '✍️', '🎯'];
+const QUICK_EMOJIS_BREAKING = ['🚫', '🙅', '💪', '🧘', '🍃', '✨', '🎯', '🌟'];
 
 // Days of the week for iOS-style picker
 const DAYS_OF_WEEK: { label: string; short: string; value: DayOfWeek }[] = [
@@ -49,41 +46,45 @@ const DAYS_OF_WEEK: { label: string; short: string; value: DayOfWeek }[] = [
   { label: 'Saturday', short: 'S', value: 6 },
 ];
 
-export default function AddHabitScreen() {
+export default function EditHabitScreen() {
   const router = useRouter();
-  const { addHabit } = useHabits();
-  const { isWorkMode } = useWorkMode();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { habits, updateHabit } = useHabits();
+
+  const habit = habits.find(h => h.id === id);
+
   const [habitName, setHabitName] = useState('');
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
   const [showAllEmojis, setShowAllEmojis] = useState(false);
   const [whyStatement, setWhyStatement] = useState('');
   const [celebrationPhrase, setCelebrationPhrase] = useState('');
-  const [selectedDays, setSelectedDays] = useState<DayOfWeek[]>([0, 1, 2, 3, 4, 5, 6]); // All days by default
-  const [isWork, setIsWork] = useState(isWorkMode); // Default to current mode
-  const [habitType, setHabitType] = useState<HabitType>('building');
-  const [triggerNotes, setTriggerNotes] = useState('');
-  const [energyLevel, setEnergyLevel] = useState<'low' | 'medium' | 'high'>('medium');
+  const [selectedDays, setSelectedDays] = useState<DayOfWeek[]>([0, 1, 2, 3, 4, 5, 6]);
+
+  // Load existing habit data
+  useEffect(() => {
+    if (habit) {
+      setHabitName(habit.name);
+      setSelectedEmoji(habit.emoji || null);
+      setWhyStatement(habit.whyStatement || '');
+      setCelebrationPhrase(habit.celebrationPhrase || '');
+      setSelectedDays(habit.scheduledDays || [0, 1, 2, 3, 4, 5, 6]);
+    }
+  }, [habit]);
 
   // Get appropriate emojis based on habit type
-  const QUICK_EMOJIS = habitType === 'building' ? QUICK_EMOJIS_BUILDING : QUICK_EMOJIS_BREAKING;
+  const QUICK_EMOJIS = habit?.type === 'breaking' ? QUICK_EMOJIS_BREAKING : QUICK_EMOJIS_BUILDING;
 
-  const handleSave = () => {
-    if (habitName.trim()) {
+  const handleSave = async () => {
+    if (habitName.trim() && id) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      // If all days are selected, pass undefined (means every day)
       const scheduledDays = selectedDays.length === 7 ? undefined : selectedDays;
-      addHabit(
-        habitName.trim(),
-        {},
-        selectedEmoji || undefined,
-        whyStatement.trim() || undefined,
-        celebrationPhrase.trim() || undefined,
+      await updateHabit(id, {
+        name: habitName.trim(),
+        emoji: selectedEmoji || undefined,
+        whyStatement: whyStatement.trim() || undefined,
+        celebrationPhrase: celebrationPhrase.trim() || undefined,
         scheduledDays,
-        isWork,
-        habitType,
-        habitType === 'breaking' ? triggerNotes.trim() || undefined : undefined,
-        energyLevel
-      );
+      });
       router.back();
     }
   };
@@ -107,7 +108,6 @@ export default function AddHabitScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedDays(prev => {
       if (prev.includes(day)) {
-        // Don't allow deselecting all days
         if (prev.length === 1) return prev;
         return prev.filter(d => d !== day);
       }
@@ -125,10 +125,23 @@ export default function AddHabitScreen() {
     setSelectedDays([1, 2, 3, 4, 5]);
   };
 
+  if (!habit) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Habit not found</Text>
+          <Pressable style={styles.backButton} onPress={() => router.back()}>
+            <Text style={styles.backButtonText}>Go Back</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   const hasName = habitName.trim().length > 0;
   const hasIcon = selectedEmoji !== null;
   const isValid = hasName && hasIcon;
-  const needsIcon = hasName && !hasIcon; // Show hint when name is filled but icon isn't
+  const needsIcon = hasName && !hasIcon;
   const isEveryDay = selectedDays.length === 7;
   const isWeekdaysOnly = selectedDays.length === 5 &&
     [1, 2, 3, 4, 5].every(d => selectedDays.includes(d as DayOfWeek));
@@ -144,14 +157,14 @@ export default function AddHabitScreen() {
           <Pressable style={styles.closeButton} onPress={handleCancel}>
             <ChevronLeft size={24} color="#000" strokeWidth={1.5} />
           </Pressable>
-          <Text style={styles.headerTitle}>New Habit</Text>
+          <Text style={styles.headerTitle}>Edit Habit</Text>
           <Pressable
             style={[styles.createButton, !isValid && styles.createButtonDisabled]}
             onPress={handleSave}
             disabled={!isValid}
           >
             <Text style={[styles.createButtonText, !isValid && styles.createButtonTextDisabled]}>
-              Add
+              Save
             </Text>
           </Pressable>
         </View>
@@ -163,43 +176,14 @@ export default function AddHabitScreen() {
         >
           {/* Main Content */}
           <View style={styles.content}>
-            {/* Type Selector */}
-            <View style={styles.typeSelector}>
-              <Pressable
-                style={[
-                  styles.typeCard,
-                  habitType === 'building' && styles.typeCardActive,
-                ]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setHabitType('building');
-                  setSelectedEmoji(null);
-                }}
-              >
-                <Text style={styles.typeCardEmoji}>🌱</Text>
-                <Text style={[styles.typeCardTitle, habitType === 'building' && styles.typeCardTitleActive]}>
-                  Build
-                </Text>
-                <Text style={styles.typeCardSubtitle}>Start doing</Text>
-              </Pressable>
-
-              <Pressable
-                style={[
-                  styles.typeCard,
-                  habitType === 'breaking' && styles.typeCardActiveBreaking,
-                ]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setHabitType('breaking');
-                  setSelectedEmoji(null);
-                }}
-              >
-                <Text style={styles.typeCardEmoji}>🚫</Text>
-                <Text style={[styles.typeCardTitle, habitType === 'breaking' && styles.typeCardTitleActiveBreaking]}>
-                  Break
-                </Text>
-                <Text style={styles.typeCardSubtitle}>Stop doing</Text>
-              </Pressable>
+            {/* Type Badge (read-only) */}
+            <View style={[
+              styles.typeBadge,
+              habit.type === 'breaking' && styles.typeBadgeBreaking
+            ]}>
+              <Text style={styles.typeBadgeText}>
+                {habit.type === 'building' ? '🌱 Building Habit' : '🚫 Breaking Habit'}
+              </Text>
             </View>
 
             {/* Selected Emoji Display */}
@@ -207,13 +191,13 @@ export default function AddHabitScreen() {
               style={[
                 styles.emojiDisplay,
                 selectedEmoji && styles.emojiDisplayActive,
-                selectedEmoji && habitType === 'breaking' && styles.emojiDisplayActiveBreaking,
+                selectedEmoji && habit.type === 'breaking' && styles.emojiDisplayActiveBreaking,
                 needsIcon && styles.emojiDisplayNeedsSelection
               ]}
               onPress={() => setSelectedEmoji(null)}
             >
               <Text style={styles.emojiDisplayText}>
-                {selectedEmoji || (habitType === 'building' ? '🌱' : '🚫')}
+                {selectedEmoji || (habit.type === 'building' ? '🌱' : '🚫')}
               </Text>
             </Pressable>
             {needsIcon && (
@@ -223,18 +207,15 @@ export default function AddHabitScreen() {
             {/* Habit Input */}
             <TextInput
               style={styles.input}
-              placeholder={habitType === 'building' ? "What habit are you building?" : "What habit are you breaking?"}
+              placeholder={habit.type === 'building' ? "What habit are you building?" : "What habit are you breaking?"}
               placeholderTextColor="#C7C7CC"
               value={habitName}
               onChangeText={setHabitName}
-              autoFocus={false}
               returnKeyType="done"
-              onSubmitEditing={handleSave}
             />
 
-            {/* Emoji Picker - iOS-style: one unified grid when expanded */}
+            {/* Emoji Picker */}
             <View style={styles.emojiSection}>
-              {/* Show quick row when collapsed, full grid when expanded */}
               {!showAllEmojis ? (
                 <View style={styles.emojiRow}>
                   {QUICK_EMOJIS.map((emoji) => (
@@ -355,43 +336,6 @@ export default function AddHabitScreen() {
                 We'll show these when you need motivation most
               </Text>
             </View>
-
-            {/* Energy Level Section */}
-            <View style={styles.energySection}>
-              <Text style={styles.sectionLabelSmall}>ENERGY COST</Text>
-              <View style={styles.energyRow}>
-                {[
-                  { level: 'low', emoji: '🔋', label: 'Easy' },
-                  { level: 'medium', emoji: '⚡️', label: 'Normal' },
-                  { level: 'high', emoji: '🎯', label: 'Deep' },
-                ].map((item) => (
-                  <Pressable
-                    key={item.level}
-                    style={[
-                      styles.energyButton,
-                      energyLevel === item.level && styles.energyButtonActive,
-                    ]}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setEnergyLevel(item.level as 'low' | 'medium' | 'high');
-                    }}
-                  >
-                    <Text style={styles.energyEmoji}>{item.emoji}</Text>
-                    <Text style={[
-                      styles.energyLabelText,
-                      energyLevel === item.level && styles.energyLabelTextActive
-                    ]}>
-                      {item.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-
-            {/* Work Related Toggle */}
-            <View style={styles.workSection}>
-              <WorkToggleRow isWork={isWork} onToggle={setIsWork} />
-            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -458,6 +402,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 28,
   },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 18,
+    color: '#8E8E93',
+    marginBottom: 20,
+  },
+  backButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: '#000',
+    borderRadius: 12,
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  typeBadge: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: '#E8F5E9',
+    borderRadius: 20,
+  },
+  typeBadgeBreaking: {
+    backgroundColor: '#FFEBEE',
+  },
+  typeBadgeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2E7D32',
+  },
   emojiDisplay: {
     width: 80,
     height: 80,
@@ -481,63 +461,6 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#5856D6',
     borderStyle: 'dashed',
-  },
-  // Type Selector Styles
-  typeSelector: {
-    flexDirection: 'row',
-    gap: 12,
-    width: '100%',
-  },
-  typeCard: {
-    flex: 1,
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    gap: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  typeCardActive: {
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#34C759',
-    shadowColor: '#34C759',
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-  },
-  typeCardActiveBreaking: {
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#FF6B6B',
-    shadowColor: '#FF6B6B',
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-  },
-  typeCardEmoji: {
-    fontSize: 32,
-    marginBottom: 4,
-  },
-  typeCardTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#999',
-    letterSpacing: -0.2,
-  },
-  typeCardTitleActive: {
-    color: '#34C759',
-  },
-  typeCardTitleActiveBreaking: {
-    color: '#FF6B6B',
-  },
-  typeCardSubtitle: {
-    fontSize: 13,
-    color: '#AEAEB2',
-    letterSpacing: -0.1,
   },
   iconHint: {
     fontSize: 14,
@@ -669,7 +592,6 @@ const styles = StyleSheet.create({
     fontStyle: 'normal',
     letterSpacing: -0.1,
   },
-  // Day Selector Styles
   daySection: {
     width: '100%',
     backgroundColor: '#fff',
@@ -747,69 +669,5 @@ const styles = StyleSheet.create({
   },
   dayPillTextSelected: {
     color: '#fff',
-  },
-  workSection: {
-    width: '100%',
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  sectionLabelSmall: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#8E8E93',
-    marginBottom: 16,
-    textAlign: 'center',
-    letterSpacing: -0.1,
-  },
-  energySection: {
-    width: '100%',
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  energyRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  energyButton: {
-    flex: 1,
-    backgroundColor: '#F5F5F7',
-    borderRadius: 16,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    borderWidth: 1.5,
-    borderColor: 'transparent',
-  },
-  energyButtonActive: {
-    backgroundColor: '#fff',
-    borderColor: '#5856D6',
-    shadowColor: '#5856D6',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  energyEmoji: {
-    fontSize: 20,
-  },
-  energyLabelText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#8E8E93',
-  },
-  energyLabelTextActive: {
-    color: '#5856D6',
   },
 });

@@ -3,11 +3,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Project, ProjectTask } from '@/types/project';
+import * as Crypto from 'expo-crypto';
 
 const PROJECTS_STORAGE_KEY = 'daily_projects';
 
 function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+  return Crypto.randomUUID();
 }
 
 export const [ProjectProvider, useProjects] = createContextHook(() => {

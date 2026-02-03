@@ -30,11 +30,12 @@ import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { WorkModeToggle } from '@/components/WorkModeToggle';
+
 import { useTodos } from '@/contexts/TodoContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { BlurView } from 'expo-blur';
 import { AmbientBackground } from '@/components/AmbientBackground';
+import { BottomNavBar } from '@/components/BottomNavBar';
 
 interface MenuItemProps {
     icon: React.ReactNode;
@@ -97,36 +98,10 @@ function MenuSection({ title, children }: { title?: string; children: React.Reac
     );
 }
 
-function StatCard({
-    label,
-    value,
-    icon,
-    color,
-    subLabel
-}: {
-    label: string;
-    value: number | string;
-    icon: React.ReactNode;
-    color: string;
-    subLabel?: string;
-}) {
-    return (
-        <View style={styles.statCard}>
-            <View style={[styles.statIconContainer, { backgroundColor: `${color}15` }]}>
-                {icon}
-            </View>
-            <View style={styles.statTextContainer}>
-                <Text style={styles.statValue}>{value}</Text>
-                <Text style={styles.statLabel}>{label}</Text>
-                {subLabel && <Text style={styles.statSubLabel}>{subLabel}</Text>}
-            </View>
-        </View>
-    );
-}
 
 export default function MenuScreen() {
     const router = useRouter();
-    const { completedCount, workCompletedCount, lifeCompletedCount } = useTodos();
+    const { completedCount } = useTodos();
     const { resetOnboarding } = useOnboarding();
 
     const handleSignOut = () => {
@@ -184,7 +159,7 @@ export default function MenuScreen() {
                     contentContainerStyle={styles.scrollContent}
                     showsVerticalScrollIndicator={false}
                 >
-                    {/* Dashboard / Stats */}
+                    {/* Dashboard / Journey Card */}
                     <View style={styles.dashboardContainer}>
                         <View style={styles.dashboardHeader}>
                             <View style={styles.avatarCircle}>
@@ -195,45 +170,18 @@ export default function MenuScreen() {
                                 <Text style={styles.dashboardSubtitle}>Continuous Progress</Text>
                             </View>
                             <View style={styles.completionBadge}>
-                                <Zap size={14} color="#FF9500" fill="#FF9500" />
+                                <Text style={styles.completionBadgeEmoji}>🔥</Text>
                                 <Text style={styles.completionBadgeText}>{completedCount}</Text>
                             </View>
                         </View>
-
-                        <View style={styles.statsSeparator} />
-
-                        <View style={styles.statsGrid}>
-                            <View style={styles.statItem}>
-                                <View style={[styles.statIcon, { backgroundColor: '#E0F2FE' }]}>
-                                    <Briefcase size={22} color="#0EA5E9" />
-                                </View>
-                                <View>
-                                    <Text style={styles.statNumber}>{workCompletedCount}</Text>
-                                    <Text style={styles.statCategory}>Work</Text>
-                                </View>
-                            </View>
-                            <View style={styles.statDivider} />
-                            <View style={styles.statItem}>
-                                <View style={[styles.statIcon, { backgroundColor: '#FFE4E6' }]}>
-                                    <Heart size={22} color="#E11D48" />
-                                </View>
-                                <View>
-                                    <Text style={styles.statNumber}>{lifeCompletedCount}</Text>
-                                    <Text style={styles.statCategory}>Life</Text>
-                                </View>
-                            </View>
-                        </View>
                     </View>
 
-                    {/* Focus Mode */}
-                    <View style={styles.focusSection}>
-                        <WorkModeToggle />
-                    </View>
+
 
                     {/* Preferences */}
                     <MenuSection title="PREFERENCES">
                         <MenuItem
-                            icon={<View style={[styles.iconBox, { backgroundColor: '#FF9500' }]}><Bell size={18} color="white" strokeWidth={2.5} /></View>}
+                            icon={<View style={[styles.iconBox, { backgroundColor: '#FF9500' }]}><Bell size={19} color="white" strokeWidth={2.5} /></View>}
                             title="Notifications"
                             isLast
                         />
@@ -242,17 +190,17 @@ export default function MenuScreen() {
                     {/* Support */}
                     <MenuSection title="SUPPORT">
                         <MenuItem
-                            icon={<View style={[styles.iconBox, { backgroundColor: '#5856D6' }]}><HelpCircle size={18} color="white" strokeWidth={2.5} /></View>}
+                            icon={<View style={[styles.iconBox, { backgroundColor: '#5856D6' }]}><HelpCircle size={19} color="white" strokeWidth={2.5} /></View>}
                             title="Help & FAQ"
                             onPress={() => Linking.openURL('https://trydailyapp.com')}
                         />
                         <MenuItem
-                            icon={<View style={[styles.iconBox, { backgroundColor: '#34C759' }]}><MessageSquare size={18} color="white" strokeWidth={2.5} /></View>}
+                            icon={<View style={[styles.iconBox, { backgroundColor: '#34C759' }]}><MessageSquare size={19} color="white" strokeWidth={2.5} /></View>}
                             title="Contact Us"
                             onPress={() => Linking.openURL('mailto:support@trydailyapp.com?subject=Daily%20App%20Support')}
                         />
                         <MenuItem
-                            icon={<View style={[styles.iconBox, { backgroundColor: '#FFCC00' }]}><Star size={18} color="white" strokeWidth={2.5} /></View>}
+                            icon={<View style={[styles.iconBox, { backgroundColor: '#FFCC00' }]}><Star size={19} color="white" strokeWidth={2.5} /></View>}
                             title="Rate the App"
                             onPress={handleRateApp}
                             isLast
@@ -263,7 +211,7 @@ export default function MenuScreen() {
                     {/* Legal */}
                     <MenuSection title="LEGAL">
                         <MenuItem
-                            icon={<View style={[styles.iconBox, { backgroundColor: '#8E8E93' }]}><Shield size={18} color="white" strokeWidth={2.5} /></View>}
+                            icon={<View style={[styles.iconBox, { backgroundColor: '#8E8E93' }]}><Shield size={19} color="white" strokeWidth={2.5} /></View>}
                             title="Privacy Policy"
                             onPress={() => router.push('/privacy-policy')}
                             isLast
@@ -273,7 +221,7 @@ export default function MenuScreen() {
                     {/* Danger Zone */}
                     <MenuSection>
                         <MenuItem
-                            icon={<View style={[styles.iconBox, { backgroundColor: '#FF3B30' }]}><LogOut size={18} color="white" strokeWidth={2.5} /></View>}
+                            icon={<View style={[styles.iconBox, { backgroundColor: '#FF3B30' }]}><LogOut size={19} color="white" strokeWidth={2.5} /></View>}
                             title="Sign Out"
                             onPress={handleSignOut}
                             danger
@@ -288,6 +236,7 @@ export default function MenuScreen() {
                     </Text>
                 </ScrollView>
             </SafeAreaView>
+            <BottomNavBar />
         </View>
     );
 }
@@ -301,9 +250,9 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     header: {
-        paddingHorizontal: 24,
+        paddingHorizontal: 16, // Standard iOS padding
         paddingVertical: 16,
-        paddingBottom: 24,
+        paddingBottom: 8, // Reduced bottom padding
     },
     headerButton: {
         flexDirection: 'row',
@@ -341,219 +290,181 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     scrollContent: {
-        paddingBottom: 40,
-        paddingHorizontal: 0, // Cards will have margin
+        paddingBottom: 120,
+        paddingHorizontal: 0,
     },
     largeTitle: {
         fontSize: 34,
         fontWeight: '700',
         color: '#000',
         letterSpacing: -1,
-        marginLeft: 20,
+        marginLeft: 16,
         marginBottom: 20,
         marginTop: 10,
     },
     dashboardContainer: {
-        marginHorizontal: 20,
+        marginHorizontal: 16, // Standard 16px
         marginBottom: 24,
-        backgroundColor: '#fff',
-        borderRadius: 16, // Refined native border radius
-        padding: 24,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 2,
+        // Removed shadows and background color for a cleaner header look
+        padding: 0,
     },
     dashboardHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 20,
+        marginBottom: 16, // Add space between profile and badge if needed, or adjust
     },
     avatarCircle: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
+        width: 60, // Slightly larger for header impact
+        height: 60,
+        borderRadius: 30,
         backgroundColor: '#F2F2F7',
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: 12,
+        marginRight: 16,
     },
     avatarInitial: {
-        fontSize: 20,
+        fontSize: 24,
         fontWeight: '600',
         color: '#1C1C1E',
     },
     dashboardHeaderText: {
         flex: 1,
+        justifyContent: 'center',
     },
     dashboardTitle: {
-        fontSize: 18,
-        fontWeight: '700',
+        fontSize: 20, // Slightly larger
+        fontWeight: '600',
         color: '#1C1C1E',
         letterSpacing: -0.4,
+        marginBottom: 2,
     },
     dashboardSubtitle: {
-        fontSize: 13,
+        fontSize: 15, // Standard body size
         color: '#8E8E93',
         fontWeight: '400',
-    },
-    statsSeparator: {
-        height: 1,
-        backgroundColor: '#F2F2F7',
-        marginBottom: 20,
+        letterSpacing: -0.2,
     },
     completionBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#FFF8E6',
-        paddingHorizontal: 10,
+        backgroundColor: '#FFF8E6', // Keep the pill but maybe move it?
+        paddingHorizontal: 12,
         paddingVertical: 6,
-        borderRadius: 20,
+        borderRadius: 100, // Fully round
         gap: 4,
     },
+    completionBadgeEmoji: {
+        fontSize: 14,
+    },
     completionBadgeText: {
-        fontSize: 12,
-        fontWeight: '700',
+        fontSize: 14,
+        fontWeight: '600',
         color: '#FF9500',
+        letterSpacing: -0.3,
     },
-    statsGrid: {
+    statsContainer: {
         flexDirection: 'row',
-        alignItems: 'center',
-    },
-    statItem: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
+        marginHorizontal: 16,
+        marginBottom: 24,
         gap: 12,
-    },
-    statDivider: {
-        width: 1,
-        height: 36,
-        backgroundColor: '#F2F2F7',
-        marginHorizontal: 20,
-    },
-    statIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    statNumber: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#1C1C1E',
-    },
-    statCategory: {
-        fontSize: 12,
-        color: '#8E8E93',
-        fontWeight: '500',
     },
     statCard: {
         flex: 1,
         backgroundColor: '#fff',
+        borderRadius: 12, // Tighter radius
         padding: 16,
-        borderRadius: 16,
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
+        // Removed shadows
     },
-    statIconContainer: {
+    statCardIconContainer: {
         width: 40,
         height: 40,
         borderRadius: 12,
+        backgroundColor: '#E0F2FE',
         alignItems: 'center',
         justifyContent: 'center',
     },
-    statTextContainer: {
+    statCardContent: {
         flex: 1,
     },
-    statValue: {
-        fontSize: 20,
+    statCardValue: {
+        fontSize: 22,
         fontWeight: '700',
-        color: '#000',
+        color: '#1C1C1E',
+        letterSpacing: -0.5,
+        marginBottom: 2,
     },
-    statLabel: {
-        fontSize: 12,
-        fontWeight: '500',
+    statCardLabel: {
+        fontSize: 13,
         color: '#8E8E93',
-    },
-    statSubLabel: {
-        fontSize: 10,
-        color: '#C7C7CC',
-        marginTop: 2,
+        fontWeight: '500',
+        letterSpacing: -0.2,
     },
     section: {
-        marginBottom: 24,
-        marginHorizontal: 16,
+        marginBottom: 28, // Tighter spacing between sections
+        marginHorizontal: 16, // Standard inset margin
     },
     sectionTitle: {
         fontSize: 13,
-        fontWeight: '600',
-        color: '#8E8E93',
+        fontWeight: '400', // Standard iOS section header weight
+        color: '#636366', // Standard iOS gray
         marginBottom: 8,
-        marginLeft: 16, // Align with the start of the section box
+        marginLeft: 16, // Indent text slightly relative to card
         textTransform: 'uppercase',
-        letterSpacing: 0.3,
+        letterSpacing: -0.1,
     },
     sectionContent: {
         backgroundColor: '#fff',
-        borderRadius: 12, // Native Inset Grouped radius
+        borderRadius: 10, // iOS standard is usually 10-12 for inset grouped
         overflow: 'hidden',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.03,
-        shadowRadius: 8,
-        elevation: 1,
+        // Start NO SHADOWS
+        // shadowColor: '#000',
+        // shadowOffset: { width: 0, height: 3 },
+        // shadowOpacity: 0.04,
+        // shadowRadius: 10,
+        // elevation: 2,
+        // End NO SHADOWS
     },
     focusSection: {
         marginBottom: 32,
         marginHorizontal: 16,
         backgroundColor: '#fff',
-        borderRadius: 12,
+        borderRadius: 10,
         padding: 4,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.03,
-        shadowRadius: 8,
-        elevation: 1,
     },
     menuItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 12,
+        paddingVertical: 12, // Slightly taller click area? 11-12 is good.
         paddingHorizontal: 16,
-        minHeight: 48,
+        minHeight: 48, // Compact
     },
     menuItemPressed: {
-        backgroundColor: '#F2F2F7',
+        backgroundColor: '#E5E5EA', // Standard iOS press color
     },
     menuItemBorder: {
         borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: '#F2F2F7',
-        marginLeft: 64, // Exactly align with text start: padding(16) + icon(36) + margin(12)
+        borderBottomColor: '#C6C6C8', // Standard separator
+        marginLeft: 60, // Align with text start (30 icon + 14 margin + 16 pad) -> 16+30+14 = 60
     },
     menuIconContainer: {
-        width: 36,
+        width: 30, // 30px
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: 0,
+        marginRight: 14,
     },
     iconBox: {
-        width: 28,
-        height: 28,
-        borderRadius: 7, // Apple style rounded corners
+        width: 30, // 30px
+        height: 30,
+        borderRadius: 7, // ~22% of width
         alignItems: 'center',
         justifyContent: 'center',
     },
     menuContent: {
         flex: 1,
-        marginLeft: 12,
+        // marginLeft: 12, // Handled by container gap now
         justifyContent: 'center',
     },
     menuRight: {
@@ -562,10 +473,10 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     menuTitle: {
-        fontSize: 17, // iOS Body size
-        fontWeight: '500',
-        color: '#1C1C1E',
-        letterSpacing: -0.4,
+        fontSize: 17,
+        fontWeight: '400',
+        color: '#000000', // Pure black often better in light mode
+        letterSpacing: -0.24, // San Francisco tracking
     },
     menuTitleDanger: {
         color: '#FF3B30',
@@ -576,16 +487,18 @@ const styles = StyleSheet.create({
         marginTop: 2,
     },
     menuValue: {
-        fontSize: 16,
+        fontSize: 17, // Match title size
         color: '#8E8E93',
+        fontWeight: '400',
     },
     footerText: {
         textAlign: 'center',
         color: '#8E8E93',
         fontSize: 13,
         lineHeight: 18,
-        marginTop: 24,
-        fontWeight: '500',
-        opacity: 0.6,
+        marginTop: 8, // closer to last element
+        marginBottom: 30,
+        fontWeight: '400',
+        opacity: 1,
     },
 });

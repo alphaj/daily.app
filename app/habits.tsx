@@ -12,11 +12,13 @@ import {
     StyleSheet,
     Pressable,
     ScrollView,
+    Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useHabits } from '@/contexts/HabitContext';
 import SwipeableRow from '@/components/SwipeableRow';
+import { AmbientBackground } from '@/components/AmbientBackground';
 import { BottomNavBar } from '@/components/BottomNavBar';
 import type { Habit, DayCompletion, HabitType } from '@/types/habit';
 
@@ -44,8 +46,21 @@ function HabitItem({
     };
 
     const handleDelete = () => {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        onDelete(habit.id);
+        Alert.alert(
+            'Delete Habit',
+            `Are you sure you want to delete "${habit.name}"? This will remove all your progress.`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: () => {
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                        onDelete(habit.id);
+                    },
+                },
+            ]
+        );
     };
 
     const handleCardPress = () => {
@@ -146,149 +161,159 @@ export default function HabitsScreen() {
     const totalHabits = filteredHabits.length;
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
-            {/* Header */}
-            <View style={styles.header}>
-                <Text style={styles.headerTitle}>Habits</Text>
-                <View style={styles.headerButtons}>
-                    <Pressable
-                        style={styles.headerButton}
-                        onPress={handleAddPress}
-                        hitSlop={10}
-                    >
-                        <Plus size={26} color="#000" />
-                    </Pressable>
-                </View>
-            </View>
-
-            <ScrollView
-                style={styles.content}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 100 }}
-            >
-                {/* Segmented Control */}
-                <View style={styles.segmentedControl}>
-                    <Pressable
-                        style={[
-                            styles.segmentButton,
-                            activeTab === 'building' && styles.segmentButtonActive,
-                        ]}
-                        onPress={() => {
-                            Haptics.selectionAsync();
-                            setActiveTab('building');
-                        }}
-                    >
-                        <Text style={[
-                            styles.segmentText,
-                            activeTab === 'building' && styles.segmentTextActive
-                        ]}>
-                            🌱 Build
-                        </Text>
-                    </Pressable>
-                    <Pressable
-                        style={[
-                            styles.segmentButton,
-                            activeTab === 'breaking' && styles.segmentButtonActiveBreaking,
-                        ]}
-                        onPress={() => {
-                            Haptics.selectionAsync();
-                            setActiveTab('breaking');
-                        }}
-                    >
-                        <Text style={[
-                            styles.segmentText,
-                            activeTab === 'breaking' && styles.segmentTextActiveBreaking
-                        ]}>
-                            🚫 Break
-                        </Text>
-                    </Pressable>
-                </View>
-
-                {/* Stats Card */}
-                <View style={[styles.statsCard, activeTab === 'breaking' && styles.statsCardBreaking]}>
-                    <Text style={styles.statsMessage}>
-                        {filteredHabits.length === 0
-                            ? (activeTab === 'building' ? 'Start building good habits' : 'No habits to break yet')
-                            : message}
-                    </Text>
-                    <View style={styles.statsRow}>
-                        <View style={styles.statItem}>
-                            <Text style={styles.statValue}>
-                                {completedToday}/{totalHabits}
-                            </Text>
-                            <Text style={styles.statLabel}>
-                                {activeTab === 'building' ? 'Today' : 'Clean Today'}
-                            </Text>
-                        </View>
-                        <View style={styles.statDivider} />
-                        <View style={styles.statItem}>
-                            <Text style={styles.statValue}>{stats.longestStreak}</Text>
-                            <Text style={styles.statLabel}>Best Streak</Text>
-                        </View>
-                        <View style={styles.statDivider} />
-                        <View style={styles.statItem}>
-                            <Text style={styles.statValue}>
-                                {Math.round(stats.weeklyCompletionRate * 100)}%
-                            </Text>
-                            <Text style={styles.statLabel}>
-                                {activeTab === 'building' ? 'This Week' : 'Days Strong'}
-                            </Text>
-                        </View>
+        <View style={{ flex: 1 }}>
+            <AmbientBackground />
+            <SafeAreaView style={styles.container} edges={['top']}>
+                {/* Header */}
+                <View style={styles.header}>
+                    <View style={styles.headerLeft}>
+                        <Zap size={24} color="#000" strokeWidth={2} />
+                        <Text style={styles.headerTitle}>Habits</Text>
+                    </View>
+                    <View style={styles.headerButtons}>
+                        <Pressable
+                            style={styles.headerButton}
+                            onPress={handleAddPress}
+                            hitSlop={10}
+                        >
+                            <Plus size={26} color="#000" />
+                        </Pressable>
                     </View>
                 </View>
 
-                {/* Habits List */}
-                <View style={styles.habitsList}>
-                    {filteredHabits.length === 0 ? (
-                        <View style={styles.emptyState}>
-                            <Zap size={48} color="#C7C7CC" strokeWidth={1} />
-                            <Text style={styles.emptyTitle}>
-                                {activeTab === 'building' ? 'No habits to build' : 'No habits to break'}
+                <ScrollView
+                    style={[styles.content, { backgroundColor: 'transparent' }]}
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={{ paddingBottom: 100, backgroundColor: 'transparent' }}
+                >
+                    {/* Segmented Control */}
+                    <View style={styles.segmentedControl}>
+                        <Pressable
+                            style={[
+                                styles.segmentButton,
+                                activeTab === 'building' && styles.segmentButtonActive,
+                            ]}
+                            onPress={() => {
+                                Haptics.selectionAsync();
+                                setActiveTab('building');
+                            }}
+                        >
+                            <Text style={[
+                                styles.segmentText,
+                                activeTab === 'building' && styles.segmentTextActive
+                            ]}>
+                                🌱 Build
                             </Text>
-                            <Text style={styles.emptySubtitle}>
-                                {activeTab === 'building'
-                                    ? 'Tap the + button to add a new habit to build'
-                                    : 'Tap the + button to add a habit you want to stop'}
+                        </Pressable>
+                        <Pressable
+                            style={[
+                                styles.segmentButton,
+                                activeTab === 'breaking' && styles.segmentButtonActiveBreaking,
+                            ]}
+                            onPress={() => {
+                                Haptics.selectionAsync();
+                                setActiveTab('breaking');
+                            }}
+                        >
+                            <Text style={[
+                                styles.segmentText,
+                                activeTab === 'breaking' && styles.segmentTextActiveBreaking
+                            ]}>
+                                🚫 Break
                             </Text>
-                        </View>
-                    ) : (
-                        filteredHabits.map((habit) => (
-                            <HabitItem
-                                key={habit.id}
-                                habit={habit}
-                                isCompletedToday={isCompletedToday}
-                                getWeeklyProgress={getWeeklyProgress}
-                                onToggle={toggleHabitCompletion}
-                                onDelete={deleteHabit}
-                                onPress={handleHabitPress}
-                            />
-                        ))
-                    )}
-                </View>
-            </ScrollView>
+                        </Pressable>
+                    </View>
 
-            {/* Bottom Bar */}
-            <BottomNavBar onFabPress={handleAddPress} />
-        </SafeAreaView>
+                    {/* Stats Card */}
+                    <View style={[styles.statsCard, activeTab === 'breaking' && styles.statsCardBreaking]}>
+                        <Text style={styles.statsMessage}>
+                            {filteredHabits.length === 0
+                                ? (activeTab === 'building' ? 'Start building good habits' : 'No habits to break yet')
+                                : message}
+                        </Text>
+                        <View style={styles.statsRow}>
+                            <View style={styles.statItem}>
+                                <Text style={styles.statValue}>
+                                    {completedToday}/{totalHabits}
+                                </Text>
+                                <Text style={styles.statLabel}>
+                                    {activeTab === 'building' ? 'Today' : 'Clean Today'}
+                                </Text>
+                            </View>
+                            <View style={styles.statDivider} />
+                            <View style={styles.statItem}>
+                                <Text style={styles.statValue}>{stats.longestStreak}</Text>
+                                <Text style={styles.statLabel}>Best Streak</Text>
+                            </View>
+                            <View style={styles.statDivider} />
+                            <View style={styles.statItem}>
+                                <Text style={styles.statValue}>
+                                    {Math.round(stats.weeklyCompletionRate * 100)}%
+                                </Text>
+                                <Text style={styles.statLabel}>
+                                    {activeTab === 'building' ? 'This Week' : 'Days Strong'}
+                                </Text>
+                            </View>
+                        </View>
+                    </View>
+
+                    {/* Habits List */}
+                    <View style={styles.habitsList}>
+                        {filteredHabits.length === 0 ? (
+                            <View style={styles.emptyState}>
+                                <Zap size={48} color="#C7C7CC" strokeWidth={1} />
+                                <Text style={styles.emptyTitle}>
+                                    {activeTab === 'building' ? 'No habits to build' : 'No habits to break'}
+                                </Text>
+                                <Text style={styles.emptySubtitle}>
+                                    {activeTab === 'building'
+                                        ? 'Tap the + button to add a new habit to build'
+                                        : 'Tap the + button to add a habit you want to stop'}
+                                </Text>
+                            </View>
+                        ) : (
+                            filteredHabits.map((habit) => (
+                                <HabitItem
+                                    key={habit.id}
+                                    habit={habit}
+                                    isCompletedToday={isCompletedToday}
+                                    getWeeklyProgress={getWeeklyProgress}
+                                    onToggle={toggleHabitCompletion}
+                                    onDelete={deleteHabit}
+                                    onPress={handleHabitPress}
+                                />
+                            ))
+                        )}
+                    </View>
+                </ScrollView>
+
+                {/* Bottom Bar */}
+                <BottomNavBar onFabPress={handleAddPress} />
+            </SafeAreaView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F2F2F7', // System Gray 6
+        backgroundColor: 'transparent',
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 24,
-        paddingVertical: 16,
-        paddingBottom: 24,
+        paddingHorizontal: 20,
+        paddingVertical: 14,
+    },
+    headerLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
     },
     headerTitle: {
-        fontSize: 34,
-        fontWeight: '700',
+        fontSize: 28,
+        fontWeight: '800',
         color: '#000',
         letterSpacing: -0.5,
     },

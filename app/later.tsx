@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import {
   Plus,
   Home,
-  Brain,
+  User,
   FolderKanban,
   Clock,
   Settings,
@@ -32,6 +32,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics';
 import { useLater } from '@/contexts/LaterContext';
 import { AREA_CONFIG, type LaterArea, type LaterItem } from '@/types/later';
+import { BottomNavBar } from '@/components/BottomNavBar';
 
 const PADDING = 20;
 
@@ -472,26 +473,13 @@ export default function LaterScreen() {
         )}
       </ScrollView>
 
-      {/* Bottom Bar */}
-      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-        <Pressable style={styles.bottomTab} onPress={() => router.replace('/')}>
-          <Home size={24} color="#000" strokeWidth={1.5} />
-        </Pressable>
-        <Pressable style={styles.bottomTab} onPress={() => router.replace('/brain-dump')}>
-          <Brain size={24} color="#000" strokeWidth={1.5} />
-        </Pressable>
+      {/* FAB for adding items */}
+      <Pressable style={[styles.floatingFab, { bottom: Math.max(insets.bottom, 20) + 90 }]} onPress={handleAddPress}>
+        <Plus size={28} color="#fff" strokeWidth={2} />
+      </Pressable>
 
-        <Pressable style={styles.fab} onPress={handleAddPress}>
-            <Plus size={28} color="#000" strokeWidth={1.5} />
-        </Pressable>
-
-        <Pressable style={styles.bottomTab} onPress={() => router.replace('/projects')}>
-          <FolderKanban size={24} color="#000" strokeWidth={1.5} />
-        </Pressable>
-        <Pressable style={[styles.bottomTab, styles.bottomTabActive]}>
-          <Clock size={24} color="#5856D6" strokeWidth={1.5} />
-        </Pressable>
-      </View>
+      {/* Bottom Navigation */}
+      <BottomNavBar />
 
       {/* Add/Edit Modal */}
       <Modal
@@ -828,7 +816,24 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#fff',
   },
-  // Bottom Bar
+  // Floating FAB
+  floatingFab: {
+    position: 'absolute',
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#000',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 100,
+  },
+  // Bottom Bar (legacy - kept for reference)
   bottomBar: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -1,17 +1,13 @@
 import { useRouter } from 'expo-router';
 import {
-  Calendar,
   ChevronLeft,
   ChevronRight,
-  Inbox,
-  Settings,
   Plus,
-  Check,
-  Flame,
   ListTodo,
   GripVertical,
   Target,
-  Briefcase,
+  Pill,
+  Check,
 } from 'lucide-react-native';
 import React, { useCallback, useState, useEffect, useRef, useMemo } from 'react';
 import {
@@ -45,9 +41,15 @@ import { CelebrationOverlay } from '@/components/CelebrationOverlay';
 import { AddOptionsModal } from '@/components/AddOptionsModal';
 import { ReflectionModal } from '@/components/ReflectionModal';
 import { BottomNavBar } from '@/components/BottomNavBar';
+import { CaptureBar } from '@/components/CaptureBar';
 import { DailySummaryModal, useDailySummary } from '@/components/DailySummaryModal';
-import { WorkModeIndicator } from '@/components/WorkModeIndicator';
+import { CalendarHeader } from '@/components/CalendarHeader';
 import { useWorkMode } from '@/contexts/WorkModeContext';
+import { useSupplements } from '@/contexts/SupplementContext';
+import { TrackableCard } from '@/components/TrackableCard';
+import { SupplementCard } from '@/components/SupplementCard';
+import { EditSupplementModal } from '@/components/EditSupplementModal';
+import type { Supplement } from '@/types/supplement';
 
 import { BlurView } from 'expo-blur';
 import { AmbientBackground } from '@/components/AmbientBackground';
@@ -194,6 +196,14 @@ function DraggableTodoItem({
             <Text style={[styles.todoText, todo.completed && styles.todoTextChecked]} numberOfLines={1}>
               {todo.title}
             </Text>
+
+            {todo.energyLevel && (
+              <View style={styles.todoEnergyIcon}>
+                <Text style={styles.todoEnergyIconText}>
+                  {todo.energyLevel === 'low' ? '🔋' : todo.energyLevel === 'medium' ? '⚡️' : '🔥'}
+                </Text>
+              </View>
+            )}
           </Animated.View>
         </Pressable>
       </SwipeableRow>
@@ -276,15 +286,20 @@ function CalendarModal({
   selectedDate,
   onSelectDate,
   hasNoteForDate,
+  getTaskCountForDate,
+  getHabitCompletionForDate,
 }: {
   visible: boolean;
   onClose: () => void;
   selectedDate: Date;
   onSelectDate: (date: Date) => void;
   hasNoteForDate: (date: Date) => boolean;
+  getTaskCountForDate: (date: Date) => { total: number; completed: number };
+  getHabitCompletionForDate: (date: Date) => { total: number; completed: number };
 }) {
   const [currentMonth, setCurrentMonth] = React.useState(selectedDate);
   const slideAnim = useRef(new Animated.Value(0)).current;
+  const monthSlideAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
@@ -309,14 +324,31 @@ function CalendarModal({
   const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
   const startDayOfWeek = getDay(monthStart);
 
+  const animateMonthChange = (direction: 'left' | 'right', callback: () => void) => {
+    const toValue = direction === 'left' ? -1 : 1;
+    Animated.sequence([
+      Animated.timing(monthSlideAnim, {
+        toValue: toValue * 0.3,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(monthSlideAnim, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+    ]).start();
+    callback();
+  };
+
   const handlePrevMonth = () => {
     Haptics.selectionAsync();
-    setCurrentMonth(subMonths(currentMonth, 1));
+    animateMonthChange('right', () => setCurrentMonth(subMonths(currentMonth, 1)));
   };
 
   const handleNextMonth = () => {
     Haptics.selectionAsync();
-    setCurrentMonth(addMonths(currentMonth, 1));
+    animateMonthChange('left', () => setCurrentMonth(addMonths(currentMonth, 1)));
   };
 
   const handleSelectDate = (date: Date) => {
@@ -339,6 +371,11 @@ function CalendarModal({
   ];
 
   const weekDayHeaders = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+  // Get activity data for selected date
+  const selectedTasks = getTaskCountForDate(selectedDate);
+  const selectedHabits = getHabitCompletionForDate(selectedDate);
+  const hasActivity = selectedTasks.total > 0 || selectedHabits.completed > 0;
 
   return (
     <Modal
@@ -381,9 +418,21 @@ function CalendarModal({
                   <Pressable onPress={handlePrevMonth} hitSlop={15} style={styles.calendarNavButton}>
                     <ChevronLeft size={20} color="#000" />
                   </Pressable>
-                  <Text style={styles.calendarMonthText}>
+                  <Animated.Text
+                    style={[
+                      styles.calendarMonthText,
+                      {
+                        transform: [{
+                          translateX: monthSlideAnim.interpolate({
+                            inputRange: [-1, 0, 1],
+                            outputRange: [-20, 0, 20]
+                          })
+                        }]
+                      }
+                    ]}
+                  >
                     {format(currentMonth, 'MMMM yyyy')}
-                  </Text>
+                  </Animated.Text>
                   <Pressable onPress={handleNextMonth} hitSlop={15} style={styles.calendarNavButton}>
                     <ChevronRight size={20} color="#000" />
                   </Pressable>
@@ -397,7 +446,23 @@ function CalendarModal({
                   ))}
                 </View>
 
-                <View style={styles.calendarGrid}>
+                <Animated.View
+                  style={[
+                    styles.calendarGrid,
+                    {
+                      transform: [{
+                        translateX: monthSlideAnim.interpolate({
+                          inputRange: [-1, 0, 1],
+                          outputRange: [-10, 0, 10]
+                        })
+                      }],
+                      opacity: monthSlideAnim.interpolate({
+                        inputRange: [-0.3, 0, 0.3],
+                        outputRange: [0.7, 1, 0.7]
+                      })
+                    }
+                  ]}
+                >
                   {calendarDays.map((date, index) => {
                     if (!date) {
                       return <View key={`empty-${index}`} style={styles.calendarDayCell} />;
@@ -406,6 +471,14 @@ function CalendarModal({
                     const isSelected = isSameDay(date, selectedDate);
                     const isToday = isSameDay(date, new Date());
                     const hasNote = hasNoteForDate(date);
+                    const isFuture = date > new Date();
+
+                    // Get activity indicators for the date
+                    const tasks = getTaskCountForDate(date);
+                    const habits = getHabitCompletionForDate(date);
+                    const hasTaskActivity = tasks.completed > 0;
+                    const hasHabitActivity = habits.completed > 0;
+                    const showActivityDots = (hasTaskActivity || hasHabitActivity || hasNote) && !isSelected;
 
                     return (
                       <Pressable
@@ -422,21 +495,53 @@ function CalendarModal({
                             styles.calendarDayText,
                             isSelected && styles.calendarDayTextSelected,
                             isToday && !isSelected && styles.calendarDayTextToday,
+                            isFuture && !isSelected && styles.calendarDayTextFuture,
                           ]}
                         >
                           {format(date, 'd')}
                         </Text>
-                        {hasNote && !isSelected && (
-                          <View style={styles.calendarNoteDot} />
+                        {showActivityDots && (
+                          <View style={styles.activityDotsContainer}>
+                            {hasTaskActivity && <View style={[styles.activityDot, styles.activityDotTask]} />}
+                            {hasHabitActivity && <View style={[styles.activityDot, styles.activityDotHabit]} />}
+                            {hasNote && !hasTaskActivity && !hasHabitActivity && (
+                              <View style={[styles.activityDot, styles.activityDotNote]} />
+                            )}
+                          </View>
                         )}
                       </Pressable>
                     );
                   })}
+                </Animated.View>
+
+                {/* Selected date summary - always show */}
+                <View style={styles.dateSummary}>
+                  <Text style={styles.dateSummaryDate}>{format(selectedDate, 'EEEE, MMMM d')}</Text>
+                  <View style={styles.dateSummaryStats}>
+                    {selectedTasks.total > 0 ? (
+                      <Text style={styles.dateSummaryStat}>
+                        {selectedTasks.completed}/{selectedTasks.total} tasks
+                      </Text>
+                    ) : (
+                      <Text style={styles.dateSummaryStat}>No tasks</Text>
+                    )}
+                    {selectedHabits.completed > 0 && (
+                      <Text style={[styles.dateSummaryStat, { color: '#34C759' }]}>
+                        {selectedHabits.completed} ✓
+                      </Text>
+                    )}
+                  </View>
                 </View>
 
                 <View style={styles.calendarFooter}>
-                  <Pressable style={styles.todayButton} onPress={handleGoToToday}>
-                    <Text style={styles.todayButtonText}>Go to Today</Text>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.todayButton,
+                      pressed && { opacity: 0.6 }
+                    ]}
+                    onPress={handleGoToToday}
+                  >
+                    <Text style={styles.todayButtonText}>Today</Text>
                   </Pressable>
                 </View>
               </Pressable>
@@ -448,93 +553,24 @@ function CalendarModal({
   );
 }
 
-function HabitCard({
-  habit,
-  isCompleted,
-  onToggle,
-  onDelete
-}: {
-  habit: Habit;
-  isCompleted: boolean;
-  onToggle: (id: string) => void;
-  onDelete: (id: string) => void;
-}) {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+// Helper to generate week dots for trackable items
+function getWeekDotsForDates(completedDates: string[]): boolean[] {
+  const today = new Date();
+  const dots: boolean[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - i);
+    const dateStr = date.toISOString().split('T')[0];
+    dots.push(completedDates.includes(dateStr));
+  }
+  return dots;
+}
 
-  const handlePress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-    Animated.sequence([
-      Animated.timing(scaleAnim, {
-        toValue: 0.95,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scaleAnim, {
-        toValue: 1,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    onToggle(habit.id);
-  };
-
-  const handleLongPress = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    Alert.alert(
-      "Delete Habit",
-      `Are you sure you want to delete "${habit.name}"?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => onDelete(habit.id)
-        }
-      ]
-    );
-  };
-
-  return (
-    <Pressable onPress={handlePress} onLongPress={handleLongPress} delayLongPress={500}>
-      <Animated.View
-        style={[
-          styles.habitCard,
-          habit.type === 'breaking'
-            ? (isCompleted ? styles.habitCardCompletedBreaking : styles.habitCardIncompleteBreaking)
-            : (isCompleted ? styles.habitCardCompleted : styles.habitCardIncomplete),
-          { transform: [{ scale: scaleAnim }] }
-        ]}
-      >
-        <View style={styles.habitCardHeader}>
-          <Text style={styles.habitEmoji}>{habit.emoji || (habit.type === 'breaking' ? '🚫' : '⚡️')}</Text>
-          {habit.currentStreak > 0 && (
-            <View style={[styles.habitCardStreak, isCompleted && styles.habitCardStreakCompleted]}>
-              <Flame size={10} color={isCompleted ? "#FFD60A" : "#FF9500"} fill={isCompleted ? "#FFD60A" : "#FF9500"} />
-              <Text style={[styles.habitCardStreakText, isCompleted && styles.habitCardStreakTextCompleted]}>
-                {habit.currentStreak}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        <Text
-          style={[styles.habitCardName, isCompleted && styles.habitCardNameCompleted]}
-          numberOfLines={2}
-        >
-          {habit.name}
-        </Text>
-
-        <View style={[
-          styles.habitStatusIcon,
-          isCompleted && (habit.type === 'breaking' ? styles.habitStatusIconCompletedBreaking : styles.habitStatusIconCompleted)
-        ]}>
-          {isCompleted ? <Check size={14} color="#000" strokeWidth={4} /> : null}
-        </View>
-      </Animated.View>
-    </Pressable>
-  );
+// Calculate weekly completion rate from dates
+function getWeeklyCompletionRate(completedDates: string[]): number {
+  const weekDots = getWeekDotsForDates(completedDates);
+  const completed = weekDots.filter(Boolean).length;
+  return (completed / 7) * 100;
 }
 
 export default function HomeScreen() {
@@ -550,12 +586,18 @@ export default function HomeScreen() {
     deleteHabit,
     getCelebrationPhrase,
   } = useHabits();
-  const { hasNoteForDate } = useNotes();
+  const { hasNoteForDate, getNoteForDate, updateNoteForDate, isSaving: isNoteSaving } = useNotes();
   const { items: inboxItems } = useInbox();
   const { shouldShowItem } = useWorkMode();
+  const { activeSupplements, toggleTaken, isComplete, deleteSupplement } = useSupplements();
   const [selectedDate, setSelectedDate] = useState(new Date());
+
   const [calendarModalVisible, setCalendarModalVisible] = useState(false);
   const [addOptionsVisible, setAddOptionsVisible] = useState(false);
+  const [editSupplementModalVisible, setEditSupplementModalVisible] = useState(false);
+  const [selectedSupplement, setSelectedSupplement] = useState<Supplement | null>(null);
+  const [energyTriage, setEnergyTriage] = useState<'survival' | 'normal' | 'peak'>('normal');
+  const slideAnim = useRef(new Animated.Value(1)).current; // Default to 'normal' (index 1)
 
 
   // Reflection & Celebration state
@@ -576,19 +618,44 @@ export default function HomeScreen() {
   const allTodosForDate = isPastDate
     ? getCompletedTodosForDate(selectedDate)
     : getTodosForDate(selectedDate);
-  const todosForDate = allTodosForDate.filter(todo => shouldShowItem(todo.isWork));
 
+  const filteredByEnergy = allTodosForDate.filter(t => {
+    if (energyTriage === 'survival') return t.energyLevel === 'low';
+    if (energyTriage === 'normal') return t.energyLevel === 'low' || t.energyLevel === 'medium' || !t.energyLevel;
+    return true;
+  });
 
+  const todosForDate = filteredByEnergy.filter(todo => shouldShowItem(todo.isWork));
 
-  // Calendar Strip Data - generate 60 days (30 before and 30 after today for continuous scrolling)
-  const today = new Date();
-  const calendarDays = Array.from({ length: 61 }).map((_, i) => subDays(today, 30 - i));
-  const selectedDayIndex = calendarDays.findIndex(d => isSameDay(d, selectedDate));
-  const calendarScrollRef = useRef<ScrollView>(null);
+  const filteredHabits = habits.filter(h => {
+    if (energyTriage === 'survival') return h.energyLevel === 'low';
+    if (energyTriage === 'normal') return h.energyLevel === 'low' || h.energyLevel === 'medium' || !h.energyLevel;
+    return true;
+  });
+
+  // Helper functions for calendar activity indicators
+  const getTaskCountForDate = useCallback((date: Date) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const tasksForDate = allTodos.filter(t => {
+      const taskDate = t.dueDate ? format(new Date(t.dueDate), 'yyyy-MM-dd') : null;
+      const completedDate = t.completedAt ? format(new Date(t.completedAt), 'yyyy-MM-dd') : null;
+      return taskDate === dateStr || completedDate === dateStr;
+    });
+    const completedTasks = tasksForDate.filter(t => t.completed);
+    return { total: tasksForDate.length, completed: completedTasks.length };
+  }, [allTodos]);
+
+  const getHabitCompletionForDate = useCallback((date: Date) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const completedHabits = habits.filter(h => h.completedDates.includes(dateStr));
+    return { total: habits.length, completed: completedHabits.length };
+  }, [habits]);
+
+  const [isCaptureOpen, setIsCaptureOpen] = useState(false);
 
   const handleAddPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setAddOptionsVisible(true);
+    setIsCaptureOpen(true);
   };
 
   const handleAddTask = () => {
@@ -630,11 +697,6 @@ export default function HomeScreen() {
     });
   }, [habits, isCompletedToday, toggleHabitCompletion]);
 
-  const handleCalendarPress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setCalendarModalVisible(true);
-  };
-
   const formattedSelectedDate = format(selectedDate, 'MMM d, yyyy');
   const dayName = format(selectedDate, 'EEEE');
   const isToday = isSameDay(selectedDate, new Date());
@@ -644,123 +706,20 @@ export default function HomeScreen() {
       <AmbientBackground />
       <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]} edges={['top']}>
 
-        {/* Header */}
-        <View style={styles.header}>
-          {/* Work Mode Indicator - leftmost */}
-          {/* Work Mode Indicator - leftmost */}
-          <WorkModeIndicator />
-
-          <View style={styles.headerCenter} pointerEvents="box-none">
-            <View style={styles.dateNav}>
-              <Pressable
-                hitSlop={20}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setSelectedDate(addDays(selectedDate, -1));
-                }}
-                style={styles.navArrow}
-              >
-                <ChevronLeft size={24} color="#000" strokeWidth={2.5} />
-              </Pressable>
-              <Pressable
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setSelectedDate(new Date());
-                }}
-              >
-                <Text style={styles.headerDateText}>{isToday ? 'Today' : format(selectedDate, 'MMM d')}</Text>
-              </Pressable>
-              <Pressable
-                hitSlop={20}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setSelectedDate(addDays(selectedDate, 1));
-                }}
-                style={styles.navArrow}
-              >
-                <ChevronRight size={24} color="#000" strokeWidth={2.5} />
-              </Pressable>
-            </View>
-          </View>
-
-          <View style={styles.headerRight}>
-            <Pressable style={styles.iconButton} onPress={handleCalendarPress}>
-              <Calendar size={24} color="#000" strokeWidth={1.5} />
-            </Pressable>
-
-            <Pressable style={styles.iconButton} onPress={() => router.push('/inbox')}>
-              <Inbox size={22} color="#000" strokeWidth={1.5} />
-              {inboxItems.length > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{inboxItems.length}</Text>
-                </View>
-              )}
-            </Pressable>
-          </View>
-        </View>
-
-        {/* Calendar Strip - Scrollable */}
-        <ScrollView
-          ref={calendarScrollRef}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.calendarStripScroll}
-          contentContainerStyle={styles.calendarStripContent}
-          onLayout={() => {
-            // Auto-scroll to selected date on mount
-            const dayWidth = 62; // width 54 + gap 8
-            const scrollToIndex = selectedDayIndex >= 0 ? selectedDayIndex : 30; // default to today (index 30)
-            const scrollX = scrollToIndex * dayWidth - (SCREEN_WIDTH / 2) + (dayWidth / 2);
-            calendarScrollRef.current?.scrollTo({ x: Math.max(0, scrollX), animated: false });
-          }}
-        >
-          {calendarDays.map((date: Date, index: number) => {
-            const isSelected = isSameDay(date, selectedDate);
-            const isTodayDate = isSameDay(date, today);
-            const hasNote = hasNoteForDate(date);
-
-            return (
-              <Pressable
-                key={index}
-                style={[
-                  styles.dayItem,
-                  isSelected && styles.dayItemSelected,
-                ]}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setSelectedDate(date);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.dayName,
-                    isSelected && styles.dayNameSelected,
-                    !isSelected && isTodayDate && styles.dayNameToday
-                  ]}
-                >
-                  {format(date, 'EEE')}
-                </Text>
-                <Text
-                  style={[
-                    styles.dayNumber,
-                    isSelected && styles.dayNumberSelected,
-                    !isSelected && isTodayDate && styles.dayNumberToday
-                  ]}
-                >
-                  {format(date, 'd')}
-                </Text>
-                {hasNote && !isSelected && (
-                  <View style={styles.noteDot} />
-                )}
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+        {/* Unified Calendar Header - combines mode toggle, date context, and navigation */}
+        <CalendarHeader
+          selectedDate={selectedDate}
+          onSelectDate={setSelectedDate}
+          onOpenCalendar={() => setCalendarModalVisible(true)}
+          onOpenInbox={() => router.push('/inbox')}
+          inboxCount={inboxItems.length}
+          hasNoteForDate={hasNoteForDate}
+        />
 
         <ScrollView
           style={styles.content}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 100 }}
+          contentContainerStyle={{ paddingBottom: 140 }}
           keyboardShouldPersistTaps="handled"
         >
           {/* Date Heading */}
@@ -771,6 +730,61 @@ export default function HomeScreen() {
             <Text style={styles.mainDate}>{formattedSelectedDate}</Text>
           </View>
 
+          {/* Energy Triage Selector */}
+          <View style={styles.triageContainer}>
+            <View style={styles.triageBackground}>
+              <Animated.View
+                style={[
+                  styles.triageIndicator,
+                  {
+                    width: (SCREEN_WIDTH - 64) / 3,
+                    transform: [{
+                      translateX: slideAnim.interpolate({
+                        inputRange: [0, 1, 2],
+                        outputRange: [0, (SCREEN_WIDTH - 52) / 3, ((SCREEN_WIDTH - 52) / 3) * 2]
+                      })
+                    }]
+                  }
+                ]}
+              />
+              {[
+                { id: 'survival', label: 'Survival', icon: '🔋' },
+                { id: 'normal', label: 'Normal', icon: '⚡️' },
+                { id: 'peak', label: 'Peak', icon: '🔥' },
+              ].map((mode, index) => {
+                const isActive = energyTriage === mode.id;
+                return (
+                  <Pressable
+                    key={mode.id}
+                    style={styles.triageButton}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setEnergyTriage(mode.id as any);
+                      Animated.spring(slideAnim, {
+                        toValue: index,
+                        useNativeDriver: true,
+                        damping: 15,
+                        stiffness: 150,
+                      }).start();
+                    }}
+                  >
+                    <Text style={[
+                      styles.triageIcon,
+                      isActive && styles.triageTextActive
+                    ]}>{mode.icon}</Text>
+                    <Text style={[
+                      styles.triageText,
+                      isActive && styles.triageTextActive
+                    ]}>{mode.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            {energyTriage === 'survival' && (
+              <Text style={styles.triageHint}>Growth paused. Low-energy maintenance mode.</Text>
+            )}
+          </View>
+
           {/* Tasks Section */}
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeader}>
@@ -779,7 +793,7 @@ export default function HomeScreen() {
                 <Text style={styles.sectionLabel}>{isPastDate ? 'Completed' : 'Tasks'}</Text>
               </View>
               {!isPastDate && (
-                <Pressable onPress={() => router.push('/add-todo')} style={styles.addButton}>
+                <Pressable onPress={() => router.push('/add-todo')} style={styles.addButton} hitSlop={20}>
                   <Plus size={18} color="#007AFF" strokeWidth={2} />
                   <Text style={styles.addLink}>Add</Text>
                 </Pressable>
@@ -809,6 +823,17 @@ export default function HomeScreen() {
                 }}
               />
             )}
+            {allTodosForDate.length > 0 && todosForDate.length === 0 && (
+              <View style={styles.emptyStateCard}>
+                <Text style={styles.emptyText}>
+                  {energyTriage === 'survival'
+                    ? 'Medium and high-energy tasks hidden.'
+                    : energyTriage === 'normal'
+                      ? 'High-energy tasks hidden.'
+                      : 'All tasks filtered by work mode.'}
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Habits Section */}
@@ -819,7 +844,7 @@ export default function HomeScreen() {
                   <Target size={20} color="#8E8E93" />
                   <Text style={styles.sectionLabel}>Habits</Text>
                 </View>
-                <Pressable onPress={() => router.push('/add-habit')} style={styles.addButton}>
+                <Pressable onPress={() => router.push('/add-habit')} style={styles.addButton} hitSlop={20}>
                   <Plus size={18} color="#007AFF" strokeWidth={2} />
                   <Text style={styles.addLink}>Add</Text>
                 </Pressable>
@@ -835,22 +860,92 @@ export default function HomeScreen() {
                   </Pressable>
                 </View>
               </View>
+            ) : filteredHabits.length === 0 ? (
+              <View style={styles.emptyHabitsContainer}>
+                <View style={styles.emptyStateCard}>
+                  <Text style={styles.emptyText}>
+                    {energyTriage === 'survival'
+                      ? 'Focusing on recovery. Medium and high-energy habits hidden.'
+                      : 'High-energy habits hidden.'}
+                  </Text>
+                </View>
+              </View>
             ) : (
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.habitsScrollContent}
+                contentContainerStyle={styles.habitsScrollContent} // Reuse or make specific if needed
                 decelerationRate="fast"
-                snapToInterval={142}
+                snapToInterval={100}
                 snapToAlignment="start"
               >
-                {habits.map(habit => (
-                  <HabitCard
+                {filteredHabits.map(habit => (
+                  <TrackableCard
                     key={habit.id}
-                    habit={habit}
-                    isCompleted={isCompletedToday(habit)}
-                    onToggle={handleHabitToggle}
-                    onDelete={deleteHabit}
+                    id={habit.id}
+                    emoji={habit.emoji || (habit.type === 'breaking' ? '🚫' : '⚡️')}
+                    title={habit.name}
+                    subtitle={habit.currentStreak > 0 ? `${habit.currentStreak} day streak` : undefined}
+                    progressPercent={getWeeklyCompletionRate(habit.completedDates)}
+                    isComplete={isCompletedToday(habit)}
+                    variant={habit.type === 'breaking' ? 'breaking' : 'habit'}
+                    weekDots={getWeekDotsForDates(habit.completedDates)}
+                    energyLevel={habit.energyLevel}
+                    onPress={() => handleHabitToggle(habit.id)}
+                    onDelete={() => deleteHabit(habit.id)}
+                  />
+                ))}
+              </ScrollView>
+            )}
+          </View>
+
+          {/* Pills Section */}
+          <View style={styles.habitsSection}>
+            <View style={styles.sectionHeaderPadding}>
+              <View style={styles.sectionHeader}>
+                <View style={styles.sectionTitleRow}>
+                  <Pill size={20} color="#8E8E93" />
+                  <Text style={styles.sectionLabel}>Pills</Text>
+                </View>
+                <Pressable onPress={() => router.push('/add-supplement')} style={styles.addButton} hitSlop={20}>
+                  <Plus size={18} color="#007AFF" strokeWidth={2} />
+                  <Text style={styles.addLink}>Add</Text>
+                </Pressable>
+              </View>
+            </View>
+
+            {activeSupplements.length === 0 ? (
+              <View style={styles.emptyHabitsContainer}>
+                <View style={styles.emptyStateCard}>
+                  <Text style={styles.emptyText}>No supplements tracked yet</Text>
+                  <Pressable onPress={() => router.push('/add-supplement')} style={styles.emptyAddButton}>
+                    <Text style={styles.emptyAddText}>Add a supplement</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.pillsScrollContent}
+                decelerationRate="fast"
+                snapToInterval={100}
+                snapToAlignment="start"
+              >
+                {activeSupplements.map(supplement => (
+                  <SupplementCard
+                    key={supplement.id}
+                    supplement={supplement}
+                    isTaken={supplement.takenDates.includes(format(selectedDate, 'yyyy-MM-dd'))}
+                    onToggle={toggleTaken}
+                    onDelete={deleteSupplement}
+                    onEdit={(id) => {
+                      const s = activeSupplements.find(s => s.id === id);
+                      if (s) {
+                        setSelectedSupplement(s);
+                        setEditSupplementModalVisible(true);
+                      }
+                    }}
                   />
                 ))}
               </ScrollView>
@@ -860,7 +955,16 @@ export default function HomeScreen() {
 
         </ScrollView>
 
-
+        {/* Unified Command Center (Capture Bar) */}
+        <CaptureBar
+          noteText={getNoteForDate(selectedDate)}
+          onNoteChange={(text) => updateNoteForDate(selectedDate, text)}
+          isSaving={isNoteSaving}
+          selectedDate={selectedDate}
+          isToday={isToday}
+          visible={isCaptureOpen}
+          onClose={() => setIsCaptureOpen(false)}
+        />
 
         {/* Bottom Bar */}
         <BottomNavBar onFabPress={handleAddPress} />
@@ -872,6 +976,8 @@ export default function HomeScreen() {
           selectedDate={selectedDate}
           onSelectDate={setSelectedDate}
           hasNoteForDate={hasNoteForDate}
+          getTaskCountForDate={getTaskCountForDate}
+          getHabitCompletionForDate={getHabitCompletionForDate}
         />
 
         {/* Add Options Modal */}
@@ -909,6 +1015,16 @@ export default function HomeScreen() {
           pendingTasks={todosForDate.filter(t => !t.completed).length}
         />
 
+        {/* Edit Supplement Modal */}
+        <EditSupplementModal
+          visible={editSupplementModalVisible}
+          supplement={selectedSupplement}
+          onClose={() => {
+            setEditSupplementModalVisible(false);
+            setSelectedSupplement(null);
+          }}
+        />
+
       </SafeAreaView>
     </View>
   );
@@ -918,127 +1034,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'transparent',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: 'transparent',
-    position: 'relative',
-    height: 60,
-  },
-  iconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
-  },
-  headerCenter: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1,
-    gap: 2,
-  },
-  logoText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#8E8E93',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-  dateNav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  navArrow: {
-    opacity: 0.4,
-    padding: 4,
-  },
-  headerDateText: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#000',
-  },
-  calendarStrip: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  calendarStripScroll: {
-    maxHeight: 100,
-  },
-  calendarStripContent: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 8,
-  },
-  dayItem: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    width: 54,
-    borderRadius: 24,
-    gap: 2,
-  },
-  dayItemSelected: {
-    backgroundColor: '#000',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
-    transform: [{ scale: 1.05 }], // Slight scale up for pop
-  },
-  dayItemToday: {
-    // Removed border style
-  },
-  dayName: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#8E8E93',
-    textTransform: 'uppercase',
-  },
-  dayNameSelected: {
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontWeight: '700',
-  },
-  dayNameToday: {
-    color: '#007AFF',
-    fontWeight: '700',
-  },
-  dayNumber: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#000',
-  },
-  dayNumberSelected: {
-    color: '#fff',
-    fontSize: 19,
-    fontWeight: '700',
-  },
-  dayNumberToday: {
-    color: '#007AFF',
   },
   content: {
     flex: 1,
@@ -1060,6 +1055,65 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#000',
     letterSpacing: -1,
+  },
+  triageHint: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#5856D6',
+    marginTop: 8,
+    textAlign: 'center',
+    opacity: 0.8,
+  },
+  triageContainer: {
+    paddingHorizontal: 24,
+    marginBottom: 28,
+  },
+  triageBackground: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    borderRadius: 16,
+    padding: 4,
+    gap: 4,
+  },
+  triageButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 12,
+    gap: 6,
+  },
+  triageButtonActive: {
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  triageIcon: {
+    fontSize: 16,
+  },
+  triageText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#8E8E93',
+  },
+  triageTextActive: {
+    color: '#000',
+  },
+  todoEnergyIcon: {
+    marginLeft: 8,
+    backgroundColor: '#F2F2F7',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  todoEnergyIconText: {
+    fontSize: 12,
   },
   sectionContainer: {
     paddingHorizontal: 20,
@@ -1119,65 +1173,66 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    paddingVertical: 14,
+    paddingVertical: 16,
     paddingRight: 16,
     paddingLeft: 12,
-    borderRadius: 16,
+    borderRadius: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
-    gap: 10,
+    shadowOffset: { width: 0, height: 2 }, // Increased slightly
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
+    gap: 12, // Increased gap slightly
     minHeight: ITEM_HEIGHT,
   },
   todoItemDragging: {
     shadowColor: '#5856D6',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
     elevation: 10,
     backgroundColor: '#FAFAFF',
+    transform: [{ scale: 1.02 }], // Subtle scale
   },
   dragHandle: {
     padding: 6,
     marginLeft: -4,
-    opacity: 0.5,
+    opacity: 0.3, // More subtle
   },
   todoItemCompleted: {
-    opacity: 0.55,
+    opacity: 0.6,
   },
   checkboxContainer: {
     width: 26,
     height: 26,
     borderRadius: 13,
     borderWidth: 2.5,
-    borderColor: '#D1D1D6',
+    borderColor: '#C7C7CC', // Neutral gray
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#fff',
   },
   checkboxUnchecked: {
-    borderColor: '#007AFF',
+    borderColor: '#C7C7CC', // Ensuring it stays gray
   },
   checkboxChecked: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF',
+    backgroundColor: '#5856D6', // Indigo
+    borderColor: '#5856D6',
   },
   checkboxWork: {
-    borderRadius: 13,
-    borderColor: '#D1D1D6',
+    borderRadius: 8, // Squircle for work? Or keep round? Let's keep round for consistency for now, or maybe make specific work style. User didn't ask for work specific change, so keeping generic radius but respecting previous logic if needed. Actually previous was 13.
+    borderColor: '#C7C7CC',
   },
   checkboxWorkChecked: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF',
+    backgroundColor: '#5856D6',
+    borderColor: '#5856D6',
   },
   todoText: {
     flex: 1,
     fontSize: 17,
     color: '#000',
-    fontWeight: '400',
-    letterSpacing: -0.2,
+    fontWeight: '500', // Medium weight
+    letterSpacing: -0.3,
   },
   todoTextChecked: {
     color: '#8E8E93',
@@ -1220,96 +1275,16 @@ const styles = StyleSheet.create({
   },
   habitsScrollContent: {
     paddingHorizontal: 20,
-    gap: 12,
     paddingBottom: 4,
+    // TrackableCard has its own marginRight
+  },
+  pillsScrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 4,
+    // SupplementCard has its own marginRight
   },
   emptyHabitsContainer: {
     paddingHorizontal: 20,
-  },
-  // Habit Card Styles
-  habitCard: {
-    width: 130,
-    height: 130,
-    borderRadius: 24,
-    padding: 16,
-    justifyContent: 'space-between',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  habitCardIncomplete: {
-    backgroundColor: '#fff',
-  },
-  habitCardCompleted: {
-    backgroundColor: '#000',
-  },
-  habitCardIncompleteBreaking: {
-    backgroundColor: '#FFF5F5',
-    borderWidth: 1,
-    borderColor: '#FFE5E5',
-  },
-  habitCardCompletedBreaking: {
-    backgroundColor: '#FF6B6B',
-  },
-  habitCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  habitEmoji: {
-    fontSize: 28,
-  },
-  habitCardStreak: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    backgroundColor: '#FFF9E6',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 100,
-  },
-  habitCardStreakCompleted: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  habitCardStreakText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#FF9500',
-  },
-  habitCardStreakTextCompleted: {
-    color: '#FFD60A',
-  },
-  habitCardName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000',
-    marginTop: 4,
-    paddingRight: 32,
-  },
-  habitCardNameCompleted: {
-    color: '#fff',
-  },
-  habitStatusIcon: {
-    position: 'absolute',
-    bottom: 16,
-    right: 16,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#E5E5EA',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  habitStatusIconCompleted: {
-    backgroundColor: '#fff',
-    borderColor: '#fff',
-  },
-  habitStatusIconCompletedBreaking: {
-    backgroundColor: '#fff',
-    borderColor: '#fff',
   },
   bottomBar: {
     flexDirection: 'row',
@@ -1338,99 +1313,157 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 24,
   },
   calendarModal: {
-    backgroundColor: '#fff',
-    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 16,
     width: '100%',
-    maxWidth: 340,
-    padding: 24,
+    maxWidth: 320,
+    paddingTop: 20,
+    paddingBottom: 16,
+    paddingHorizontal: 16,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 20,
+      height: 8,
     },
-    shadowOpacity: 0.2,
-    shadowRadius: 30,
-    elevation: 20,
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 16,
   },
   calendarHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
-    paddingHorizontal: 4,
+    paddingHorizontal: 8,
   },
   calendarMonthText: {
     fontSize: 17,
     fontWeight: '600',
     color: '#000',
+    letterSpacing: -0.4,
   },
   calendarNavButton: {
-    padding: 8,
-    borderRadius: 50,
-    backgroundColor: 'rgba(242, 242, 247, 0.5)',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F2F2F7',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   weekDayRow: {
     flexDirection: 'row',
-    marginBottom: 12,
+    marginBottom: 8,
+    paddingHorizontal: 4,
   },
   weekDayCell: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    height: 20,
   },
   weekDayText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#8E8E93',
+    color: '#3C3C4399',
+    textTransform: 'uppercase',
   },
   calendarGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 20,
+    paddingHorizontal: 4,
+    marginBottom: 12,
   },
   calendarDayCell: {
     width: '14.28%',
-    aspectRatio: 1,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   calendarDaySelected: {
     backgroundColor: '#000',
     borderRadius: 20,
+    width: 36,
+    height: 36,
   },
   calendarDayToday: {
-    backgroundColor: 'rgba(242, 242, 247, 0.5)',
-    borderRadius: 20,
+    borderRadius: 18,
+    width: 36,
+    height: 36,
   },
   calendarDayText: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '400',
     color: '#000',
+    includeFontPadding: false,
   },
   calendarDayTextSelected: {
     color: '#fff',
-    fontWeight: '600',
+    fontWeight: '500',
   },
   calendarDayTextToday: {
-    color: '#007AFF',
+    color: '#FF3B30',
     fontWeight: '600',
   },
+  calendarDayTextFuture: {
+    color: '#3C3C4399',
+  },
+  activityDotsContainer: {
+    position: 'absolute',
+    bottom: 2,
+    flexDirection: 'row',
+    gap: 3,
+  },
+  activityDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+  },
+  activityDotTask: {
+    backgroundColor: '#007AFF',
+  },
+  activityDotHabit: {
+    backgroundColor: '#34C759',
+  },
+  activityDotNote: {
+    backgroundColor: '#AF52DE',
+  },
+  dateSummary: {
+    marginHorizontal: 4,
+    marginBottom: 12,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#3C3C4333',
+  },
+  dateSummaryDate: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#000',
+    marginBottom: 2,
+  },
+  dateSummaryStats: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  dateSummaryStat: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: '#3C3C4399',
+  },
   calendarFooter: {
-    paddingTop: 8,
+    marginHorizontal: 4,
   },
   todayButton: {
-    backgroundColor: 'rgba(242, 242, 247, 0.5)',
-    paddingVertical: 14,
-    borderRadius: 16,
+    paddingVertical: 12,
     alignItems: 'center',
   },
   todayButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '400',
+    color: '#007AFF',
   },
   badge: {
     position: 'absolute',
@@ -1450,5 +1483,21 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 11,
     fontWeight: '700',
+  },
+  triageIndicator: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    // width is set dynamically
+    height: '100%',
+    maxHeight: 36, // Match button height roughly
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 2,
+    zIndex: 0,
   },
 });

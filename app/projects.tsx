@@ -25,6 +25,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics';
 import { useProjects } from '@/contexts/ProjectContext';
 import type { Project } from '@/types/project';
+import { AmbientBackground } from '@/components/AmbientBackground';
 import { BottomNavBar } from '@/components/BottomNavBar';
 
 const { width } = Dimensions.get('window');
@@ -168,124 +169,134 @@ export default function ProjectsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Projects</Text>
-        <Pressable
-          style={styles.headerButton}
-          onPress={handleAddProject}
-          hitSlop={10}
-        >
-          <Plus size={26} color="#000" />
-        </Pressable>
-      </View>
-
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 }]}
-        showsVerticalScrollIndicator={false}
-      >
-        {activeProjects.length === 0 && completedProjects.length === 0 ? (
-          <View style={styles.emptyState}>
-            <View style={styles.emptyIconContainer}>
-              <Target size={48} color="#C7C7CC" strokeWidth={1} />
-            </View>
-            <Text style={styles.emptyTitle}>No Projects or Goals</Text>
-            <Text style={styles.emptyText}>
-              Create a project or goal to start tracking your big ideas.
-            </Text>
-            <Pressable style={styles.createButton} onPress={handleAddProject}>
-              <Plus size={20} color="#fff" />
-              <Text style={styles.createButtonText}>Create New</Text>
-            </Pressable>
+    <View style={{ flex: 1 }}>
+      <AmbientBackground />
+      <SafeAreaView style={styles.container} edges={['top']}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <FolderKanban size={24} color="#000" strokeWidth={2} />
+            <Text style={styles.headerTitle}>Projects / Goals</Text>
           </View>
-        ) : (
-          <>
-            {/* Active Projects Grid */}
-            {/* Goals Section */}
-            {goals.length > 0 && (
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Target size={20} color="#000" />
-                  <Text style={styles.sectionTitle}>Goals</Text>
+          <Pressable
+            style={styles.headerButton}
+            onPress={handleAddProject}
+            hitSlop={10}
+          >
+            <Plus size={26} color="#000" />
+          </Pressable>
+        </View>
+
+        <ScrollView
+          style={[styles.content, { backgroundColor: 'transparent' }]}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: 100, backgroundColor: 'transparent' }]}
+          showsVerticalScrollIndicator={false}
+        >
+          {activeProjects.length === 0 && completedProjects.length === 0 ? (
+            <View style={styles.emptyState}>
+              <View style={styles.emptyIconContainer}>
+                <Target size={48} color="#C7C7CC" strokeWidth={1} />
+              </View>
+              <Text style={styles.emptyTitle}>No Projects or Goals</Text>
+              <Text style={styles.emptyText}>
+                Create a project or goal to start tracking your big ideas.
+              </Text>
+              <Pressable style={styles.createButton} onPress={handleAddProject}>
+                <Plus size={20} color="#fff" />
+                <Text style={styles.createButtonText}>Create New</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <>
+              {/* Active Projects Grid */}
+              {/* Goals Section */}
+              {goals.length > 0 && (
+                <View style={styles.section}>
+                  <View style={styles.sectionHeader}>
+                    <Target size={20} color="#000" />
+                    <Text style={styles.sectionTitle}>Goals</Text>
+                  </View>
+                  <View style={styles.gridContainer}>
+                    {goals.map((project) => (
+                      <View key={project.id} style={styles.gridItem}>
+                        <ProjectCard
+                          project={project}
+                          progress={getProjectProgress(project)}
+                          onPress={() => handleProjectPress(project.id)}
+                        />
+                      </View>
+                    ))}
+                  </View>
                 </View>
-                <View style={styles.gridContainer}>
-                  {goals.map((project) => (
-                    <View key={project.id} style={styles.gridItem}>
-                      <ProjectCard
+              )}
+
+              {/* Projects Section */}
+              {projects.length > 0 && (
+                <View style={[styles.section, goals.length > 0 && { marginTop: 32 }]}>
+                  <View style={styles.sectionHeader}>
+                    <FolderKanban size={20} color="#000" />
+                    <Text style={styles.sectionTitle}>Projects</Text>
+                  </View>
+                  <View style={styles.gridContainer}>
+                    {projects.map((project) => (
+                      <View key={project.id} style={styles.gridItem}>
+                        <ProjectCard
+                          project={project}
+                          progress={getProjectProgress(project)}
+                          onPress={() => handleProjectPress(project.id)}
+                        />
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {/* Completed Projects Section */}
+              {completedProjects.length > 0 && (
+                <View style={styles.completedSection}>
+                  <Text style={styles.sectionTitle}>Done</Text>
+                  <View style={styles.completedList}>
+                    {completedProjects.map((project) => (
+                      <CompletedRow
+                        key={project.id}
                         project={project}
-                        progress={getProjectProgress(project)}
                         onPress={() => handleProjectPress(project.id)}
                       />
-                    </View>
-                  ))}
+                    ))}
+                  </View>
                 </View>
-              </View>
-            )}
+              )}
+            </>
+          )}
+        </ScrollView>
 
-            {/* Projects Section */}
-            {projects.length > 0 && (
-              <View style={[styles.section, goals.length > 0 && { marginTop: 32 }]}>
-                <View style={styles.sectionHeader}>
-                  <FolderKanban size={20} color="#000" />
-                  <Text style={styles.sectionTitle}>Projects</Text>
-                </View>
-                <View style={styles.gridContainer}>
-                  {projects.map((project) => (
-                    <View key={project.id} style={styles.gridItem}>
-                      <ProjectCard
-                        project={project}
-                        progress={getProjectProgress(project)}
-                        onPress={() => handleProjectPress(project.id)}
-                      />
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )}
-
-            {/* Completed Projects Section */}
-            {completedProjects.length > 0 && (
-              <View style={styles.completedSection}>
-                <Text style={styles.sectionTitle}>Done</Text>
-                <View style={styles.completedList}>
-                  {completedProjects.map((project) => (
-                    <CompletedRow
-                      key={project.id}
-                      project={project}
-                      onPress={() => handleProjectPress(project.id)}
-                    />
-                  ))}
-                </View>
-              </View>
-            )}
-          </>
-        )}
-      </ScrollView>
-
-      {/* Bottom Navigation */}
-      <BottomNavBar onFabPress={handleAddProject} />
-    </SafeAreaView>
+        {/* Bottom Navigation */}
+        <BottomNavBar onFabPress={handleAddProject} />
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7', // iOS System Gray 6
+    backgroundColor: 'transparent',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    paddingBottom: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   headerTitle: {
-    fontSize: 34,
-    fontWeight: '700',
+    fontSize: 28,
+    fontWeight: '800',
     color: '#000',
     letterSpacing: -0.5,
   },

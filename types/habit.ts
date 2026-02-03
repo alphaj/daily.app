@@ -34,6 +34,8 @@ export interface Habit {
   triggerNotes?: string;
   /** For breaking habits: dates when user slipped */
   slipDates?: string[];
+  /** Energy cost of maintaining this habit */
+  energyLevel?: 'low' | 'medium' | 'high';
 }
 
 export interface HabitStats {

@@ -45,7 +45,8 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
     title: string,
     date?: Date,
     priority?: 'low' | 'medium' | 'high',
-    isWork?: boolean
+    isWork?: boolean,
+    energyLevel?: 'low' | 'medium' | 'high'
   ) => {
     const dueDate = date ? getDateKey(date) : getToday();
 
@@ -56,6 +57,7 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
       dueDate,
       priority,
       isWork,
+      energyLevel,
       createdAt: new Date().toISOString(),
     };
 
@@ -126,9 +128,10 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
     await saveTodos(newTodos);
   }, [todos, saveTodos]);
 
-  const reorderTodos = useCallback((reorderedTodos: Todo[]) => {
+  const reorderTodos = useCallback(async (reorderedTodos: Todo[]) => {
     setTodos(reorderedTodos);
-  }, []);
+    await saveTodos(reorderedTodos);
+  }, [saveTodos]);
 
   /** Get todos that were completed on a specific date */
   const getCompletedTodosForDate = useCallback((date: Date): Todo[] => {

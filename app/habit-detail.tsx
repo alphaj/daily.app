@@ -3,6 +3,7 @@ import {
     ChevronLeft,
     Repeat,
     Trash2,
+    Pencil,
 } from 'lucide-react-native';
 import React, { useState, useCallback } from 'react';
 import {
@@ -114,9 +115,14 @@ export default function HabitDetailScreen() {
 
                 <Text style={styles.headerTitle}>Habit Details</Text>
 
-                <Pressable style={styles.iconButton} onPress={handleDelete}>
-                    <Trash2 size={20} color="#FF3B30" strokeWidth={1.5} />
-                </Pressable>
+                <View style={styles.headerActions}>
+                    <Pressable style={styles.iconButton} onPress={() => router.push({ pathname: '/edit-habit', params: { id } })}>
+                        <Pencil size={20} color="#5856D6" strokeWidth={1.5} />
+                    </Pressable>
+                    <Pressable style={styles.iconButton} onPress={handleDelete}>
+                        <Trash2 size={20} color="#FF3B30" strokeWidth={1.5} />
+                    </Pressable>
+                </View>
             </View>
 
             <ScrollView
@@ -288,6 +294,11 @@ const styles = StyleSheet.create({
     },
     iconButton: {
         padding: 8,
+    },
+    headerActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
     },
     headerTitle: {
         fontSize: 17,
