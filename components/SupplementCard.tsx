@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useEffect } from 'react';
 import {
     View,
     Text,
@@ -11,6 +11,7 @@ import {
 import { Check, Flame } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import type { Supplement } from '@/types/supplement';
+import { useHaptics } from '@/hooks/useHaptics';
 
 interface SupplementCardProps {
     supplement: Supplement;
@@ -28,26 +29,47 @@ export function SupplementCard({
     onEdit,
 }: SupplementCardProps) {
     const scaleAnim = useRef(new Animated.Value(1)).current;
+    const badgeScale = useRef(new Animated.Value(isTaken ? 1 : 0)).current;
+    const ringColorAnim = useRef(new Animated.Value(isTaken ? 1 : 0)).current;
+    const haptics = useHaptics();
+
+    useEffect(() => {
+        Animated.spring(badgeScale, {
+            toValue: isTaken ? 1 : 0,
+            friction: 5,
+            tension: 200,
+            useNativeDriver: true,
+        }).start();
+        Animated.timing(ringColorAnim, {
+            toValue: isTaken ? 1 : 0,
+            duration: 250,
+            useNativeDriver: false,
+        }).start();
+    }, [isTaken]);
 
     const handlePress = useCallback(() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        if (!isTaken) {
+            haptics.doubleTap();
+        } else {
+            haptics.softTick();
+        }
 
         Animated.sequence([
             Animated.timing(scaleAnim, {
-                toValue: 0.92,
-                duration: 120,
+                toValue: 0.88,
+                duration: 80,
                 useNativeDriver: true,
             }),
             Animated.spring(scaleAnim, {
                 toValue: 1,
-                friction: 6,
-                tension: 40,
+                friction: 4,
+                tension: 200,
                 useNativeDriver: true,
             }),
         ]).start();
 
         onToggle(supplement.id);
-    }, [supplement.id, onToggle, scaleAnim]);
+    }, [supplement.id, isTaken, onToggle, scaleAnim, haptics]);
 
     const handleLongPress = useCallback(() => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -100,12 +122,19 @@ export function SupplementCard({
                     <Text style={styles.emoji}>{supplement.emoji || '💊'}</Text>
                 </View>
 
-                {/* Status Badge */}
-                {isTaken && (
-                    <View style={styles.badge}>
-                        <Check size={12} color="#fff" strokeWidth={4} />
-                    </View>
-                )}
+                {/* Status Badge - animated */}
+                <Animated.View
+                    style={[
+                        styles.badge,
+                        {
+                            transform: [{ scale: badgeScale }],
+                            opacity: badgeScale,
+                        },
+                    ]}
+                    pointerEvents={isTaken ? 'auto' : 'none'}
+                >
+                    <Check size={12} color="#fff" strokeWidth={4} />
+                </Animated.View>
 
                 {/* Fire Streak Badge (Optional - overlay or keep minimal) */}
                 {supplement.currentStreak > 0 && !isTaken && (

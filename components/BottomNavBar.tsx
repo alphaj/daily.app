@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
+import React, { useRef, useCallback } from 'react';
+import { View, Text, Pressable, StyleSheet, Platform, Animated } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LayoutGrid, Settings, Infinity, Plus, Calendar } from 'lucide-react-native';
@@ -41,13 +41,65 @@ function getActiveRoute(pathname: string): NavRoute {
     return 'home';
 }
 
+function AnimatedNavItem({
+    item,
+    isActive,
+    onPress,
+}: {
+    item: typeof NAV_ITEMS[number];
+    isActive: boolean;
+    onPress: () => void;
+}) {
+    const scaleAnim = useRef(new Animated.Value(1)).current;
+    const Icon = item.icon;
+
+    const handlePressIn = useCallback(() => {
+        Animated.spring(scaleAnim, {
+            toValue: 0.85,
+            useNativeDriver: true,
+            speed: 50,
+            bounciness: 4,
+        }).start();
+    }, [scaleAnim]);
+
+    const handlePressOut = useCallback(() => {
+        Animated.spring(scaleAnim, {
+            toValue: 1,
+            useNativeDriver: true,
+            friction: 4,
+            tension: 200,
+        }).start();
+    }, [scaleAnim]);
+
+    return (
+        <Pressable
+            style={[styles.tab, isActive && styles.tabActive]}
+            onPress={onPress}
+            onPressIn={handlePressIn}
+            onPressOut={handlePressOut}
+        >
+            <Animated.View style={{ transform: [{ scale: scaleAnim }], alignItems: 'center', gap: 4 }}>
+                <Icon
+                    size={24}
+                    color={isActive ? '#000' : '#8E8E93'}
+                    strokeWidth={isActive ? 2.5 : 2}
+                />
+                <Text style={[styles.label, isActive && styles.labelActive]}>
+                    {item.label}
+                </Text>
+            </Animated.View>
+        </Pressable>
+    );
+}
+
 export function BottomNavBar({ onFabPress }: BottomNavBarProps) {
     const router = useRouter();
     const pathname = usePathname();
     const insets = useSafeAreaInsets();
     const activeRoute = getActiveRoute(pathname);
+    const fabScale = useRef(new Animated.Value(1)).current;
 
-    const handleNavPress = (route: NavRoute, path: string) => {
+    const handleNavPress = useCallback((route: NavRoute, path: string) => {
         Haptics.selectionAsync();
 
         if (route === 'command') {
@@ -57,18 +109,35 @@ export function BottomNavBar({ onFabPress }: BottomNavBarProps) {
 
         if (pathname === path) return;
 
-        // Use push for Settings so swipe-back gesture works
         if (route === 'menu') {
             router.push(path as any);
         } else {
             router.replace(path as any);
         }
-    };
+    }, [pathname, router, onFabPress]);
+
+    const handleFabPressIn = useCallback(() => {
+        Animated.spring(fabScale, {
+            toValue: 0.88,
+            useNativeDriver: true,
+            speed: 50,
+            bounciness: 4,
+        }).start();
+    }, [fabScale]);
+
+    const handleFabPressOut = useCallback(() => {
+        Animated.spring(fabScale, {
+            toValue: 1,
+            useNativeDriver: true,
+            friction: 3,
+            tension: 300,
+        }).start();
+    }, [fabScale]);
 
     const ContainerComponent = Platform.OS === 'web' ? View : BlurView;
     const containerProps = Platform.OS === 'web'
         ? {}
-        : { intensity: 40, tint: 'light' as const }; // Reduced intensity for glass effect
+        : { intensity: 40, tint: 'light' as const };
 
     return (
         <View style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom, 20) }]}>
@@ -88,29 +157,23 @@ export function BottomNavBar({ onFabPress }: BottomNavBarProps) {
                                     key={item.route}
                                     style={styles.commandTab}
                                     onPress={() => handleNavPress(item.route, item.path)}
+                                    onPressIn={handleFabPressIn}
+                                    onPressOut={handleFabPressOut}
                                 >
-                                    <View style={styles.commandButton}>
+                                    <Animated.View style={[styles.commandButton, { transform: [{ scale: fabScale }] }]}>
                                         <Icon size={24} color="#fff" strokeWidth={2.5} />
-                                    </View>
+                                    </Animated.View>
                                 </Pressable>
-                            )
+                            );
                         }
 
                         return (
-                            <Pressable
+                            <AnimatedNavItem
                                 key={item.route}
-                                style={[styles.tab, isActive && styles.tabActive]}
+                                item={item}
+                                isActive={isActive}
                                 onPress={() => handleNavPress(item.route, item.path)}
-                            >
-                                <Icon
-                                    size={24}
-                                    color={isActive ? '#000' : '#8E8E93'}
-                                    strokeWidth={isActive ? 2.5 : 2}
-                                />
-                                <Text style={[styles.label, isActive && styles.labelActive]}>
-                                    {item.label}
-                                </Text>
-                            </Pressable>
+                            />
                         );
                     })}
                 </View>

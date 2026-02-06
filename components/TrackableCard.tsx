@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, G } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
+import { useHaptics } from '@/hooks/useHaptics';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -56,13 +57,15 @@ export function TrackableCard({
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const progressAnim = useRef(new Animated.Value(isComplete ? progressPercent : 0)).current;
   const checkOpacity = useRef(new Animated.Value(isComplete ? 1 : 0)).current;
+  const badgeScale = useRef(new Animated.Value(isComplete ? 1 : 0)).current;
+  const haptics = useHaptics();
 
   // Animate progress ring when completion state changes
   useEffect(() => {
     if (isComplete) {
       Animated.parallel([
         Animated.spring(progressAnim, {
-          toValue: Math.max(progressPercent, 100), // Fill to at least 100% when complete
+          toValue: Math.max(progressPercent, 100),
           friction: 8,
           tension: 40,
           useNativeDriver: false,
@@ -70,6 +73,12 @@ export function TrackableCard({
         Animated.timing(checkOpacity, {
           toValue: 1,
           duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.spring(badgeScale, {
+          toValue: 1,
+          friction: 4,
+          tension: 200,
           useNativeDriver: true,
         }),
       ]).start();
@@ -85,34 +94,39 @@ export function TrackableCard({
           duration: 150,
           useNativeDriver: true,
         }),
+        Animated.spring(badgeScale, {
+          toValue: 0,
+          friction: 6,
+          tension: 100,
+          useNativeDriver: true,
+        }),
       ]).start();
     }
   }, [isComplete, progressPercent]);
 
   const handlePress = useCallback(() => {
-    // Escalating haptic feedback based on completion
     if (!isComplete) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      haptics.doubleTap();
     } else {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      haptics.softTick();
     }
 
     Animated.sequence([
       Animated.timing(scaleAnim, {
-        toValue: 0.92,
-        duration: 120,
+        toValue: 0.88,
+        duration: 80,
         useNativeDriver: true,
       }),
       Animated.spring(scaleAnim, {
         toValue: 1,
-        friction: 6,
-        tension: 40,
+        friction: 4,
+        tension: 200,
         useNativeDriver: true,
       }),
     ]).start();
 
     onPress();
-  }, [isComplete, onPress, scaleAnim]);
+  }, [isComplete, onPress, scaleAnim, haptics]);
 
   const handleLongPress = useCallback(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -238,17 +252,20 @@ export function TrackableCard({
             <Text style={styles.emoji}>{emoji}</Text>
           </View>
 
-          {/* Check overlay - Badge style now */}
-          {isComplete && (
-            <Animated.View
-              style={[
-                styles.badge,
-                { backgroundColor: colors.checkBg, opacity: checkOpacity }
-              ]}
-            >
-              <Text style={styles.checkMark}>✓</Text>
-            </Animated.View>
-          )}
+          {/* Check overlay - Animated badge */}
+          <Animated.View
+            style={[
+              styles.badge,
+              {
+                backgroundColor: colors.checkBg,
+                opacity: checkOpacity,
+                transform: [{ scale: badgeScale }],
+              }
+            ]}
+            pointerEvents={isComplete ? 'auto' : 'none'}
+          >
+            <Text style={styles.checkMark}>✓</Text>
+          </Animated.View>
 
           {/* Energy Indicator */}
           {energyLevel && (

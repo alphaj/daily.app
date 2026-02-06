@@ -12,6 +12,7 @@ import * as Haptics from 'expo-haptics';
 import SwipeableRow from '@/components/SwipeableRow';
 import type { GroceryItem } from '@/types/grocery';
 import { CATEGORY_CONFIG, FREQUENCY_CONFIG } from '@/types/grocery';
+import { useHaptics } from '@/hooks/useHaptics';
 
 interface GroceryCardProps {
     item: GroceryItem;
@@ -35,34 +36,64 @@ export function GroceryCard({
     isLast = false,
 }: GroceryCardProps) {
     const scaleAnim = useRef(new Animated.Value(1)).current;
+    const checkScale = useRef(new Animated.Value(1)).current;
     const categoryConfig = CATEGORY_CONFIG[item.category];
+    const haptics = useHaptics();
 
     const handlePress = useCallback(() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
         if (isShoppingMode) {
-            // In shopping mode, tap marks as purchased
+            // In shopping mode - satisfying check-off
+            haptics.doubleTap();
             Animated.sequence([
                 Animated.timing(scaleAnim, {
                     toValue: 0.95,
+                    duration: 80,
+                    useNativeDriver: true,
+                }),
+                Animated.spring(scaleAnim, {
+                    toValue: 1,
+                    friction: 4,
+                    tension: 200,
+                    useNativeDriver: true,
+                }),
+            ]).start();
+            // Bounce the check circle
+            Animated.sequence([
+                Animated.timing(checkScale, {
+                    toValue: 1.3,
                     duration: 100,
                     useNativeDriver: true,
                 }),
-                Animated.timing(scaleAnim, {
+                Animated.spring(checkScale, {
                     toValue: 1,
-                    duration: 100,
+                    friction: 4,
+                    tension: 200,
                     useNativeDriver: true,
                 }),
             ]).start();
             onMarkPurchased(item.id);
         } else {
-            // In pantry mode, tap toggles on/off list
+            // In pantry mode - toggle with tick
+            haptics.softTick();
+            Animated.sequence([
+                Animated.timing(scaleAnim, {
+                    toValue: 0.97,
+                    duration: 60,
+                    useNativeDriver: true,
+                }),
+                Animated.spring(scaleAnim, {
+                    toValue: 1,
+                    friction: 6,
+                    tension: 200,
+                    useNativeDriver: true,
+                }),
+            ]).start();
             onToggleList(item.id);
         }
-    }, [item.id, isShoppingMode, onToggleList, onMarkPurchased, scaleAnim]);
+    }, [item.id, isShoppingMode, onToggleList, onMarkPurchased, scaleAnim, checkScale, haptics]);
 
     const handleLongPress = useCallback(() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        haptics.warning();
         Alert.alert(
             item.name,
             item.brand ? `${item.brand}` : undefined,
@@ -76,17 +107,17 @@ export function GroceryCard({
                 { text: 'Cancel', style: 'cancel' },
             ]
         );
-    }, [item, onToggleList, onDelete, onEdit]);
+    }, [item, onToggleList, onDelete, onEdit, haptics]);
 
     const handleDelete = useCallback(() => {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        haptics.destructive();
         onDelete(item.id);
-    }, [item.id, onDelete]);
+    }, [item.id, onDelete, haptics]);
 
     const handleSwipeComplete = useCallback(() => {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        haptics.celebration();
         onMarkPurchased(item.id);
-    }, [item.id, onMarkPurchased]);
+    }, [item.id, onMarkPurchased, haptics]);
 
     return (
         <SwipeableRow
@@ -141,9 +172,9 @@ export function GroceryCard({
 
                     {/* Status indicator */}
                     {isShoppingMode ? (
-                        <View style={styles.checkCircle}>
+                        <Animated.View style={[styles.checkCircle, { transform: [{ scale: checkScale }] }]}>
                             <Check size={16} color="#fff" strokeWidth={3} />
-                        </View>
+                        </Animated.View>
                     ) : (
                         <View style={[
                             styles.listIndicator,

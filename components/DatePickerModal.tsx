@@ -15,6 +15,7 @@ import { BlurView } from 'expo-blur';
 import { X, Calendar, Sun, Sunrise, XCircle, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { format, isToday, isTomorrow, addDays, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, isBefore, startOfDay } from 'date-fns';
+import { useHaptics } from '@/hooks/useHaptics';
 
 interface DatePickerModalProps {
     visible: boolean;
@@ -228,13 +229,16 @@ export function DatePickerModal({
         }
     }, [visible, scaleAnim, opacityAnim, selectedDate]);
 
+    const haptics = useHaptics();
+
     const handleSelect = (date: Date | null) => {
-        Haptics.selectionAsync();
+        haptics.action();
         onSelectDate(date);
         onClose();
     };
 
     const handleConfirmCustomDate = () => {
+        haptics.doubleTap();
         handleSelect(tempDate);
     };
 

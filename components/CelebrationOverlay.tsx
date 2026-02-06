@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
+import * as Haptics from 'expo-haptics';
 
 const { width, height } = Dimensions.get('window');
 
@@ -8,10 +9,14 @@ interface Particle {
   y: Animated.Value;
   opacity: Animated.Value;
   scale: Animated.Value;
+  rotation: Animated.Value;
   color: string;
+  size: number;
+  shape: 'circle' | 'square' | 'diamond';
 }
 
-const COLORS = ['#007AFF', '#34C759', '#FF9500', '#FF2D55', '#5856D6'];
+const COLORS = ['#007AFF', '#34C759', '#FF9500', '#FF2D55', '#5856D6', '#FFCC00', '#AF52DE'];
+const SHAPES: Particle['shape'][] = ['circle', 'square', 'diamond'];
 
 interface CelebrationOverlayProps {
   visible: boolean;
@@ -26,46 +31,60 @@ export function CelebrationOverlay({ visible, onComplete, celebrationPhrase }: C
 
   useEffect(() => {
     if (visible) {
-      particles.current = Array.from({ length: 12 }, () => ({
+      // Haptic burst on celebration start
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+
+      const particleCount = 20;
+      particles.current = Array.from({ length: particleCount }, () => ({
         x: new Animated.Value(width / 2),
         y: new Animated.Value(height / 2),
         opacity: new Animated.Value(1),
         scale: new Animated.Value(0),
+        rotation: new Animated.Value(0),
         color: COLORS[Math.floor(Math.random() * COLORS.length)],
+        size: 6 + Math.random() * 6,
+        shape: SHAPES[Math.floor(Math.random() * SHAPES.length)],
       }));
 
       const particleAnimations = particles.current.map((particle, i) => {
-        const angle = (i / 12) * Math.PI * 2;
-        const distance = 80 + Math.random() * 40;
+        const angle = (i / particleCount) * Math.PI * 2;
+        const distance = 60 + Math.random() * 80;
         const targetX = width / 2 + Math.cos(angle) * distance;
         const targetY = height / 2 + Math.sin(angle) * distance - 100;
+        const duration = 350 + Math.random() * 200;
 
         return Animated.parallel([
           Animated.timing(particle.x, {
             toValue: targetX,
-            duration: 400,
+            duration,
             useNativeDriver: true,
           }),
           Animated.timing(particle.y, {
-            toValue: targetY,
-            duration: 400,
+            toValue: targetY + 30, // gravity effect
+            duration,
+            useNativeDriver: true,
+          }),
+          Animated.timing(particle.rotation, {
+            toValue: Math.random() * 4 - 2, // random spin
+            duration,
             useNativeDriver: true,
           }),
           Animated.sequence([
-            Animated.timing(particle.scale, {
+            Animated.spring(particle.scale, {
               toValue: 1,
-              duration: 150,
+              friction: 5,
+              tension: 200,
               useNativeDriver: true,
             }),
             Animated.timing(particle.scale, {
               toValue: 0,
-              duration: 250,
+              duration: duration * 0.4,
               useNativeDriver: true,
             }),
           ]),
           Animated.timing(particle.opacity, {
             toValue: 0,
-            duration: 400,
+            duration,
             useNativeDriver: true,
           }),
         ]);
@@ -135,10 +154,18 @@ export function CelebrationOverlay({ visible, onComplete, celebrationPhrase }: C
             styles.particle,
             {
               backgroundColor: particle.color,
+              width: particle.size,
+              height: particle.size,
+              borderRadius: particle.shape === 'circle' ? particle.size / 2 : particle.shape === 'diamond' ? 2 : 1,
               transform: [
                 { translateX: Animated.subtract(particle.x, width / 2) },
                 { translateY: Animated.subtract(particle.y, height / 2) },
                 { scale: particle.scale },
+                { rotate: particle.rotation.interpolate({
+                    inputRange: [-2, 2],
+                    outputRange: ['-180deg', '180deg'],
+                  })
+                },
               ],
               opacity: particle.opacity,
             },
@@ -176,9 +203,6 @@ const styles = StyleSheet.create({
   },
   particle: {
     position: 'absolute',
-    width: 8,
-    height: 8,
-    borderRadius: 4,
   },
 });
 

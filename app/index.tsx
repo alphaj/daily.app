@@ -50,6 +50,8 @@ import { TrackableCard } from '@/components/TrackableCard';
 import { SupplementCard } from '@/components/SupplementCard';
 import { EditSupplementModal } from '@/components/EditSupplementModal';
 import type { Supplement } from '@/types/supplement';
+import { AnimatedListItem } from '@/components/AnimatedListItem';
+import { useHaptics } from '@/hooks/useHaptics';
 
 import { BlurView } from 'expo-blur';
 import { AmbientBackground } from '@/components/AmbientBackground';
@@ -87,12 +89,15 @@ function DraggableTodoItem({
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const translateY = useRef(new Animated.Value(0)).current;
   const elevationAnim = useRef(new Animated.Value(0)).current;
+  const checkboxScale = useRef(new Animated.Value(1)).current;
+  const strikethroughWidth = useRef(new Animated.Value(todo.completed ? 1 : 0)).current;
+  const haptics = useHaptics();
 
   const panResponder = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
     onPanResponderGrant: () => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      haptics.action();
       onDragStart(index);
       Animated.parallel([
         Animated.spring(scaleAnim, {
@@ -126,7 +131,7 @@ function DraggableTodoItem({
           useNativeDriver: true,
         }),
       ]).start();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      haptics.dragSnap();
       onDragEnd();
     },
     onPanResponderTerminate: () => {
@@ -137,77 +142,112 @@ function DraggableTodoItem({
       ]).start();
       onDragEnd();
     },
-  }), [index, onDragStart, onDragEnd, onDragMove, scaleAnim, translateY, elevationAnim]);
+  }), [index, onDragStart, onDragEnd, onDragMove, scaleAnim, translateY, elevationAnim, haptics]);
 
   const handlePress = useCallback(() => {
     if (!isDragging) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const willComplete = !todo.completed;
+
+      if (willComplete) {
+        // Satisfying bounce + haptic on completion
+        haptics.doubleTap();
+        Animated.sequence([
+          Animated.timing(checkboxScale, {
+            toValue: 1.3,
+            duration: 100,
+            useNativeDriver: true,
+          }),
+          Animated.spring(checkboxScale, {
+            toValue: 1,
+            friction: 4,
+            tension: 200,
+            useNativeDriver: true,
+          }),
+        ]).start();
+        Animated.timing(strikethroughWidth, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: false,
+        }).start();
+      } else {
+        haptics.softTick();
+        Animated.timing(strikethroughWidth, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: false,
+        }).start();
+      }
+
       toggleTodo(todo.id);
     }
-  }, [todo.id, toggleTodo, isDragging]);
+  }, [todo.id, todo.completed, toggleTodo, isDragging, haptics, checkboxScale, strikethroughWidth]);
 
   const handleDelete = useCallback(() => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    haptics.destructive();
     deleteTodo(todo.id);
-  }, [todo.id, deleteTodo]);
+  }, [todo.id, deleteTodo, haptics]);
 
   const isBeingDragged = draggedIndex === index;
   const shouldOffset = draggedIndex !== null && !isBeingDragged;
 
   return (
-    <Animated.View
-      style={[
-        styles.todoItemWrapper,
-        {
-          transform: [
-            { scale: isBeingDragged ? scaleAnim : 1 },
-            { translateY: isBeingDragged ? translateY : 0 },
-          ],
-          zIndex: isBeingDragged ? 999 : 1,
-          opacity: shouldOffset ? 0.7 : 1,
-        },
-      ]}
-    >
-      <SwipeableRow onDelete={handleDelete}>
-        <Pressable onPress={handlePress} disabled={isDragging}>
-          <Animated.View
-            style={[
-              styles.todoItem,
-              todo.completed && styles.todoItemCompleted,
-              isBeingDragged && styles.todoItemDragging,
-            ]}
-          >
-            <View {...panResponder.panHandlers} style={styles.dragHandle}>
-              <GripVertical size={18} color="#C7C7CC" />
-            </View>
-            <Pressable
-              onPress={handlePress}
+    <AnimatedListItem index={index} staggerDelay={40} baseDelay={50}>
+      <Animated.View
+        style={[
+          styles.todoItemWrapper,
+          {
+            transform: [
+              { scale: isBeingDragged ? scaleAnim : 1 },
+              { translateY: isBeingDragged ? translateY : 0 },
+            ],
+            zIndex: isBeingDragged ? 999 : 1,
+            opacity: shouldOffset ? 0.7 : 1,
+          },
+        ]}
+      >
+        <SwipeableRow onDelete={handleDelete}>
+          <Pressable onPress={handlePress} disabled={isDragging}>
+            <Animated.View
               style={[
-                styles.checkboxContainer,
-                todo.isWork && styles.checkboxWork,
-                todo.completed ? styles.checkboxChecked : styles.checkboxUnchecked,
-                todo.isWork && todo.completed && styles.checkboxWorkChecked,
+                styles.todoItem,
+                todo.completed && styles.todoItemCompleted,
+                isBeingDragged && styles.todoItemDragging,
               ]}
-              disabled={isDragging}
             >
-              {todo.completed && <Check size={14} color="#fff" strokeWidth={4} />}
-            </Pressable>
-
-            <Text style={[styles.todoText, todo.completed && styles.todoTextChecked]} numberOfLines={1}>
-              {todo.title}
-            </Text>
-
-            {todo.energyLevel && (
-              <View style={styles.todoEnergyIcon}>
-                <Text style={styles.todoEnergyIconText}>
-                  {todo.energyLevel === 'low' ? '🔋' : todo.energyLevel === 'medium' ? '⚡️' : '🔥'}
-                </Text>
+              <View {...panResponder.panHandlers} style={styles.dragHandle}>
+                <GripVertical size={18} color="#C7C7CC" />
               </View>
-            )}
-          </Animated.View>
-        </Pressable>
-      </SwipeableRow>
-    </Animated.View >
+              <Animated.View style={{ transform: [{ scale: checkboxScale }] }}>
+                <Pressable
+                  onPress={handlePress}
+                  style={[
+                    styles.checkboxContainer,
+                    todo.isWork && styles.checkboxWork,
+                    todo.completed ? styles.checkboxChecked : styles.checkboxUnchecked,
+                    todo.isWork && todo.completed && styles.checkboxWorkChecked,
+                  ]}
+                  disabled={isDragging}
+                >
+                  {todo.completed && <Check size={14} color="#fff" strokeWidth={4} />}
+                </Pressable>
+              </Animated.View>
+
+              <Text style={[styles.todoText, todo.completed && styles.todoTextChecked]} numberOfLines={1}>
+                {todo.title}
+              </Text>
+
+              {todo.energyLevel && (
+                <View style={styles.todoEnergyIcon}>
+                  <Text style={styles.todoEnergyIconText}>
+                    {todo.energyLevel === 'low' ? '🔋' : todo.energyLevel === 'medium' ? '⚡️' : '🔥'}
+                  </Text>
+                </View>
+              )}
+            </Animated.View>
+          </Pressable>
+        </SwipeableRow>
+      </Animated.View>
+    </AnimatedListItem>
   );
 }
 
@@ -600,10 +640,14 @@ export default function HomeScreen() {
   const slideAnim = useRef(new Animated.Value(1)).current; // Default to 'normal' (index 1)
 
 
+  // Haptic patterns
+  const haptics = useHaptics();
+
   // Reflection & Celebration state
   const [showCelebration, setShowCelebration] = useState(false);
   const [showReflection, setShowReflection] = useState(false);
   const [reflectionHabit, setReflectionHabit] = useState<Habit | null>(null);
+  const [celebrationMessage, setCelebrationMessage] = useState<string | null>(null);
 
   // Daily summary hook
   const { shouldShow: showDailySummary, markShown: dismissDailySummary } = useDailySummary();
@@ -668,7 +712,7 @@ export default function HomeScreen() {
     router.push('/add-habit');
   };
 
-  // Handle habit toggle with reflection/celebration logic
+  // Handle habit toggle with reflection/celebration logic + streak milestones
   const handleHabitToggle = useCallback((habitId: string) => {
     const habit = habits.find(h => h.id === habitId);
     if (!habit) return;
@@ -679,23 +723,35 @@ export default function HomeScreen() {
     if (wasCompletedBefore && habit.currentStreak > 0 && habit.whyStatement) {
       setReflectionHabit(habit);
       setShowReflection(true);
-      // Still toggle the habit
     }
 
     toggleHabitCompletion(habitId).then((nowCompleted) => {
       if (nowCompleted) {
+        const newStreak = habit.currentStreak + 1;
+
+        // Check for streak milestones
+        const MILESTONES = [7, 14, 21, 30, 50, 100, 365];
+        const hitMilestone = MILESTONES.includes(newStreak);
+
+        if (hitMilestone) {
+          haptics.streakMilestone();
+          setCelebrationMessage(`${newStreak} day streak! ${habit.emoji || ''}`);
+          setShowCelebration(true);
+        }
+
         setTimeout(() => {
           const allCompleted = habits.every(h =>
             h.id === habitId ? true : isCompletedToday(h)
           );
           if (allCompleted && habits.length > 0) {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            haptics.celebration();
+            setCelebrationMessage(null); // Use default phrase
             setShowCelebration(true);
           }
-        }, 100);
+        }, hitMilestone ? 1500 : 100);
       }
     });
-  }, [habits, isCompletedToday, toggleHabitCompletion]);
+  }, [habits, isCompletedToday, toggleHabitCompletion, haptics]);
 
   const formattedSelectedDate = format(selectedDate, 'MMM d, yyyy');
   const dayName = format(selectedDate, 'EEEE');
@@ -991,8 +1047,11 @@ export default function HomeScreen() {
         {/* Celebration Overlay */}
         <CelebrationOverlay
           visible={showCelebration}
-          onComplete={() => setShowCelebration(false)}
-          celebrationPhrase={getCelebrationPhrase()}
+          onComplete={() => {
+            setShowCelebration(false);
+            setCelebrationMessage(null);
+          }}
+          celebrationPhrase={celebrationMessage || getCelebrationPhrase()}
         />
 
         {/* Reflection Modal */}

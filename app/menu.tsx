@@ -36,6 +36,7 @@ import { useOnboarding } from '@/contexts/OnboardingContext';
 import { BlurView } from 'expo-blur';
 import { AmbientBackground } from '@/components/AmbientBackground';
 import { BottomNavBar } from '@/components/BottomNavBar';
+import { AnimatedListItem } from '@/components/AnimatedListItem';
 
 interface MenuItemProps {
     icon: React.ReactNode;
@@ -87,14 +88,16 @@ function MenuItem({
     );
 }
 
-function MenuSection({ title, children }: { title?: string; children: React.ReactNode }) {
+function MenuSection({ title, children, index = 0 }: { title?: string; children: React.ReactNode; index?: number }) {
     return (
-        <View style={styles.section}>
-            {title && <Text style={styles.sectionTitle}>{title}</Text>}
-            <View style={styles.sectionContent}>
-                {children}
+        <AnimatedListItem index={index} staggerDelay={80} baseDelay={100} slideDistance={15}>
+            <View style={styles.section}>
+                {title && <Text style={styles.sectionTitle}>{title}</Text>}
+                <View style={styles.sectionContent}>
+                    {children}
+                </View>
             </View>
-        </View>
+        </AnimatedListItem>
     );
 }
 
@@ -179,7 +182,7 @@ export default function MenuScreen() {
 
 
                     {/* Preferences */}
-                    <MenuSection title="PREFERENCES">
+                    <MenuSection title="PREFERENCES" index={0}>
                         <MenuItem
                             icon={<View style={[styles.iconBox, { backgroundColor: '#FF9500' }]}><Bell size={19} color="white" strokeWidth={2.5} /></View>}
                             title="Notifications"
@@ -188,7 +191,7 @@ export default function MenuScreen() {
                     </MenuSection>
 
                     {/* Support */}
-                    <MenuSection title="SUPPORT">
+                    <MenuSection title="SUPPORT" index={1}>
                         <MenuItem
                             icon={<View style={[styles.iconBox, { backgroundColor: '#5856D6' }]}><HelpCircle size={19} color="white" strokeWidth={2.5} /></View>}
                             title="Help & FAQ"
@@ -209,7 +212,7 @@ export default function MenuScreen() {
                     </MenuSection>
 
                     {/* Legal */}
-                    <MenuSection title="LEGAL">
+                    <MenuSection title="LEGAL" index={2}>
                         <MenuItem
                             icon={<View style={[styles.iconBox, { backgroundColor: '#8E8E93' }]}><Shield size={19} color="white" strokeWidth={2.5} /></View>}
                             title="Privacy Policy"
@@ -219,7 +222,7 @@ export default function MenuScreen() {
                     </MenuSection>
 
                     {/* Danger Zone */}
-                    <MenuSection>
+                    <MenuSection index={3}>
                         <MenuItem
                             icon={<View style={[styles.iconBox, { backgroundColor: '#FF3B30' }]}><LogOut size={19} color="white" strokeWidth={2.5} /></View>}
                             title="Sign Out"

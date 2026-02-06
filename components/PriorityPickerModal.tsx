@@ -12,6 +12,7 @@ import {
 import { BlurView } from 'expo-blur';
 import { X, Flag, Check } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import { useHaptics } from '@/hooks/useHaptics';
 
 type Priority = 'low' | 'medium' | 'high' | undefined;
 
@@ -40,6 +41,7 @@ export function PriorityPickerModal({
     const opacityAnim = useRef(new Animated.Value(0)).current;
     const [isVisible, setIsVisible] = useState(visible);
 
+    const haptics = useHaptics();
     const modalWidth = Math.min(screenWidth - 32, 380);
 
     useEffect(() => {
@@ -77,7 +79,16 @@ export function PriorityPickerModal({
     }, [visible, scaleAnim, opacityAnim]);
 
     const handleSelect = (priority: Priority) => {
-        Haptics.selectionAsync();
+        // Escalating haptic intensity based on priority level
+        if (priority === 'high') {
+            haptics.priority('high');
+        } else if (priority === 'medium') {
+            haptics.priority('medium');
+        } else if (priority === 'low') {
+            haptics.priority('low');
+        } else {
+            haptics.softTick();
+        }
         onSelectPriority(priority);
         onClose();
     };

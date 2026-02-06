@@ -48,6 +48,14 @@ function RootLayoutNav() {
     SplashScreen.hideAsync();
   }, []);
 
+  const modalScreenOptions = {
+    presentation: "modal" as const,
+    headerShown: false,
+    animation: 'slide_from_bottom' as const,
+    gestureEnabled: true,
+    gestureDirection: 'vertical' as const,
+  };
+
   return (
     <Stack screenOptions={{ headerBackTitle: "Back" }}>
       <Stack.Screen name="index" options={{ headerShown: false, animation: 'fade' }} />
@@ -56,24 +64,24 @@ function RootLayoutNav() {
       <Stack.Screen name="habits" options={{ headerShown: false, animation: 'fade' }} />
       <Stack.Screen name="inbox" options={{ headerShown: false, animation: 'fade' }} />
       <Stack.Screen name="menu" options={{ headerShown: false, animation: 'fade' }} />
-      <Stack.Screen name="add-habit" options={{ presentation: "modal", headerShown: false }} />
-      <Stack.Screen name="add-todo" options={{ presentation: "modal", headerShown: false }} />
+      <Stack.Screen name="add-habit" options={modalScreenOptions} />
+      <Stack.Screen name="add-todo" options={modalScreenOptions} />
       <Stack.Screen name="projects" options={{ headerShown: false, animation: 'fade' }} />
-      <Stack.Screen name="add-project" options={{ presentation: "modal", headerShown: false }} />
+      <Stack.Screen name="add-project" options={modalScreenOptions} />
       <Stack.Screen name="project/[id]" options={{ headerShown: false, animation: 'slide_from_right' }} />
       <Stack.Screen name="habit-detail" options={{ headerShown: false, animation: 'slide_from_right' }} />
 
-      <Stack.Screen name="add-supplement" options={{ presentation: "modal", headerShown: false }} />
-      <Stack.Screen name="edit-supplement" options={{ presentation: "modal", headerShown: false }} />
+      <Stack.Screen name="add-supplement" options={modalScreenOptions} />
+      <Stack.Screen name="edit-supplement" options={modalScreenOptions} />
       <Stack.Screen name="groceries" options={{ headerShown: false, animation: 'fade' }} />
-      <Stack.Screen name="add-grocery" options={{ presentation: "modal", headerShown: false }} />
+      <Stack.Screen name="add-grocery" options={modalScreenOptions} />
       <Stack.Screen name="later" options={{ headerShown: false, animation: 'fade' }} />
       <Stack.Screen name="history" options={{ headerShown: false, animation: 'fade' }} />
-      <Stack.Screen name="add-event" options={{ presentation: "modal", headerShown: false }} />
-      <Stack.Screen name="edit-habit" options={{ presentation: "modal", headerShown: false }} />
+      <Stack.Screen name="add-event" options={modalScreenOptions} />
+      <Stack.Screen name="edit-habit" options={modalScreenOptions} />
       <Stack.Screen name="privacy-policy" options={{ headerShown: false, animation: 'slide_from_right' }} />
       <Stack.Screen name="journal" options={{ headerShown: false, animation: 'fade' }} />
-      <Stack.Screen name="add-journal" options={{ presentation: "modal", headerShown: false }} />
+      <Stack.Screen name="add-journal" options={modalScreenOptions} />
     </Stack>
   );
 }
