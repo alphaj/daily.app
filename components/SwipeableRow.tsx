@@ -12,6 +12,9 @@ interface SwipeableRowProps {
     onDelete: () => void;
     onConvertToTask?: () => void;
     onConvertToHabit?: () => void;
+    rightActionColor?: string;
+    rightActionIcon?: React.ReactNode;
+    leftActionIcon?: React.ReactNode;
     style?: object;
 }
 
@@ -22,6 +25,7 @@ export default class SwipeableRow extends Component<SwipeableRowProps> {
         progress: Animated.AnimatedInterpolation<number>,
         dragAnimatedValue: Animated.AnimatedInterpolation<number>
     ) => {
+        const { rightActionColor = '#FF3B30', rightActionIcon } = this.props;
         const trans = dragAnimatedValue.interpolate({
             inputRange: [-80, 0],
             outputRange: [0, 80],
@@ -34,7 +38,7 @@ export default class SwipeableRow extends Component<SwipeableRowProps> {
                     style={[
                         {
                             flex: 1,
-                            backgroundColor: '#FF3B30',
+                            backgroundColor: rightActionColor,
                             justifyContent: 'center',
                             alignItems: 'center',
                             transform: [{ translateX: trans }],
@@ -45,7 +49,7 @@ export default class SwipeableRow extends Component<SwipeableRowProps> {
                         style={styles.rightAction}
                         onPress={this.handleDelete}
                     >
-                        <Trash2 size={24} color="#fff" />
+                        {rightActionIcon || <Trash2 size={24} color="#fff" />}
                     </RectButton>
                 </Animated.View>
             </View>
@@ -77,7 +81,7 @@ export default class SwipeableRow extends Component<SwipeableRowProps> {
                         style={[styles.leftAction, { backgroundColor: '#34C759' }]}
                         onPress={this.handleConvertToTask}
                     >
-                        <CheckCircle2 size={22} color="#fff" strokeWidth={2} />
+                        {this.props.leftActionIcon || <CheckCircle2 size={22} color="#fff" strokeWidth={2} />}
                     </RectButton>
                 )}
                 {onConvertToHabit && (

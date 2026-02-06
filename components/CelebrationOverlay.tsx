@@ -1,17 +1,76 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  withSequence,
+  withDelay,
+  runOnJS,
+} from 'react-native-reanimated';
 
 const { width, height } = Dimensions.get('window');
 
-interface Particle {
-  x: Animated.Value;
-  y: Animated.Value;
-  opacity: Animated.Value;
-  scale: Animated.Value;
-  color: string;
-}
-
 const COLORS = ['#007AFF', '#34C759', '#FF9500', '#FF2D55', '#5856D6'];
+const PARTICLE_COUNT = 12;
+
+// Pre-compute particle trajectories
+const PARTICLE_CONFIGS = Array.from({ length: PARTICLE_COUNT }, (_, i) => {
+  const angle = (i / PARTICLE_COUNT) * Math.PI * 2;
+  const distance = 80 + Math.random() * 40;
+  return {
+    targetX: Math.cos(angle) * distance,
+    targetY: Math.sin(angle) * distance - 100,
+    color: COLORS[Math.floor(Math.random() * COLORS.length)],
+  };
+});
+
+function ParticleView({ index, visible }: { index: number; visible: boolean }) {
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const opacity = useSharedValue(0);
+  const scale = useSharedValue(0);
+
+  const config = PARTICLE_CONFIGS[index];
+
+  useEffect(() => {
+    if (visible) {
+      opacity.value = 1;
+      translateX.value = withTiming(config.targetX, { duration: 400 });
+      translateY.value = withTiming(config.targetY, { duration: 400 });
+      scale.value = withSequence(
+        withTiming(1, { duration: 150 }),
+        withTiming(0, { duration: 250 }),
+      );
+      opacity.value = withTiming(0, { duration: 400 });
+    } else {
+      translateX.value = 0;
+      translateY.value = 0;
+      opacity.value = 0;
+      scale.value = 0;
+    }
+  }, [visible]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
+    opacity: opacity.value,
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        styles.particle,
+        { backgroundColor: config.color },
+        animatedStyle,
+      ]}
+    />
+  );
+}
 
 interface CelebrationOverlayProps {
   visible: boolean;
@@ -20,95 +79,33 @@ interface CelebrationOverlayProps {
 }
 
 export function CelebrationOverlay({ visible, onComplete, celebrationPhrase }: CelebrationOverlayProps) {
-  const particles = useRef<Particle[]>([]);
-  const textOpacity = useRef(new Animated.Value(0)).current;
-  const textScale = useRef(new Animated.Value(0.5)).current;
+  const textOpacity = useSharedValue(0);
+  const textScale = useSharedValue(0.5);
 
   useEffect(() => {
     if (visible) {
-      particles.current = Array.from({ length: 12 }, () => ({
-        x: new Animated.Value(width / 2),
-        y: new Animated.Value(height / 2),
-        opacity: new Animated.Value(1),
-        scale: new Animated.Value(0),
-        color: COLORS[Math.floor(Math.random() * COLORS.length)],
-      }));
-
-      const particleAnimations = particles.current.map((particle, i) => {
-        const angle = (i / 12) * Math.PI * 2;
-        const distance = 80 + Math.random() * 40;
-        const targetX = width / 2 + Math.cos(angle) * distance;
-        const targetY = height / 2 + Math.sin(angle) * distance - 100;
-
-        return Animated.parallel([
-          Animated.timing(particle.x, {
-            toValue: targetX,
-            duration: 400,
-            useNativeDriver: true,
-          }),
-          Animated.timing(particle.y, {
-            toValue: targetY,
-            duration: 400,
-            useNativeDriver: true,
-          }),
-          Animated.sequence([
-            Animated.timing(particle.scale, {
-              toValue: 1,
-              duration: 150,
-              useNativeDriver: true,
-            }),
-            Animated.timing(particle.scale, {
-              toValue: 0,
-              duration: 250,
-              useNativeDriver: true,
-            }),
-          ]),
-          Animated.timing(particle.opacity, {
-            toValue: 0,
-            duration: 400,
-            useNativeDriver: true,
-          }),
-        ]);
-      });
-
-      // Text animation
-      const textAnimation = Animated.parallel([
-        Animated.sequence([
-          Animated.timing(textOpacity, {
-            toValue: 1,
-            duration: 200,
-            useNativeDriver: true,
-          }),
-          Animated.delay(600),
-          Animated.timing(textOpacity, {
-            toValue: 0,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-        ]),
-        Animated.sequence([
-          Animated.spring(textScale, {
-            toValue: 1,
-            speed: 12,
-            bounciness: 10,
-            useNativeDriver: true,
-          }),
-          Animated.delay(500),
-          Animated.timing(textScale, {
-            toValue: 0.8,
-            duration: 200,
-            useNativeDriver: true,
-          }),
-        ]),
-      ]);
-
-      Animated.parallel([...particleAnimations, textAnimation]).start(() => {
-        textOpacity.setValue(0);
-        textScale.setValue(0.5);
-        onComplete();
-      });
+      // Text fade in
+      textOpacity.value = withSequence(
+        withTiming(1, { duration: 200 }),
+        withDelay(600, withTiming(0, { duration: 300 })),
+      );
+      // Text scale spring then shrink
+      textScale.value = withSequence(
+        withSpring(1, { damping: 8, stiffness: 120 }),
+        withDelay(500, withTiming(0.8, { duration: 200 }, () => {
+          runOnJS(onComplete)();
+        })),
+      );
+    } else {
+      textOpacity.value = 0;
+      textScale.value = 0.5;
     }
-  }, [visible, onComplete, textOpacity, textScale]);
+  }, [visible, onComplete]);
+
+  const textStyle = useAnimatedStyle(() => ({
+    opacity: textOpacity.value,
+    transform: [{ scale: textScale.value }],
+  }));
 
   if (!visible) return null;
 
@@ -117,33 +114,13 @@ export function CelebrationOverlay({ visible, onComplete, celebrationPhrase }: C
   return (
     <View style={styles.container} pointerEvents="none">
       {/* Celebration Text */}
-      <Animated.View style={[
-        styles.textContainer,
-        {
-          opacity: textOpacity,
-          transform: [{ scale: textScale }],
-        }
-      ]}>
+      <Animated.View style={[styles.textContainer, textStyle]}>
         <Text style={styles.celebrationText}>{displayPhrase}</Text>
       </Animated.View>
 
       {/* Particles */}
-      {particles.current.map((particle, i) => (
-        <Animated.View
-          key={i}
-          style={[
-            styles.particle,
-            {
-              backgroundColor: particle.color,
-              transform: [
-                { translateX: Animated.subtract(particle.x, width / 2) },
-                { translateY: Animated.subtract(particle.y, height / 2) },
-                { scale: particle.scale },
-              ],
-              opacity: particle.opacity,
-            },
-          ]}
-        />
+      {PARTICLE_CONFIGS.map((_, i) => (
+        <ParticleView key={i} index={i} visible={visible} />
       ))}
     </View>
   );
@@ -181,4 +158,3 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
 });
-

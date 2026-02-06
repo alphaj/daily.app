@@ -1,20 +1,22 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     View,
     Text,
     StyleSheet,
     Modal,
     Pressable,
-    Animated,
-    Dimensions,
 } from 'react-native';
+import Animated, {
+    useSharedValue,
+    useAnimatedStyle,
+    withTiming,
+    withSpring,
+} from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Sun, Moon, Check, ChevronRight, Sparkles } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { format, isToday, subDays } from 'date-fns';
-
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const MORNING_PROMPT_KEY = 'last_morning_prompt';
 const EVENING_PROMPT_KEY = 'last_evening_prompt';
@@ -47,29 +49,27 @@ export function DailySummaryModal({
 }: DailySummaryModalProps) {
     const insets = useSafeAreaInsets();
     const timeOfDay = getTimeOfDay();
-    const fadeAnim = useRef(new Animated.Value(0)).current;
-    const slideAnim = useRef(new Animated.Value(50)).current;
+    const fade = useSharedValue(0);
+    const slide = useSharedValue(50);
 
     useEffect(() => {
         if (visible) {
-            Animated.parallel([
-                Animated.timing(fadeAnim, {
-                    toValue: 1,
-                    duration: 300,
-                    useNativeDriver: true,
-                }),
-                Animated.spring(slideAnim, {
-                    toValue: 0,
-                    friction: 8,
-                    tension: 40,
-                    useNativeDriver: true,
-                }),
-            ]).start();
+            fade.value = withTiming(1, { duration: 300 });
+            slide.value = withSpring(0, { damping: 14, stiffness: 80 });
         } else {
-            fadeAnim.setValue(0);
-            slideAnim.setValue(50);
+            fade.value = 0;
+            slide.value = 50;
         }
-    }, [visible, fadeAnim, slideAnim]);
+    }, [visible]);
+
+    const backdropStyle = useAnimatedStyle(() => ({
+        opacity: fade.value,
+    }));
+
+    const contentStyle = useAnimatedStyle(() => ({
+        opacity: fade.value,
+        transform: [{ translateY: slide.value }],
+    }));
 
     const handleDismiss = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -82,7 +82,7 @@ export function DailySummaryModal({
     return (
         <Modal visible={visible} transparent animationType="none" onRequestClose={handleDismiss}>
             <View style={styles.overlay}>
-                <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
+                <Animated.View style={[styles.backdrop, backdropStyle]}>
                     <Pressable style={StyleSheet.absoluteFill} onPress={handleDismiss} />
                 </Animated.View>
 
@@ -91,9 +91,8 @@ export function DailySummaryModal({
                         styles.content,
                         {
                             paddingBottom: Math.max(insets.bottom, 24),
-                            opacity: fadeAnim,
-                            transform: [{ translateY: slideAnim }],
                         },
+                        contentStyle,
                     ]}
                 >
                     {/* Greeting */}

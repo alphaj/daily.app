@@ -1,9 +1,12 @@
 import { useRouter } from 'expo-router';
 import {
     Zap,
-    Flame,
     Check,
     Plus,
+    TrendingUp,
+    TrendingDown,
+    Minus,
+    Trophy,
 } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
@@ -14,9 +17,10 @@ import {
     ScrollView,
     Alert,
 } from 'react-native';
+import Animated, { FadeInDown, FadeOutRight, LinearTransition } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { useHabits } from '@/contexts/HabitContext';
+import { useHabits, getHabitRhythm } from '@/contexts/HabitContext';
 import SwipeableRow from '@/components/SwipeableRow';
 import { AmbientBackground } from '@/components/AmbientBackground';
 import { BottomNavBar } from '@/components/BottomNavBar';
@@ -39,6 +43,7 @@ function HabitItem({
 }) {
     const completed = isCompletedToday(habit);
     const weekProgress = getWeeklyProgress(habit);
+    const rhythm = getHabitRhythm(habit);
 
     const handlePress = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -95,10 +100,24 @@ function HabitItem({
                     <Text style={[styles.habitName, completed && styles.habitNameCompleted]}>
                         {habit.name}
                     </Text>
-                    {habit.currentStreak > 0 && (
-                        <View style={styles.streakBadge}>
-                            <Flame size={14} color="#FF9500" />
-                            <Text style={styles.streakText}>{habit.currentStreak}</Text>
+                    {rhythm.thisMonth.rate > 0 && (
+                        <View style={[
+                            styles.rhythmPill,
+                            rhythm.thisMonth.rate >= 0.8 ? styles.rhythmPillGreen :
+                            rhythm.thisMonth.rate >= 0.5 ? styles.rhythmPillOrange :
+                            styles.rhythmPillGray
+                        ]}>
+                            {rhythm.trend === 'rising' ? <TrendingUp size={12} color={rhythm.thisMonth.rate >= 0.8 ? '#34C759' : '#FF9500'} /> :
+                             rhythm.trend === 'declining' ? <TrendingDown size={12} color="#8E8E93" /> :
+                             <Minus size={12} color="#8E8E93" />}
+                            <Text style={[
+                                styles.rhythmPillText,
+                                rhythm.thisMonth.rate >= 0.8 ? { color: '#34C759' } :
+                                rhythm.thisMonth.rate >= 0.5 ? { color: '#FF9500' } :
+                                { color: '#8E8E93' }
+                            ]}>
+                                {Math.round(rhythm.thisMonth.rate * 100)}%
+                            </Text>
                         </View>
                     )}
                 </View>
@@ -236,23 +255,22 @@ export default function HabitsScreen() {
                                 <Text style={styles.statValue}>
                                     {completedToday}/{totalHabits}
                                 </Text>
-                                <Text style={styles.statLabel}>
-                                    {activeTab === 'building' ? 'Today' : 'Clean Today'}
-                                </Text>
-                            </View>
-                            <View style={styles.statDivider} />
-                            <View style={styles.statItem}>
-                                <Text style={styles.statValue}>{stats.longestStreak}</Text>
-                                <Text style={styles.statLabel}>Best Streak</Text>
+                                <Text style={styles.statLabel}>This Week</Text>
                             </View>
                             <View style={styles.statDivider} />
                             <View style={styles.statItem}>
                                 <Text style={styles.statValue}>
                                     {Math.round(stats.weeklyCompletionRate * 100)}%
                                 </Text>
-                                <Text style={styles.statLabel}>
-                                    {activeTab === 'building' ? 'This Week' : 'Days Strong'}
-                                </Text>
+                                <Text style={styles.statLabel}>Monthly</Text>
+                            </View>
+                            <View style={styles.statDivider} />
+                            <View style={styles.statItem}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                    <Trophy size={16} color="#FFD700" />
+                                    <Text style={[styles.statValue, { fontSize: 20 }]}>{stats.longestStreak}</Text>
+                                </View>
+                                <Text style={styles.statLabel}>Best Streak</Text>
                             </View>
                         </View>
                     </View>
@@ -273,15 +291,21 @@ export default function HabitsScreen() {
                             </View>
                         ) : (
                             filteredHabits.map((habit) => (
-                                <HabitItem
+                                <Animated.View
                                     key={habit.id}
-                                    habit={habit}
-                                    isCompletedToday={isCompletedToday}
-                                    getWeeklyProgress={getWeeklyProgress}
-                                    onToggle={toggleHabitCompletion}
-                                    onDelete={deleteHabit}
-                                    onPress={handleHabitPress}
-                                />
+                                    entering={FadeInDown.duration(300)}
+                                    exiting={FadeOutRight.duration(250)}
+                                    layout={LinearTransition.springify().damping(18).stiffness(120)}
+                                >
+                                    <HabitItem
+                                        habit={habit}
+                                        isCompletedToday={isCompletedToday}
+                                        getWeeklyProgress={getWeeklyProgress}
+                                        onToggle={toggleHabitCompletion}
+                                        onDelete={deleteHabit}
+                                        onPress={handleHabitPress}
+                                    />
+                                </Animated.View>
                             ))
                         )}
                     </View>
@@ -498,20 +522,6 @@ const styles = StyleSheet.create({
     habitNameCompleted: {
         color: '#8E8E93',
     },
-    streakBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#FFF5E6',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 12,
-        gap: 4,
-    },
-    streakText: {
-        fontSize: 14,
-        fontWeight: '700',
-        color: '#FF9500',
-    },
     weekProgress: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -589,5 +599,26 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         marginTop: -16,
+    },
+    rhythmPill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+        gap: 3,
+    },
+    rhythmPillGreen: {
+        backgroundColor: '#E8FFE8',
+    },
+    rhythmPillOrange: {
+        backgroundColor: '#FFF5E6',
+    },
+    rhythmPillGray: {
+        backgroundColor: '#F2F2F7',
+    },
+    rhythmPillText: {
+        fontSize: 13,
+        fontWeight: '700',
     },
 });

@@ -29,8 +29,6 @@ export type ReplenishFrequency =
 export interface GroceryItem {
     id: string;
     name: string;
-    /** Emoji for visual identification (🥛, 🍎, 🧀) */
-    emoji?: string;
     /** Auto-assigned or manual category */
     category: GroceryCategory;
     /** e.g. "2 lbs", "1 dozen", "6 pack" */
@@ -49,6 +47,8 @@ export interface GroceryItem {
     lastPurchased?: string;
     /** History of purchase dates (ISO strings) */
     purchaseHistory: string[];
+    /** When item was marked purchased this shopping session (ISO string) */
+    purchasedAt?: string;
     createdAt: string;
     /** Manual sorting within category */
     order: number;
@@ -62,17 +62,17 @@ export interface GroceryStats {
 }
 
 /** Category configuration for UI */
-export const CATEGORY_CONFIG: Record<GroceryCategory, { label: string; emoji: string; color: string; order: number }> = {
-    produce: { label: 'Produce', emoji: '🥬', color: '#34C759', order: 0 },
-    dairy: { label: 'Dairy', emoji: '🥛', color: '#5AC8FA', order: 1 },
-    meat: { label: 'Meat & Seafood', emoji: '🥩', color: '#FF6961', order: 2 },
-    bakery: { label: 'Bakery', emoji: '🍞', color: '#FFCC00', order: 3 },
-    frozen: { label: 'Frozen', emoji: '🧊', color: '#00C7BE', order: 4 },
-    pantry: { label: 'Pantry', emoji: '🥫', color: '#FF9500', order: 5 },
-    beverages: { label: 'Beverages', emoji: '🥤', color: '#007AFF', order: 6 },
-    snacks: { label: 'Snacks', emoji: '🍿', color: '#AF52DE', order: 7 },
-    household: { label: 'Household', emoji: '🧹', color: '#8E8E93', order: 8 },
-    personal: { label: 'Personal Care', emoji: '🧴', color: '#FF2D55', order: 9 },
+export const CATEGORY_CONFIG: Record<GroceryCategory, { label: string; icon: string; color: string; order: number }> = {
+    produce: { label: 'Produce', icon: 'fruit-cherries', color: '#34C759', order: 0 },
+    dairy: { label: 'Dairy', icon: 'cup', color: '#5AC8FA', order: 1 },
+    meat: { label: 'Meat & Seafood', icon: 'food-drumstick', color: '#FF6961', order: 2 },
+    bakery: { label: 'Bakery', icon: 'bread-slice', color: '#FFCC00', order: 3 },
+    frozen: { label: 'Frozen', icon: 'snowflake', color: '#00C7BE', order: 4 },
+    pantry: { label: 'Pantry', icon: 'cupboard-outline', color: '#FF9500', order: 5 },
+    beverages: { label: 'Beverages', icon: 'cup-water', color: '#007AFF', order: 6 },
+    snacks: { label: 'Snacks', icon: 'cookie', color: '#AF52DE', order: 7 },
+    household: { label: 'Household', icon: 'broom', color: '#8E8E93', order: 8 },
+    personal: { label: 'Personal Care', icon: 'hand-wash-outline', color: '#FF2D55', order: 9 },
 };
 
 /** Frequency configuration for UI */

@@ -187,6 +187,7 @@ export function EditSupplementModal({ visible, supplement, onClose }: EditSupple
                             style={styles.scrollView}
                             contentContainerStyle={styles.scrollContent}
                             keyboardShouldPersistTaps="handled"
+                            keyboardDismissMode="interactive"
                             showsVerticalScrollIndicator={false}
                         >
                             {/* Name Input */}

@@ -6,12 +6,14 @@ import {
     HelpCircle,
     MessageSquare,
     Star,
-    Shield,
-    LogOut,
-    Briefcase,
+    Settings,
+    User,
+    Puzzle,
     Heart,
-    CheckCircle2,
-    Zap,
+    LifeBuoy,
+    BookOpen,
+    Share,
+    ArrowLeft,
 } from 'lucide-react-native';
 import React, { useRef } from 'react';
 import {
@@ -24,6 +26,8 @@ import {
     Platform,
     Linking,
     Animated,
+    Image,
+    Share as RNShare,
 } from 'react-native';
 import * as StoreReview from 'expo-store-review';
 import Constants from 'expo-constants';
@@ -63,7 +67,6 @@ function MenuItem({
             style={({ pressed }) => [
                 styles.menuItem,
                 pressed && styles.menuItemPressed,
-                !isLast && styles.menuItemBorder
             ]}
             onPress={() => {
                 Haptics.selectionAsync();
@@ -83,20 +86,12 @@ function MenuItem({
                 {value && <Text style={styles.menuValue}>{value}</Text>}
                 {showChevron && <ChevronRight size={18} color="#C7C7CC" strokeWidth={2} />}
             </View>
+            {!isLast && <View style={[styles.menuItemBorder, { position: 'absolute', bottom: 0, right: 0, left: 0 }]} />}
         </Pressable>
     );
 }
 
-function MenuSection({ title, children }: { title?: string; children: React.ReactNode }) {
-    return (
-        <View style={styles.section}>
-            {title && <Text style={styles.sectionTitle}>{title}</Text>}
-            <View style={styles.sectionContent}>
-                {children}
-            </View>
-        </View>
-    );
-}
+
 
 
 export default function MenuScreen() {
@@ -151,7 +146,19 @@ export default function MenuScreen() {
             <SafeAreaView style={styles.safeArea} edges={['top']}>
                 {/* Header */}
                 <View style={styles.header}>
-                    <Text style={styles.headerTitleLarge}>Settings</Text>
+                    <Pressable
+                        style={styles.backButtonCircle}
+                        onPress={() => router.back()}
+                        hitSlop={20}
+                    >
+                        <ArrowLeft size={20} color="#000" strokeWidth={2.5} />
+                    </Pressable>
+
+                    <Text style={styles.headerTitle}>Settings</Text>
+
+                    <Pressable style={styles.redeemButton} onPress={() => router.push('/redeem')}>
+                        <Text style={styles.redeemButtonText}>Redeem</Text>
+                    </Pressable>
                 </View>
 
                 <ScrollView
@@ -159,84 +166,88 @@ export default function MenuScreen() {
                     contentContainerStyle={styles.scrollContent}
                     showsVerticalScrollIndicator={false}
                 >
-                    {/* Dashboard / Journey Card */}
-                    <View style={styles.dashboardContainer}>
-                        <View style={styles.dashboardHeader}>
-                            <View style={styles.avatarCircle}>
-                                <Text style={styles.avatarInitial}>Y</Text>
-                            </View>
-                            <View style={styles.dashboardHeaderText}>
-                                <Text style={styles.dashboardTitle}>Your Journey</Text>
-                                <Text style={styles.dashboardSubtitle}>Continuous Progress</Text>
-                            </View>
-                            <View style={styles.completionBadge}>
-                                <Text style={styles.completionBadgeEmoji}>🔥</Text>
-                                <Text style={styles.completionBadgeText}>{completedCount}</Text>
-                            </View>
-                        </View>
+                    {/* Main Settings List */}
+                    <View style={styles.section}>
+                        <MenuItem
+                            icon={<User size={22} color="#000" strokeWidth={2} />}
+                            title="Account"
+                            onPress={() => router.push('/settings-account')}
+                        />
+                        <MenuItem
+                            icon={<Star size={22} color="#000" strokeWidth={2} />}
+                            title="Membership"
+                            onPress={() => router.push('/settings-membership')}
+                        />
+                        <MenuItem
+                            icon={<Bell size={22} color="#000" strokeWidth={2} />}
+                            title="Notifications"
+                            onPress={() => router.push('/settings-notifications')}
+                        />
+                        <MenuItem
+                            icon={<Puzzle size={22} color="#000" strokeWidth={2} />}
+                            title="Widgets"
+                            onPress={() => router.push('/settings-widgets')}
+                        />
+                        <MenuItem
+                            icon={<Heart size={22} color="#000" strokeWidth={2} />}
+                            title="Apple Health"
+                            onPress={() => router.push('/settings-health')}
+                        />
+                        <MenuItem
+                            icon={<Settings size={22} color="#000" strokeWidth={2} />}
+                            title="Preferences"
+                            onPress={() => router.push('/settings-preferences')}
+                            isLast
+                        />
                     </View>
 
+                    {/* Share Card */}
+                    <Pressable style={styles.shareCard} onPress={() => {
+                        RNShare.share({
+                            message: 'I use Daily to build better habits. Try it! https://apps.apple.com/app/id6740611817',
+                        });
+                    }}>
+                        <View style={styles.shareContent}>
+                            <Text style={styles.shareTitle}>
+                                Share Daily, get a{'\n'}month free
+                            </Text>
+                            <Text style={styles.shareSubtitle}>
+                                You get 1 month of Premium free when a friend joins.
+                            </Text>
+                        </View>
+                        <View style={styles.shareIconContainer}>
+                            <Share size={24} color="#000" strokeWidth={2} />
+                        </View>
+                    </Pressable>
 
 
-                    {/* Preferences */}
-                    <MenuSection title="PREFERENCES">
+                    {/* Help Section */}
+                    <View style={styles.section}>
                         <MenuItem
-                            icon={<View style={[styles.iconBox, { backgroundColor: '#FF9500' }]}><Bell size={19} color="white" strokeWidth={2.5} /></View>}
-                            title="Notifications"
+                            icon={<LifeBuoy size={22} color="#000" strokeWidth={2} />}
+                            title="Help"
+                            onPress={() => router.push('/settings-help')}
                             isLast
                         />
-                    </MenuSection>
+                    </View>
 
-                    {/* Support */}
-                    <MenuSection title="SUPPORT">
+                    {/* Sign Out */}
+                    <View style={styles.section}>
                         <MenuItem
-                            icon={<View style={[styles.iconBox, { backgroundColor: '#5856D6' }]}><HelpCircle size={19} color="white" strokeWidth={2.5} /></View>}
-                            title="Help & FAQ"
-                            onPress={() => Linking.openURL('https://trydailyapp.com')}
-                        />
-                        <MenuItem
-                            icon={<View style={[styles.iconBox, { backgroundColor: '#34C759' }]}><MessageSquare size={19} color="white" strokeWidth={2.5} /></View>}
-                            title="Contact Us"
-                            onPress={() => Linking.openURL('mailto:support@trydailyapp.com?subject=Daily%20App%20Support')}
-                        />
-                        <MenuItem
-                            icon={<View style={[styles.iconBox, { backgroundColor: '#FFCC00' }]}><Star size={19} color="white" strokeWidth={2.5} /></View>}
-                            title="Rate the App"
-                            onPress={handleRateApp}
-                            isLast
-                            value={`v${Constants.expoConfig?.version || '1.0.0'}`}
-                        />
-                    </MenuSection>
-
-                    {/* Legal */}
-                    <MenuSection title="LEGAL">
-                        <MenuItem
-                            icon={<View style={[styles.iconBox, { backgroundColor: '#8E8E93' }]}><Shield size={19} color="white" strokeWidth={2.5} /></View>}
-                            title="Privacy Policy"
-                            onPress={() => router.push('/privacy-policy')}
-                            isLast
-                        />
-                    </MenuSection>
-
-                    {/* Danger Zone */}
-                    <MenuSection>
-                        <MenuItem
-                            icon={<View style={[styles.iconBox, { backgroundColor: '#FF3B30' }]}><LogOut size={19} color="white" strokeWidth={2.5} /></View>}
+                            icon={<View style={{ width: 22, alignItems: 'center' }}><Text style={{ fontSize: 18 }}>🚪</Text></View>}
                             title="Sign Out"
                             onPress={handleSignOut}
                             danger
                             isLast
                         />
-                    </MenuSection>
+                    </View>
 
-
-
-                    <Text style={styles.footerText}>
-                        Designed with ❤️ for us
+                    <Text style={styles.versionText}>
+                        Version {Constants.expoConfig?.version ?? '1.0.0'}
                     </Text>
+
                 </ScrollView>
             </SafeAreaView>
-            <BottomNavBar />
         </View>
     );
 }
@@ -244,261 +255,154 @@ export default function MenuScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: 'transparent',
+        // Removed solid background to let AmbientBackground show through
     },
     safeArea: {
         flex: 1,
     },
     header: {
-        paddingHorizontal: 16, // Standard iOS padding
-        paddingVertical: 16,
-        paddingBottom: 8, // Reduced bottom padding
-    },
-    headerButton: {
+        paddingHorizontal: 16,
+        paddingVertical: 12,
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 8,
-        paddingVertical: 10,
+        justifyContent: 'space-between',
+        zIndex: 10,
     },
-    headerButtonPressed: {
-        opacity: 0.5,
-    },
-    headerBackText: {
-        fontSize: 17,
-        color: '#007AFF',
-        marginLeft: -4,
-        fontWeight: '400',
+    backButtonCircle: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: 'rgba(255,255,255,0.8)', // Semi-transparent
+        alignItems: 'center',
+        justifyContent: 'center',
+        // Subtle shadow
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
     },
     headerTitle: {
         fontSize: 17,
         fontWeight: '600',
         color: '#000',
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        textAlign: 'center',
+        zIndex: -1,
     },
-    headerTitleLarge: {
-        fontSize: 34,
-        fontWeight: '700',
-        color: '#000',
-        letterSpacing: -0.5,
+    redeemButton: {
+        backgroundColor: '#000', // Black for premium look
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
     },
-    headerRight: {
-        width: 60,
-    },
-    headerLeft: {
-        width: 60,
+    redeemButtonText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#fff', // White text
     },
     scrollView: {
         flex: 1,
     },
     scrollContent: {
-        paddingBottom: 120,
-        paddingHorizontal: 0,
-    },
-    largeTitle: {
-        fontSize: 34,
-        fontWeight: '700',
-        color: '#000',
-        letterSpacing: -1,
-        marginLeft: 16,
-        marginBottom: 20,
-        marginTop: 10,
-    },
-    dashboardContainer: {
-        marginHorizontal: 16, // Standard 16px
-        marginBottom: 24,
-        // Removed shadows and background color for a cleaner header look
-        padding: 0,
-    },
-    dashboardHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 16, // Add space between profile and badge if needed, or adjust
-    },
-    avatarCircle: {
-        width: 60, // Slightly larger for header impact
-        height: 60,
-        borderRadius: 30,
-        backgroundColor: '#F2F2F7',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: 16,
-    },
-    avatarInitial: {
-        fontSize: 24,
-        fontWeight: '600',
-        color: '#1C1C1E',
-    },
-    dashboardHeaderText: {
-        flex: 1,
-        justifyContent: 'center',
-    },
-    dashboardTitle: {
-        fontSize: 20, // Slightly larger
-        fontWeight: '600',
-        color: '#1C1C1E',
-        letterSpacing: -0.4,
-        marginBottom: 2,
-    },
-    dashboardSubtitle: {
-        fontSize: 15, // Standard body size
-        color: '#8E8E93',
-        fontWeight: '400',
-        letterSpacing: -0.2,
-    },
-    completionBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#FFF8E6', // Keep the pill but maybe move it?
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 100, // Fully round
-        gap: 4,
-    },
-    completionBadgeEmoji: {
-        fontSize: 14,
-    },
-    completionBadgeText: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#FF9500',
-        letterSpacing: -0.3,
-    },
-    statsContainer: {
-        flexDirection: 'row',
-        marginHorizontal: 16,
-        marginBottom: 24,
-        gap: 12,
-    },
-    statCard: {
-        flex: 1,
-        backgroundColor: '#fff',
-        borderRadius: 12, // Tighter radius
-        padding: 16,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        // Removed shadows
-    },
-    statCardIconContainer: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
-        backgroundColor: '#E0F2FE',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    statCardContent: {
-        flex: 1,
-    },
-    statCardValue: {
-        fontSize: 22,
-        fontWeight: '700',
-        color: '#1C1C1E',
-        letterSpacing: -0.5,
-        marginBottom: 2,
-    },
-    statCardLabel: {
-        fontSize: 13,
-        color: '#8E8E93',
-        fontWeight: '500',
-        letterSpacing: -0.2,
+        paddingTop: 24,
+        paddingBottom: 40,
+        gap: 24,
     },
     section: {
-        marginBottom: 28, // Tighter spacing between sections
-        marginHorizontal: 16, // Standard inset margin
-    },
-    sectionTitle: {
-        fontSize: 13,
-        fontWeight: '400', // Standard iOS section header weight
-        color: '#636366', // Standard iOS gray
-        marginBottom: 8,
-        marginLeft: 16, // Indent text slightly relative to card
-        textTransform: 'uppercase',
-        letterSpacing: -0.1,
-    },
-    sectionContent: {
-        backgroundColor: '#fff',
-        borderRadius: 10, // iOS standard is usually 10-12 for inset grouped
-        overflow: 'hidden',
-        // Start NO SHADOWS
-        // shadowColor: '#000',
-        // shadowOffset: { width: 0, height: 3 },
-        // shadowOpacity: 0.04,
-        // shadowRadius: 10,
-        // elevation: 2,
-        // End NO SHADOWS
-    },
-    focusSection: {
-        marginBottom: 32,
         marginHorizontal: 16,
-        backgroundColor: '#fff',
-        borderRadius: 10,
-        padding: 4,
+        backgroundColor: 'rgba(255,255,255,0.7)', // Translucent glass effect
+        borderRadius: 16,
+        overflow: 'hidden',
     },
     menuItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 12, // Slightly taller click area? 11-12 is good.
+        paddingVertical: 16,
         paddingHorizontal: 16,
-        minHeight: 48, // Compact
+        backgroundColor: 'transparent', // Let section background show
     },
     menuItemPressed: {
-        backgroundColor: '#E5E5EA', // Standard iOS press color
+        backgroundColor: 'rgba(0,0,0,0.05)',
     },
     menuItemBorder: {
         borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: '#C6C6C8', // Standard separator
-        marginLeft: 60, // Align with text start (30 icon + 14 margin + 16 pad) -> 16+30+14 = 60
+        borderBottomColor: 'rgba(60,60,67,0.1)', // Subtle separator
+        marginLeft: 54, // Align with text start
     },
     menuIconContainer: {
-        width: 30, // 30px
-        alignItems: 'center',
+        width: 30,
+        alignItems: 'flex-start',
         justifyContent: 'center',
-        marginRight: 14,
-    },
-    iconBox: {
-        width: 30, // 30px
-        height: 30,
-        borderRadius: 7, // ~22% of width
-        alignItems: 'center',
-        justifyContent: 'center',
+        marginRight: 8,
     },
     menuContent: {
         flex: 1,
-        // marginLeft: 12, // Handled by container gap now
         justifyContent: 'center',
+    },
+    menuTitle: {
+        fontSize: 17,
+        fontWeight: '500', // Medium weight for cleaner look
+        color: '#000',
+        letterSpacing: -0.2,
+    },
+    menuSubtitle: {
+        fontSize: 13,
+        color: '#8E8E93',
+        marginTop: 2,
+    },
+    menuTitleDanger: {
+        color: '#FF3B30',
+    },
+    menuValue: {
+        fontSize: 17,
+        color: '#8E8E93',
+        fontWeight: '400',
     },
     menuRight: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
     },
-    menuTitle: {
-        fontSize: 17,
-        fontWeight: '400',
-        color: '#000000', // Pure black often better in light mode
-        letterSpacing: -0.24, // San Francisco tracking
+    shareCard: {
+        marginHorizontal: 16,
+        backgroundColor: 'rgba(255,255,255,0.7)', // Match section transparency
+        borderRadius: 20,
+        padding: 24,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        // Optional shadow for card
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
     },
-    menuTitleDanger: {
-        color: '#FF3B30',
+    shareContent: {
+        flex: 1,
+        paddingRight: 16,
     },
-    menuSubtitle: {
-        fontSize: 12,
-        color: '#8E8E93',
-        marginTop: 2,
+    shareTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#000',
+        marginBottom: 6,
+        lineHeight: 24,
     },
-    menuValue: {
-        fontSize: 17, // Match title size
-        color: '#8E8E93',
-        fontWeight: '400',
-    },
-    footerText: {
-        textAlign: 'center',
-        color: '#8E8E93',
+    shareSubtitle: {
         fontSize: 13,
+        color: '#8E8E93',
         lineHeight: 18,
-        marginTop: 8, // closer to last element
-        marginBottom: 30,
-        fontWeight: '400',
-        opacity: 1,
+    },
+    shareIconContainer: {
+        // No background, just the icon usually, or could add a subtle bg
+    },
+    versionText: {
+        textAlign: 'center',
+        fontSize: 13,
+        color: 'rgba(60,60,67,0.5)',
+        marginTop: 12,
+        marginBottom: 20,
     },
 });

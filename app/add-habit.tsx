@@ -10,12 +10,15 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Modal,
+  Switch,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useHabits } from '@/contexts/HabitContext';
 import { useWorkMode } from '@/contexts/WorkModeContext';
-import type { DayOfWeek, HabitType } from '@/types/habit';
+import type { DayOfWeek, HabitType, ImplementationIntention } from '@/types/habit';
 import { WorkToggleRow } from '@/components/WorkToggleRow';
 
 // Popular habit emojis - just the essentials for building habits
@@ -63,6 +66,13 @@ export default function AddHabitScreen() {
   const [habitType, setHabitType] = useState<HabitType>('building');
   const [triggerNotes, setTriggerNotes] = useState('');
   const [energyLevel, setEnergyLevel] = useState<'low' | 'medium' | 'high'>('medium');
+  const [hasPreferredTime, setHasPreferredTime] = useState(false);
+  const [preferredTime, setPreferredTime] = useState('09:00');
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  // Implementation intention fields
+  const [intentionCue, setIntentionCue] = useState('');
+  const [intentionWhere, setIntentionWhere] = useState('');
+  const [intentionInstead, setIntentionInstead] = useState('');
 
   // Get appropriate emojis based on habit type
   const QUICK_EMOJIS = habitType === 'building' ? QUICK_EMOJIS_BUILDING : QUICK_EMOJIS_BREAKING;
@@ -72,9 +82,18 @@ export default function AddHabitScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       // If all days are selected, pass undefined (means every day)
       const scheduledDays = selectedDays.length === 7 ? undefined : selectedDays;
+      // Build intention object
+      const intention: ImplementationIntention = {};
+      if (habitType === 'building') {
+        if (intentionCue.trim()) intention.cue = intentionCue.trim();
+        if (intentionWhere.trim()) intention.where = intentionWhere.trim();
+      } else {
+        if (intentionInstead.trim()) intention.insteadAction = intentionInstead.trim();
+      }
+      const hasIntention = Object.keys(intention).length > 0;
       addHabit(
         habitName.trim(),
-        {},
+        hasIntention ? intention : undefined,
         selectedEmoji || undefined,
         whyStatement.trim() || undefined,
         celebrationPhrase.trim() || undefined,
@@ -82,7 +101,8 @@ export default function AddHabitScreen() {
         isWork,
         habitType,
         habitType === 'breaking' ? triggerNotes.trim() || undefined : undefined,
-        energyLevel
+        energyLevel,
+        hasPreferredTime ? preferredTime : undefined
       );
       router.back();
     }
@@ -160,6 +180,7 @@ export default function AddHabitScreen() {
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
         >
           {/* Main Content */}
           <View style={styles.content}>
@@ -329,6 +350,37 @@ export default function AddHabitScreen() {
               </View>
             </View>
 
+            {/* Reminder Time Section */}
+            <View style={styles.timeSection}>
+              <View style={styles.timeSectionHeader}>
+                <Text style={styles.daySectionLabel}>Reminder time</Text>
+                <Switch
+                  value={hasPreferredTime}
+                  onValueChange={(val) => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setHasPreferredTime(val);
+                  }}
+                  trackColor={{ false: '#E5E5EA', true: '#5856D6' }}
+                  thumbColor="#fff"
+                />
+              </View>
+              {hasPreferredTime && (
+                <Pressable
+                  style={styles.timeButton}
+                  onPress={() => setShowTimePicker(true)}
+                >
+                  <Text style={styles.timeButtonText}>
+                    {(() => {
+                      const [h, m] = preferredTime.split(':').map(Number);
+                      const period = h >= 12 ? 'PM' : 'AM';
+                      const displayH = h % 12 || 12;
+                      return `${displayH}:${m.toString().padStart(2, '0')} ${period}`;
+                    })()}
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+
             {/* Reflection Fields */}
             <View style={styles.reflectionSection}>
               <Text style={styles.reflectionLabel}>Why does this matter to you?</Text>
@@ -353,6 +405,63 @@ export default function AddHabitScreen() {
               />
               <Text style={styles.reflectionHint}>
                 We'll show these when you need motivation most
+              </Text>
+            </View>
+
+            {/* My Plan Section (Implementation Intentions) */}
+            <View style={styles.planSection}>
+              <Text style={styles.sectionLabelSmall}>MY PLAN</Text>
+              {habitType === 'building' ? (
+                <>
+                  <Text style={styles.planLabel}>After I...</Text>
+                  <TextInput
+                    style={styles.planInput}
+                    placeholder="finish my morning coffee"
+                    placeholderTextColor="#C7C7CC"
+                    value={intentionCue}
+                    onChangeText={setIntentionCue}
+                    maxLength={100}
+                  />
+                  <Text style={styles.planLabel}>
+                    I will <Text style={styles.planHabitName}>{habitName.trim() || 'this habit'}</Text>
+                  </Text>
+                  <Text style={styles.planLabel}>At...</Text>
+                  <TextInput
+                    style={styles.planInput}
+                    placeholder="my desk"
+                    placeholderTextColor="#C7C7CC"
+                    value={intentionWhere}
+                    onChangeText={setIntentionWhere}
+                    maxLength={100}
+                  />
+                </>
+              ) : (
+                <>
+                  <Text style={styles.planLabel}>
+                    When I feel the urge to <Text style={styles.planHabitName}>{habitName.trim() || 'this habit'}</Text>...
+                  </Text>
+                  <Text style={styles.planLabel}>Instead, I will...</Text>
+                  <TextInput
+                    style={styles.planInput}
+                    placeholder="take 3 deep breaths"
+                    placeholderTextColor="#C7C7CC"
+                    value={intentionInstead}
+                    onChangeText={setIntentionInstead}
+                    maxLength={200}
+                  />
+                  <Text style={styles.planLabel}>My trigger is usually...</Text>
+                  <TextInput
+                    style={styles.planInput}
+                    placeholder="stress after work"
+                    placeholderTextColor="#C7C7CC"
+                    value={triggerNotes}
+                    onChangeText={setTriggerNotes}
+                    maxLength={200}
+                  />
+                </>
+              )}
+              <Text style={styles.planHint}>
+                Having a plan makes you 2-3x more likely to follow through
               </Text>
             </View>
 
@@ -395,6 +504,53 @@ export default function AddHabitScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Time Picker Modal */}
+      <Modal
+        visible={showTimePicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowTimePicker(false)}
+      >
+        <View style={styles.timePickerOverlay}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setShowTimePicker(false)}
+          />
+          <View style={styles.timePickerModal}>
+            <View style={styles.timePickerHeader}>
+              <Pressable onPress={() => setShowTimePicker(false)}>
+                <Text style={styles.timePickerCancel}>Cancel</Text>
+              </Pressable>
+              <Text style={styles.timePickerTitle}>Reminder Time</Text>
+              <Pressable onPress={() => setShowTimePicker(false)}>
+                <Text style={styles.timePickerDone}>Done</Text>
+              </Pressable>
+            </View>
+            <View style={styles.timePickerContent}>
+              <DateTimePicker
+                value={(() => {
+                  const [h, m] = preferredTime.split(':').map(Number);
+                  const d = new Date();
+                  d.setHours(h);
+                  d.setMinutes(m);
+                  return d;
+                })()}
+                mode="time"
+                display="spinner"
+                onChange={(event: any, selectedDate?: Date) => {
+                  if (selectedDate) {
+                    const hours = selectedDate.getHours().toString().padStart(2, '0');
+                    const minutes = selectedDate.getMinutes().toString().padStart(2, '0');
+                    setPreferredTime(`${hours}:${minutes}`);
+                  }
+                }}
+                themeVariant="light"
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -767,6 +923,44 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: -0.1,
   },
+  planSection: {
+    width: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  planLabel: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#1C1C1E',
+    marginBottom: 8,
+  },
+  planHabitName: {
+    fontWeight: '700',
+    color: '#5856D6',
+  },
+  planInput: {
+    fontSize: 16,
+    color: '#1C1C1E',
+    backgroundColor: '#F5F5F7',
+    borderRadius: 14,
+    padding: 16,
+    minHeight: 48,
+    marginBottom: 16,
+  },
+  planHint: {
+    fontSize: 13,
+    color: '#AEAEB2',
+    textAlign: 'center',
+    fontStyle: 'normal',
+    letterSpacing: -0.1,
+    marginTop: 4,
+  },
   energySection: {
     width: '100%',
     backgroundColor: '#fff',
@@ -811,5 +1005,71 @@ const styles = StyleSheet.create({
   },
   energyLabelTextActive: {
     color: '#5856D6',
+  },
+  timeSection: {
+    width: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  timeSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  timeButton: {
+    marginTop: 16,
+    backgroundColor: '#F5F5F7',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  timeButtonText: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#5856D6',
+  },
+  timePickerOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  timePickerModal: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 34,
+  },
+  timePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#E5E5EA',
+  },
+  timePickerTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#000',
+  },
+  timePickerCancel: {
+    fontSize: 17,
+    color: '#8E8E93',
+  },
+  timePickerDone: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#5856D6',
+  },
+  timePickerContent: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
   },
 });

@@ -1,11 +1,15 @@
 
-import React, { useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, Pressable, Animated, Dimensions } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet, Modal, Pressable } from 'react-native';
+import Animated, {
+    useSharedValue,
+    useAnimatedStyle,
+    withSpring,
+    withTiming,
+} from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { Check } from 'lucide-react-native';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export type EnergyLevel = 'survival' | 'normal' | 'peak';
 
@@ -41,22 +45,13 @@ const ENERGY_OPTIONS: { id: EnergyLevel; label: string; icon: string; color: str
 ];
 
 export function EnergyPickerModal({ visible, onClose, selectedLevel, onSelect }: EnergyPickerModalProps) {
-    const slideAnim = useRef(new Animated.Value(0)).current;
+    const anim = useSharedValue(0);
 
     useEffect(() => {
         if (visible) {
-            Animated.spring(slideAnim, {
-                toValue: 1,
-                useNativeDriver: true,
-                damping: 20,
-                stiffness: 90,
-            }).start();
+            anim.value = withSpring(1, { damping: 20, stiffness: 90 });
         } else {
-            Animated.timing(slideAnim, {
-                toValue: 0,
-                duration: 200,
-                useNativeDriver: true,
-            }).start();
+            anim.value = withTiming(0, { duration: 200 });
         }
     }, [visible]);
 
@@ -65,6 +60,14 @@ export function EnergyPickerModal({ visible, onClose, selectedLevel, onSelect }:
         onSelect(level);
         onClose();
     };
+
+    const modalStyle = useAnimatedStyle(() => ({
+        transform: [
+            { scale: 0.95 + anim.value * 0.05 },
+            { translateY: 20 * (1 - anim.value) },
+        ],
+        opacity: anim.value,
+    }));
 
     if (!visible) return null;
 
@@ -83,26 +86,7 @@ export function EnergyPickerModal({ visible, onClose, selectedLevel, onSelect }:
                 >
                     <Pressable style={styles.overlay} onPress={onClose}>
                         <Animated.View
-                            style={[
-                                styles.modalContainer,
-                                {
-                                    transform: [
-                                        {
-                                            scale: slideAnim.interpolate({
-                                                inputRange: [0, 1],
-                                                outputRange: [0.95, 1]
-                                            })
-                                        },
-                                        {
-                                            translateY: slideAnim.interpolate({
-                                                inputRange: [0, 1],
-                                                outputRange: [20, 0]
-                                            })
-                                        }
-                                    ],
-                                    opacity: slideAnim
-                                }
-                            ]}
+                            style={[styles.modalContainer, modalStyle]}
                         >
                             <View style={styles.header}>
                                 <Text style={styles.title}>Energy Level</Text>

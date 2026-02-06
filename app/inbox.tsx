@@ -1,22 +1,17 @@
 import { useRouter } from 'expo-router';
 import {
-    Settings,
-    Plus,
-    Clock,
-    FolderKanban,
-    Home,
-    Brain,
     Pin,
+    MessageCircle,
     Lightbulb,
     Bell,
     CheckCircle2,
-    MessageCircle,
+    Clock,
     Send,
     Trash2,
-    Zap,
     Inbox as InboxIcon,
     Archive,
     RotateCcw,
+    ArrowLeft,
     ChevronRight,
 } from 'lucide-react-native';
 import React, { useState, useRef, useCallback } from 'react';
@@ -29,17 +24,19 @@ import {
     TextInput,
     KeyboardAvoidingView,
     Platform,
-    Animated,
+    ActionSheetIOS,
     Alert,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { FadeInDown, FadeOutRight, LinearTransition } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useInbox } from '@/contexts/InboxContext';
 import { useTodos } from '@/contexts/TodoContext';
 import { useHabits } from '@/contexts/HabitContext';
-import { TYPE_CONFIG, AREA_CONFIG, type InboxItem, type InboxItemType } from '@/types/inbox';
+import { TYPE_CONFIG, type InboxItem } from '@/types/inbox';
 import { formatDistanceToNow } from 'date-fns';
 import { BottomNavBar } from '@/components/BottomNavBar';
+import { AmbientBackground } from '@/components/AmbientBackground';
 import SwipeableRow from '@/components/SwipeableRow';
 
 const ICON_MAP: Record<string, any> = {
@@ -57,7 +54,6 @@ function InboxItemCard({
     onArchive,
     onConvertToTask,
     onConvertToHabit,
-    isFirst,
     isLast,
 }: {
     item: InboxItem;
@@ -66,14 +62,20 @@ function InboxItemCard({
     onArchive: (id: string) => void;
     onConvertToTask: (id: string, content: string) => void;
     onConvertToHabit: (id: string, content: string) => void;
-    isFirst?: boolean;
     isLast?: boolean;
 }) {
     const config = TYPE_CONFIG[item.type];
     const IconComponent = ICON_MAP[config.icon] || MessageCircle;
 
     const timeAgo = formatDistanceToNow(new Date(item.createdAt), { addSuffix: false });
-    const formattedTime = timeAgo.replace('about ', '').replace(' days', 'd').replace(' day', 'd').replace(' hours', 'h').replace(' hour', 'h').replace(' minutes', 'm').replace(' minute', 'm');
+    const formattedTime = timeAgo
+        .replace('about ', '')
+        .replace(' days', 'd')
+        .replace(' day', 'd')
+        .replace(' hours', 'h')
+        .replace(' hour', 'h')
+        .replace(' minutes', 'm')
+        .replace(' minute', 'm');
 
     const handleDelete = useCallback(() => {
         onDelete(item.id);
@@ -89,17 +91,28 @@ function InboxItemCard({
 
     const handleLongPress = useCallback(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        Alert.alert(
-            item.content,
-            undefined,
-            [
-                { text: 'Convert to Task', onPress: handleConvertToTask },
-                { text: 'Convert to Habit', onPress: handleConvertToHabit },
-                { text: 'Archive', onPress: () => onArchive(item.id) },
-                { text: item.isPinned ? 'Unpin' : 'Pin', onPress: () => onTogglePin(item.id) },
-                { text: 'Delete', style: 'destructive', onPress: handleDelete },
-                { text: 'Cancel', style: 'cancel' },
-            ]
+        const options = [
+            'Convert to Task',
+            'Convert to Habit',
+            'Archive',
+            item.isPinned ? 'Unpin' : 'Pin',
+            'Delete',
+            'Cancel',
+        ];
+        ActionSheetIOS.showActionSheetWithOptions(
+            {
+                options,
+                destructiveButtonIndex: 4,
+                cancelButtonIndex: 5,
+                title: item.content,
+            },
+            (buttonIndex) => {
+                if (buttonIndex === 0) handleConvertToTask();
+                else if (buttonIndex === 1) handleConvertToHabit();
+                else if (buttonIndex === 2) onArchive(item.id);
+                else if (buttonIndex === 3) onTogglePin(item.id);
+                else if (buttonIndex === 4) handleDelete();
+            }
         );
     }, [item, handleConvertToTask, handleConvertToHabit, handleDelete, onTogglePin, onArchive]);
 
@@ -110,28 +123,20 @@ function InboxItemCard({
             onConvertToHabit={handleConvertToHabit}
         >
             <Pressable
-                style={[
-                    styles.inboxItem,
-                    isFirst && styles.inboxItemFirst,
-                    isLast && styles.inboxItemLast,
-                ]}
+                style={styles.inboxItem}
                 onLongPress={handleLongPress}
                 delayLongPress={300}
             >
-                <View style={[styles.typeIndicator, { backgroundColor: config.color + '12' }]}>
-                    <IconComponent size={18} color={config.color} strokeWidth={2} />
-                </View>
+                <IconComponent size={20} color={config.color} strokeWidth={2} />
                 <View style={styles.itemContent}>
-                    <View style={styles.itemTitleRow}>
-                        <Text style={styles.itemText} numberOfLines={2}>{item.content}</Text>
-                        {item.isPinned && (
-                            <Pin size={12} color="#FF9500" strokeWidth={2.5} fill="#FF9500" />
-                        )}
-                    </View>
+                    <Text style={styles.itemText} numberOfLines={2}>{item.content}</Text>
                     <Text style={styles.itemMeta}>
-                        {config.label} • {formattedTime}
+                        {config.label} · {formattedTime}
                     </Text>
                 </View>
+                {item.isPinned && (
+                    <Pin size={12} color="#FF9500" strokeWidth={2.5} fill="#FF9500" />
+                )}
                 {!isLast && <View style={styles.separator} />}
             </Pressable>
         </SwipeableRow>
@@ -142,19 +147,20 @@ function ArchivedRow({
     item,
     onRestore,
     onDelete,
+    isLast,
 }: {
     item: InboxItem;
     onRestore: (id: string) => void;
     onDelete: (id: string) => void;
+    isLast?: boolean;
 }) {
     const config = TYPE_CONFIG[item.type];
+    const IconComponent = ICON_MAP[config.icon] || MessageCircle;
 
     return (
         <View style={styles.archivedRow}>
             <View style={styles.archivedContent}>
-                <View style={[styles.archivedIcon, { backgroundColor: config.color + '15' }]}>
-                    <Text style={{ fontSize: 12 }}>{config.label.charAt(0)}</Text>
-                </View>
+                <IconComponent size={16} color="#8E8E93" strokeWidth={2} />
                 <Text style={styles.archivedTitle} numberOfLines={1}>
                     {item.content}
                 </Text>
@@ -168,7 +174,7 @@ function ArchivedRow({
                     }}
                     hitSlop={10}
                 >
-                    <RotateCcw size={18} color="#5856D6" strokeWidth={2} />
+                    <RotateCcw size={16} color="#007AFF" strokeWidth={2} />
                 </Pressable>
                 <Pressable
                     style={styles.archivedAction}
@@ -181,17 +187,16 @@ function ArchivedRow({
                     }}
                     hitSlop={10}
                 >
-                    <Trash2 size={18} color="#FF3B30" strokeWidth={2} />
+                    <Trash2 size={16} color="#FF3B30" strokeWidth={2} />
                 </Pressable>
             </View>
-            <View style={styles.archivedSeparator} />
+            {!isLast && <View style={styles.archivedSeparator} />}
         </View>
     );
 }
 
 export default function InboxScreen() {
     const router = useRouter();
-    const insets = useSafeAreaInsets();
     const {
         items,
         archivedItems,
@@ -235,148 +240,218 @@ export default function InboxScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={styles.flex}
-            >
-                {/* Main Content */}
-                <ScrollView
-                    style={styles.scrollView}
-                    contentContainerStyle={styles.scrollContent}
-                    showsVerticalScrollIndicator={false}
-                    keyboardShouldPersistTaps="handled"
+        <View style={styles.root}>
+            <AmbientBackground />
+            <SafeAreaView style={styles.container} edges={['top']}>
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    style={styles.flex}
                 >
                     {/* Header */}
                     <View style={styles.header}>
+                        <Pressable
+                            style={styles.backButton}
+                            onPress={() => router.back()}
+                            hitSlop={20}
+                        >
+                            <ArrowLeft size={20} color="#000" strokeWidth={2.5} />
+                        </Pressable>
                         <Text style={styles.headerTitle}>Inbox</Text>
-                        <Text style={styles.headerSubtitle}>Capture thoughts before they slip away</Text>
+                        <View style={styles.headerRight} />
                     </View>
 
-                    {/* Input Card */}
-                    <View style={styles.inputCard}>
-                        <TextInput
-                            ref={inputRef}
-                            style={styles.input}
-                            placeholder="What's on your mind?"
-                            placeholderTextColor="#C7C7CC"
-                            value={inputText}
-                            onChangeText={setInputText}
-                            onSubmitEditing={handleSubmit}
-                            returnKeyType="done"
-                            blurOnSubmit={false}
-                            multiline
-                        />
-                        <View style={styles.inputFooter}>
-                            <Text style={styles.hintText}>Capture thoughts, ideas, or tasks</Text>
-                            {inputText.trim() && (
-                                <Pressable style={styles.sendButton} onPress={handleSubmit}>
-                                    <Send size={18} color="#fff" strokeWidth={2.5} />
-                                </Pressable>
-                            )}
-                        </View>
-                    </View>
-
-                    {/* Pinned Section */}
-                    {pinnedItems.length > 0 && (
-                        <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>PINNED</Text>
-                            <View style={styles.listContainer}>
-                                {pinnedItems.map((item, index) => (
-                                    <InboxItemCard
-                                        key={item.id}
-                                        item={item}
-                                        onDelete={deleteItem}
-                                        onTogglePin={togglePin}
-                                        onArchive={archiveItem}
-                                        onConvertToTask={handleConvertToTask}
-                                        onConvertToHabit={handleConvertToHabit}
-                                        isFirst={index === 0}
-                                        isLast={index === pinnedItems.length - 1}
-                                    />
-                                ))}
+                    <ScrollView
+                        style={styles.scrollView}
+                        contentContainerStyle={styles.scrollContent}
+                        showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
+                        keyboardDismissMode="interactive"
+                    >
+                        {/* Input */}
+                        <View style={styles.inputSection}>
+                            <View style={styles.inputRow}>
+                                <TextInput
+                                    ref={inputRef}
+                                    style={styles.input}
+                                    placeholder="What's on your mind?"
+                                    placeholderTextColor="#8E8E93"
+                                    value={inputText}
+                                    onChangeText={setInputText}
+                                    onSubmitEditing={handleSubmit}
+                                    returnKeyType="done"
+                                    blurOnSubmit={false}
+                                    multiline
+                                />
+                                {inputText.trim().length > 0 && (
+                                    <Pressable
+                                        style={({ pressed }) => [
+                                            styles.sendButton,
+                                            pressed && { opacity: 0.7 },
+                                        ]}
+                                        onPress={handleSubmit}
+                                    >
+                                        <Send size={16} color="#fff" strokeWidth={2.5} />
+                                    </Pressable>
+                                )}
                             </View>
                         </View>
-                    )}
 
-                    {/* Recent Section */}
-                    <View style={styles.section}>
-                        {unpinnedItems.length === 0 && pinnedItems.length === 0 ? (
-                            <View style={styles.emptyState}>
-                                <View style={styles.emptyIconContainer}>
-                                    <InboxIcon size={40} color="#C7C7CC" strokeWidth={1.5} />
-                                </View>
-                                <Text style={styles.emptyTitle}>Your inbox is empty</Text>
-                                <Text style={styles.emptySubtitle}>
-                                    Capture quick thoughts, ideas, and tasks before they slip away
-                                </Text>
-                            </View>
-                        ) : (
-                            <View style={styles.listContainer}>
-                                {unpinnedItems.map((item, index) => (
-                                    <InboxItemCard
-                                        key={item.id}
-                                        item={item}
-                                        onDelete={deleteItem}
-                                        onTogglePin={togglePin}
-                                        onArchive={archiveItem}
-                                        onConvertToTask={handleConvertToTask}
-                                        onConvertToHabit={handleConvertToHabit}
-                                        isFirst={index === 0}
-                                        isLast={index === unpinnedItems.length - 1}
-                                    />
-                                ))}
-                            </View>
-                        )}
-                    </View>
-
-                    {/* Archive Section */}
-                    {archivedItems.length > 0 && (
-                        <View style={styles.archiveSection}>
-                            <Pressable
-                                style={styles.archiveToggle}
-                                onPress={() => {
-                                    Haptics.selectionAsync();
-                                    setShowArchive(!showArchive);
-                                }}
-                            >
-                                <Archive size={16} color="#8E8E93" strokeWidth={2} />
-                                <Text style={styles.archiveToggleText}>
-                                    {showArchive ? 'Hide' : 'Show'} Archived ({archivedItems.length})
-                                </Text>
-                            </Pressable>
-
-                            {showArchive && (
-                                <View style={styles.archivedList}>
-                                    {archivedItems.map((item, index) => (
-                                        <ArchivedRow
+                        {/* Pinned Section */}
+                        {pinnedItems.length > 0 && (
+                            <View style={styles.section}>
+                                <Text style={styles.sectionTitle}>Pinned</Text>
+                                <View style={styles.listContainer}>
+                                    {pinnedItems.map((item, index) => (
+                                        <Animated.View
                                             key={item.id}
-                                            item={item}
-                                            onRestore={restoreItem}
-                                            onDelete={deleteItem}
-                                        />
-                                        // TODO: Pass isLast to ArchiveRow to hide separator on last item if needed, but for now strict line is fine or we update style
+                                            entering={FadeInDown.delay(index * 50).duration(300)}
+                                            exiting={FadeOutRight.duration(250)}
+                                            layout={LinearTransition.springify().damping(18).stiffness(120)}
+                                        >
+                                            <InboxItemCard
+                                                item={item}
+                                                onDelete={deleteItem}
+                                                onTogglePin={togglePin}
+                                                onArchive={archiveItem}
+                                                onConvertToTask={handleConvertToTask}
+                                                onConvertToHabit={handleConvertToHabit}
+                                                isLast={index === pinnedItems.length - 1}
+                                            />
+                                        </Animated.View>
                                     ))}
                                 </View>
-                            )}
-                        </View>
-                    )}
-                </ScrollView>
+                            </View>
+                        )}
 
-                {/* Bottom Bar */}
-                <BottomNavBar onFabPress={handleAddPress} />
-            </KeyboardAvoidingView>
-        </SafeAreaView>
+                        {/* Recent Section */}
+                        {unpinnedItems.length === 0 && pinnedItems.length === 0 ? (
+                            <View style={styles.emptyState}>
+                                <InboxIcon size={36} color="#C7C7CC" strokeWidth={1.5} />
+                                <Text style={styles.emptyTitle}>No items yet</Text>
+                                <Text style={styles.emptySubtitle}>
+                                    Jot down thoughts, ideas, or tasks
+                                </Text>
+                            </View>
+                        ) : unpinnedItems.length > 0 ? (
+                            <View style={styles.section}>
+                                {pinnedItems.length > 0 && (
+                                    <Text style={styles.sectionTitle}>Recent</Text>
+                                )}
+                                <View style={styles.listContainer}>
+                                    {unpinnedItems.map((item, index) => (
+                                        <Animated.View
+                                            key={item.id}
+                                            entering={FadeInDown.delay(index * 50).duration(300)}
+                                            exiting={FadeOutRight.duration(250)}
+                                            layout={LinearTransition.springify().damping(18).stiffness(120)}
+                                        >
+                                            <InboxItemCard
+                                                item={item}
+                                                onDelete={deleteItem}
+                                                onTogglePin={togglePin}
+                                                onArchive={archiveItem}
+                                                onConvertToTask={handleConvertToTask}
+                                                onConvertToHabit={handleConvertToHabit}
+                                                isLast={index === unpinnedItems.length - 1}
+                                            />
+                                        </Animated.View>
+                                    ))}
+                                </View>
+                            </View>
+                        ) : null}
+
+                        {/* Archive Section */}
+                        {archivedItems.length > 0 && (
+                            <View style={styles.section}>
+                                <Pressable
+                                    style={styles.archiveToggle}
+                                    onPress={() => {
+                                        Haptics.selectionAsync();
+                                        setShowArchive(!showArchive);
+                                    }}
+                                >
+                                    <View style={styles.archiveToggleLeft}>
+                                        <Archive size={16} color="#8E8E93" strokeWidth={2} />
+                                        <Text style={styles.archiveToggleText}>
+                                            Archived
+                                        </Text>
+                                        <Text style={styles.archiveCount}>{archivedItems.length}</Text>
+                                    </View>
+                                    <ChevronRight
+                                        size={16}
+                                        color="#C7C7CC"
+                                        strokeWidth={2}
+                                        style={{
+                                            transform: [{ rotate: showArchive ? '90deg' : '0deg' }],
+                                        }}
+                                    />
+                                </Pressable>
+
+                                {showArchive && (
+                                    <View style={styles.listContainer}>
+                                        {archivedItems.map((item, index) => (
+                                            <ArchivedRow
+                                                key={item.id}
+                                                item={item}
+                                                onRestore={restoreItem}
+                                                onDelete={deleteItem}
+                                                isLast={index === archivedItems.length - 1}
+                                            />
+                                        ))}
+                                    </View>
+                                )}
+                            </View>
+                        )}
+                    </ScrollView>
+
+                    <BottomNavBar onFabPress={handleAddPress} />
+                </KeyboardAvoidingView>
+            </SafeAreaView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
+    root: {
+        flex: 1,
+    },
     container: {
         flex: 1,
-        backgroundColor: '#F2F2F7',
     },
     flex: {
         flex: 1,
+    },
+    header: {
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    backButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: 'rgba(255,255,255,0.8)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+    },
+    headerTitle: {
+        fontSize: 17,
+        fontWeight: '600',
+        color: '#000',
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        textAlign: 'center',
+        zIndex: -1,
+    },
+    headerRight: {
+        width: 36,
     },
     scrollView: {
         flex: 1,
@@ -384,70 +459,39 @@ const styles = StyleSheet.create({
     scrollContent: {
         paddingHorizontal: 16,
         paddingBottom: 120,
-        paddingTop: 16,
+        paddingTop: 8,
     },
-    header: {
-        marginTop: 24,
-        marginBottom: 32,
-        paddingHorizontal: 4,
-    },
-    headerTitle: {
-        fontSize: 34,
-        fontWeight: '700',
-        color: '#000',
-        letterSpacing: 0.35,
-    },
-    headerSubtitle: {
-        fontSize: 15,
-        color: '#8E8E93',
-        marginTop: 8,
-        fontWeight: '400',
-        letterSpacing: -0.2,
-    },
-    inputCard: {
-        backgroundColor: '#fff',
-        borderRadius: 16,
-        padding: 16,
+    inputSection: {
         marginBottom: 24,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.06,
-        shadowRadius: 12,
-        elevation: 2,
-        // @ts-ignore - native only
-        cornerCurve: 'continuous',
+        backgroundColor: 'rgba(255,255,255,0.7)',
+        borderRadius: 16,
+        overflow: 'hidden',
+    },
+    inputRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        gap: 12,
     },
     input: {
+        flex: 1,
         fontSize: 17,
         color: '#000',
         fontWeight: '400',
+        letterSpacing: -0.3,
         minHeight: 24,
         maxHeight: 100,
-        marginBottom: 12,
-        letterSpacing: -0.3,
-    },
-    inputFooter: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-    },
-    hintText: {
-        fontSize: 13,
-        color: '#8E8E93',
-        fontWeight: '500',
-        letterSpacing: -0.1,
+        paddingTop: 0,
+        paddingBottom: 0,
     },
     sendButton: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        width: 30,
+        height: 30,
+        borderRadius: 15,
         backgroundColor: '#007AFF',
         alignItems: 'center',
         justifyContent: 'center',
-        shadowColor: '#007AFF',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 4,
     },
     section: {
         marginBottom: 24,
@@ -456,136 +500,92 @@ const styles = StyleSheet.create({
         fontSize: 13,
         fontWeight: '600',
         color: '#8E8E93',
-        marginBottom: 10,
-        marginLeft: 16,
-        letterSpacing: -0.1,
+        marginBottom: 8,
+        marginLeft: 4,
         textTransform: 'uppercase',
+        letterSpacing: -0.1,
     },
     listContainer: {
-        backgroundColor: '#fff',
+        backgroundColor: 'rgba(255,255,255,0.7)',
         borderRadius: 16,
         overflow: 'hidden',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.04,
-        shadowRadius: 8,
-        elevation: 1,
-        // @ts-ignore - native only
-        cornerCurve: 'continuous',
     },
     inboxItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#fff',
         paddingVertical: 14,
         paddingHorizontal: 16,
-        gap: 14,
-    },
-    inboxItemFirst: {
-        borderTopLeftRadius: 16,
-        borderTopRightRadius: 16,
-    },
-    inboxItemLast: {
-        borderBottomLeftRadius: 16,
-        borderBottomRightRadius: 16,
+        gap: 12,
     },
     separator: {
         position: 'absolute',
         bottom: 0,
-        left: 66,
+        left: 48,
         right: 0,
         height: StyleSheet.hairlineWidth,
-        backgroundColor: '#C6C6C8',
-    },
-    typeIndicator: {
-        width: 38,
-        height: 38,
-        borderRadius: 12,
-        alignItems: 'center',
-        justifyContent: 'center',
-        // @ts-ignore - native only
-        cornerCurve: 'continuous',
+        backgroundColor: 'rgba(60,60,67,0.1)',
     },
     itemContent: {
         flex: 1,
         justifyContent: 'center',
-    },
-    itemTitleRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 8,
-        marginBottom: 2,
     },
     itemText: {
         fontSize: 17,
         fontWeight: '400',
         color: '#000',
         lineHeight: 22,
-        flex: 1,
-        letterSpacing: -0.4, // San Francisco style tracking
+        letterSpacing: -0.4,
     },
     itemMeta: {
         fontSize: 13,
         color: '#8E8E93',
         fontWeight: '400',
+        marginTop: 2,
         letterSpacing: -0.1,
     },
     emptyState: {
         alignItems: 'center',
         justifyContent: 'center',
         paddingVertical: 80,
-        paddingHorizontal: 32,
-    },
-    emptyIconContainer: {
-        width: 64,
-        height: 64,
-        borderRadius: 32,
-        backgroundColor: '#E5E5EA',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 16,
+        gap: 8,
     },
     emptyTitle: {
-        fontSize: 20,
+        fontSize: 17,
         fontWeight: '600',
-        color: '#000',
-        marginBottom: 8,
-        textAlign: 'center',
+        color: '#3C3C43',
+        marginTop: 8,
         letterSpacing: -0.4,
     },
     emptySubtitle: {
         fontSize: 15,
         color: '#8E8E93',
-        textAlign: 'center',
-        lineHeight: 20,
         letterSpacing: -0.2,
-    },
-    archiveSection: {
-        marginBottom: 32,
     },
     archiveToggle: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
+        justifyContent: 'space-between',
+        backgroundColor: 'rgba(255,255,255,0.7)',
+        borderRadius: 16,
         paddingVertical: 14,
-        backgroundColor: 'rgba(118, 118, 128, 0.12)', // Apple system fill
-        borderRadius: 12,
+        paddingHorizontal: 16,
+        marginBottom: 8,
+    },
+    archiveToggleLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
     },
     archiveToggleText: {
-        fontSize: 15,
-        fontWeight: '500',
-        color: '#8E8E93',
+        fontSize: 17,
+        fontWeight: '400',
+        color: '#000',
         letterSpacing: -0.2,
     },
-    archivedList: {
-        marginTop: 16,
-        backgroundColor: '#fff',
-        borderRadius: 16,
-        overflow: 'hidden',
-        // @ts-ignore - native only
-        cornerCurve: 'continuous',
+    archiveCount: {
+        fontSize: 15,
+        fontWeight: '400',
+        color: '#8E8E93',
     },
     archivedRow: {
         flexDirection: 'row',
@@ -597,26 +597,16 @@ const styles = StyleSheet.create({
     archivedSeparator: {
         position: 'absolute',
         bottom: 0,
-        left: 16,
+        left: 40,
         right: 0,
         height: StyleSheet.hairlineWidth,
-        backgroundColor: '#C6C6C8',
+        backgroundColor: 'rgba(60,60,67,0.1)',
     },
     archivedContent: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
+        gap: 10,
         flex: 1,
-    },
-    archivedIcon: {
-        width: 32,
-        height: 32,
-        borderRadius: 10,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#F2F2F7',
-        // @ts-ignore - native only
-        cornerCurve: 'continuous',
     },
     archivedTitle: {
         fontSize: 15,
@@ -630,7 +620,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         gap: 16,
         paddingLeft: 12,
-        paddingRight: 16,
     },
     archivedAction: {
         padding: 4,

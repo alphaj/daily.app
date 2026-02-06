@@ -2,34 +2,31 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Habit, ImplementationIntention, DayCompletion, HabitStats, DayOfWeek, HabitType } from '@/types/habit';
+import type { Habit, ImplementationIntention, DayCompletion, HabitStats, DayOfWeek, HabitType, SlipEntry } from '@/types/habit';
 import * as Crypto from 'expo-crypto';
 import { scheduleHabitNotification, cancelHabitNotification, rescheduleHabitNotification } from '@/lib/notifications';
 
 const HABITS_STORAGE_KEY = 'daily_habits';
 
 function getToday(): string {
-  // Uses local time instead of UTC to avoid "tormorrow" bug late at night
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
-  return `${year} -${month} -${day} `;
+  return `${year}-${month}-${day}`;
+}
+
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function calculateStreak(completedDates: string[], scheduledDays?: DayOfWeek[]): number {
   if (completedDates.length === 0) return 0;
 
-  const sortedDates = [...completedDates].sort().reverse();
   const today = getToday();
-  const lastCompleted = sortedDates[0];
-
-  // If the last completion was before yesterday (and strictly needed), streak might be broken.
-  // But we'll iterate day by day backwards from "today" (or yesterday if not done today) to count.
-
-  // We allow "today" to be missing (streak remains if done yesterday)
-  // If today is completed, start check from today.
-  // If today is NOT completed, start check from yesterday.
 
   let checkDate = new Date();
   if (!completedDates.includes(today)) {
@@ -37,32 +34,23 @@ function calculateStreak(completedDates: string[], scheduledDays?: DayOfWeek[]):
   }
 
   let streak = 0;
-  // Safety break to prevent infinite loops (e.g. 5 years)
   const MAX_DAYS = 365 * 5;
 
   for (let i = 0; i < MAX_DAYS; i++) {
-    const year = checkDate.getFullYear();
-    const month = String(checkDate.getMonth() + 1).padStart(2, '0');
-    const day = String(checkDate.getDate()).padStart(2, '0');
-    const dateStr = `${year} -${month} -${day} `;
+    const dateStr = formatLocalDate(checkDate);
 
-    // Check if this day is scheduled
-    // If scheduledDays is undefined/null, assume EVERY DAY (legacy/default behavior)
     const dayOfWeek = checkDate.getDay() as DayOfWeek;
     const isScheduled = !scheduledDays || scheduledDays.length === 0 || scheduledDays.includes(dayOfWeek);
 
     if (!isScheduled) {
-      // Skip this day, it doesn't break the streak
       checkDate.setDate(checkDate.getDate() - 1);
       continue;
     }
 
-    // It is a scheduled day, so it MUST be completed
     if (completedDates.includes(dateStr)) {
       streak++;
       checkDate.setDate(checkDate.getDate() - 1);
     } else {
-      // Missed a scheduled day -> streak ends
       break;
     }
   }
@@ -92,6 +80,184 @@ function generateId(): string {
   return Crypto.randomUUID();
 }
 
+/** Normalize date strings by stripping spaces (migration for old format bug) */
+function normalizeDateStr(date: string): string {
+  return date.replace(/\s/g, '');
+}
+
+// --- Rhythm helpers ---
+
+export interface HabitRhythm {
+  thisWeek: { completed: number; scheduled: number; rate: number };
+  thisMonth: { completed: number; scheduled: number; rate: number };
+  lastMonth: { completed: number; scheduled: number; rate: number };
+  trend: 'rising' | 'steady' | 'declining';
+  monthlyRates: number[];
+}
+
+function getCalendarWeekDates(): string[] {
+  const now = new Date();
+  const dayOfWeek = now.getDay(); // 0=Sun
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - ((dayOfWeek + 6) % 7));
+  const dates: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    if (d <= now) {
+      dates.push(formatLocalDate(d));
+    }
+  }
+  return dates;
+}
+
+function getMonthDates(offset: number): string[] {
+  const now = new Date();
+  const targetMonth = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+  const lastDay = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0);
+  const end = offset === 0 ? now : lastDay;
+  const dates: string[] = [];
+  for (let d = new Date(targetMonth); d <= end; d.setDate(d.getDate() + 1)) {
+    dates.push(formatLocalDate(d));
+  }
+  return dates;
+}
+
+function countScheduledDays(dates: string[], scheduledDays?: DayOfWeek[]): number {
+  if (!scheduledDays || scheduledDays.length === 0) return dates.length;
+  return dates.filter(dateStr => {
+    const d = new Date(dateStr + 'T00:00:00');
+    return scheduledDays.includes(d.getDay() as DayOfWeek);
+  }).length;
+}
+
+function countCompletionsInRange(dates: string[], completedDates: string[], scheduledDays?: DayOfWeek[]): number {
+  const scheduledSet = new Set(
+    dates.filter(dateStr => {
+      if (!scheduledDays || scheduledDays.length === 0) return true;
+      const d = new Date(dateStr + 'T00:00:00');
+      return scheduledDays.includes(d.getDay() as DayOfWeek);
+    })
+  );
+  return completedDates.filter(d => scheduledSet.has(d)).length;
+}
+
+export function getHabitRhythm(habit: Habit): HabitRhythm {
+  const weekDates = getCalendarWeekDates();
+  const thisMonthDates = getMonthDates(0);
+  const lastMonthDates = getMonthDates(-1);
+
+  const weekScheduled = countScheduledDays(weekDates, habit.scheduledDays);
+  const weekCompleted = countCompletionsInRange(weekDates, habit.completedDates, habit.scheduledDays);
+
+  const monthScheduled = countScheduledDays(thisMonthDates, habit.scheduledDays);
+  const monthCompleted = countCompletionsInRange(thisMonthDates, habit.completedDates, habit.scheduledDays);
+
+  const lastMonthScheduled = countScheduledDays(lastMonthDates, habit.scheduledDays);
+  const lastMonthCompleted = countCompletionsInRange(lastMonthDates, habit.completedDates, habit.scheduledDays);
+
+  const thisMonthRate = monthScheduled > 0 ? monthCompleted / monthScheduled : 0;
+  const lastMonthRate = lastMonthScheduled > 0 ? lastMonthCompleted / lastMonthScheduled : 0;
+
+  const diff = thisMonthRate - lastMonthRate;
+  const trend: 'rising' | 'steady' | 'declining' = diff > 0.05 ? 'rising' : diff < -0.05 ? 'declining' : 'steady';
+
+  // Last 4 rolling 7-day windows for sparkline
+  const monthlyRates: number[] = [];
+  const today = new Date();
+  for (let w = 3; w >= 0; w--) {
+    const windowDates: string[] = [];
+    for (let d = 0; d < 7; d++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - (w * 7 + d));
+      windowDates.push(formatLocalDate(date));
+    }
+    const scheduled = countScheduledDays(windowDates, habit.scheduledDays);
+    const completed = countCompletionsInRange(windowDates, habit.completedDates, habit.scheduledDays);
+    monthlyRates.push(scheduled > 0 ? completed / scheduled : 0);
+  }
+
+  return {
+    thisWeek: { completed: weekCompleted, scheduled: weekScheduled, rate: weekScheduled > 0 ? weekCompleted / weekScheduled : 0 },
+    thisMonth: { completed: monthCompleted, scheduled: monthScheduled, rate: thisMonthRate },
+    lastMonth: { completed: lastMonthCompleted, scheduled: lastMonthScheduled, rate: lastMonthRate },
+    trend,
+    monthlyRates,
+  };
+}
+
+// --- Insights helpers ---
+
+export interface HabitInsights {
+  bestDay: { name: string; rate: number };
+  hardestDay: { name: string; rate: number };
+  momentum: number[];
+  totalCompletions: number;
+  averageCompletionsPerWeek: number;
+}
+
+export function getHabitInsights(habit: Habit): HabitInsights {
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const createdDate = new Date(habit.createdAt.split('T')[0] + 'T00:00:00');
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Count how many of each weekday since creation
+  const weekdayCounts = [0, 0, 0, 0, 0, 0, 0];
+  const weekdayCompletions = [0, 0, 0, 0, 0, 0, 0];
+
+  for (let d = new Date(createdDate); d <= today; d.setDate(d.getDate() + 1)) {
+    const dow = d.getDay();
+    const isScheduled = !habit.scheduledDays || habit.scheduledDays.length === 0 || habit.scheduledDays.includes(dow as DayOfWeek);
+    if (isScheduled) {
+      weekdayCounts[dow]++;
+      if (habit.completedDates.includes(formatLocalDate(d))) {
+        weekdayCompletions[dow]++;
+      }
+    }
+  }
+
+  const dayRates = dayNames.map((name, i) => ({
+    name,
+    rate: weekdayCounts[i] > 0 ? weekdayCompletions[i] / weekdayCounts[i] : 0,
+  }));
+
+  const activeDayRates = dayRates.filter((_, i) => weekdayCounts[i] > 0);
+  const bestDay = activeDayRates.length > 0
+    ? activeDayRates.reduce((a, b) => a.rate >= b.rate ? a : b)
+    : { name: 'N/A', rate: 0 };
+  const hardestDay = activeDayRates.length > 0
+    ? activeDayRates.reduce((a, b) => a.rate <= b.rate ? a : b)
+    : { name: 'N/A', rate: 0 };
+
+  // Momentum: last 4 rolling week rates
+  const momentum: number[] = [];
+  const todayForMomentum = new Date();
+  for (let w = 3; w >= 0; w--) {
+    const windowDates: string[] = [];
+    for (let d = 0; d < 7; d++) {
+      const date = new Date(todayForMomentum);
+      date.setDate(todayForMomentum.getDate() - (w * 7 + d));
+      windowDates.push(formatLocalDate(date));
+    }
+    const scheduled = countScheduledDays(windowDates, habit.scheduledDays);
+    const completed = countCompletionsInRange(windowDates, habit.completedDates, habit.scheduledDays);
+    momentum.push(scheduled > 0 ? completed / scheduled : 0);
+  }
+
+  // Average completions per week
+  const daysSinceCreation = Math.max(1, Math.floor((todayForMomentum.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24)));
+  const weeksSinceCreation = Math.max(1, daysSinceCreation / 7);
+
+  return {
+    bestDay,
+    hardestDay,
+    momentum,
+    totalCompletions: habit.completedDates.length,
+    averageCompletionsPerWeek: habit.completedDates.length / weeksSinceCreation,
+  };
+}
+
 export const [HabitProvider, useHabits] = createContextHook(() => {
   const queryClient = useQueryClient();
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -101,12 +267,22 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
     queryFn: async () => {
       const stored = await AsyncStorage.getItem(HABITS_STORAGE_KEY);
       const parsed = stored ? JSON.parse(stored) : [];
-      // Migrate existing habits without type to 'building'
-      return parsed.map((h: Habit) => ({
-        ...h,
-        type: h.type || 'building',
-        slipDates: h.slipDates || [],
-      }));
+      // Migration: normalize dates, add type, migrate slipDates -> slipLog
+      const migrated = parsed.map((h: any) => {
+        const completedDates = (h.completedDates || []).map(normalizeDateStr);
+        let slipLog: SlipEntry[] = h.slipLog || [];
+        if ((!slipLog.length) && h.slipDates && h.slipDates.length > 0) {
+          slipLog = h.slipDates.map((d: string) => ({ date: normalizeDateStr(d) }));
+        }
+        return {
+          ...h,
+          type: h.type || 'building',
+          completedDates,
+          slipDates: (h.slipDates || []).map(normalizeDateStr),
+          slipLog,
+        };
+      });
+      return migrated as Habit[];
     },
   });
 
@@ -131,10 +307,22 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
     isWork?: boolean,
     habitType: HabitType = 'building',
     triggerNotes?: string,
-    energyLevel?: 'low' | 'medium' | 'high'
+    energyLevel?: 'low' | 'medium' | 'high',
+    preferredTime?: string
   ) => {
+    // Fix: generate ID once and use for both notification and habit
+    const habitId = generateId();
+
+    const notificationIds = await scheduleHabitNotification(
+      habitId,
+      name,
+      emoji || '⚡',
+      scheduledDays?.map(d => d as number),
+      preferredTime
+    );
+
     const newHabit: Habit = {
-      id: generateId(),
+      id: habitId,
       name,
       type: habitType,
       emoji,
@@ -149,7 +337,10 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
       isWork,
       triggerNotes,
       slipDates: [],
+      slipLog: [],
       energyLevel,
+      preferredTime,
+      notificationIds,
     };
 
     const newHabits = [...habits, newHabit];
@@ -159,16 +350,38 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
 
   const updateHabit = useCallback(async (
     id: string,
-    updates: Partial<Pick<Habit, 'name' | 'intention' | 'emoji' | 'whyStatement' | 'celebrationPhrase' | 'scheduledDays'>>
+    updates: Partial<Pick<Habit, 'name' | 'intention' | 'emoji' | 'whyStatement' | 'celebrationPhrase' | 'scheduledDays' | 'preferredTime' | 'energyLevel' | 'isWork' | 'triggerNotes'>>
   ) => {
+    const habit = habits.find(h => h.id === id);
+    let notificationIds = habit?.notificationIds;
+
+    if (habit && ('scheduledDays' in updates || 'preferredTime' in updates || 'name' in updates || 'emoji' in updates)) {
+      const newScheduledDays = updates.scheduledDays ?? habit.scheduledDays;
+      const newPreferredTime = updates.preferredTime ?? habit.preferredTime;
+      const newName = updates.name ?? habit.name;
+      const newEmoji = updates.emoji ?? habit.emoji;
+      notificationIds = await rescheduleHabitNotification(
+        habit.notificationIds || [],
+        id,
+        newName,
+        newEmoji || '⚡',
+        newScheduledDays?.map(d => d as number),
+        newPreferredTime
+      );
+    }
+
     const newHabits = habits.map(h =>
-      h.id === id ? { ...h, ...updates } : h
+      h.id === id ? { ...h, ...updates, notificationIds } : h
     );
     setHabits(newHabits);
     await saveHabits(newHabits);
   }, [habits, saveHabits]);
 
   const deleteHabit = useCallback(async (id: string) => {
+    const habit = habits.find(h => h.id === id);
+    if (habit?.notificationIds) {
+      await cancelHabitNotification(habit.notificationIds);
+    }
     const newHabits = habits.filter(h => h.id !== id);
     setHabits(newHabits);
     await saveHabits(newHabits);
@@ -244,7 +457,6 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
     const today = getToday();
     const dayOfWeek = new Date().getDay() as DayOfWeek;
 
-    // Filter habits that are active today
     const habitsToday = habits.filter(h =>
       !h.scheduledDays || h.scheduledDays.length === 0 || h.scheduledDays.includes(dayOfWeek)
     );
@@ -254,8 +466,21 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
 
     if (total === 0) return "No habits scheduled for today";
     if (completedToday === total) return "Perfect day! All habits complete";
+
+    // Rhythm-aware messages
+    const avgMonthlyRate = habits.length > 0
+      ? habits.reduce((sum, h) => sum + getHabitRhythm(h).thisMonth.rate, 0) / habits.length
+      : 0;
+
+    if (completedToday === 0 && avgMonthlyRate >= 0.7) {
+      return "Welcome back. Your rhythm is still strong.";
+    }
     if (completedToday === 0) return "Start strong today";
-    if (completedToday >= total * 0.5) return "Great momentum, keep going!";
+    if (completedToday >= total * 0.5) {
+      const pct = Math.round(avgMonthlyRate * 100);
+      if (pct >= 80) return `${pct}% this month \u2014 keep the momentum`;
+      return "Great momentum, keep going!";
+    }
     return `${total - completedToday} habits left today`;
   }, [habits]);
 
@@ -270,30 +495,33 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
     return habitWithPhrase?.celebrationPhrase || null;
   }, [habits]);
 
+  // Fix: return habits NOT completed today that have an active streak
   const getStreakAtRiskHabits = useCallback((): Habit[] => {
     const today = getToday();
     return habits.filter(h =>
-      h.completedDates.includes(today) && h.currentStreak > 0
+      !h.completedDates.includes(today) && h.currentStreak > 0
     );
   }, [habits]);
 
-  /** Log a slip for a breaking habit - resets streak */
-  const logSlip = useCallback(async (id: string): Promise<void> => {
+  /** Log a slip with optional trigger context for breaking habits */
+  const logSlip = useCallback(async (id: string, trigger?: SlipEntry['trigger'], strategy?: string): Promise<void> => {
     const today = getToday();
     const habit = habits.find(h => h.id === id);
     if (!habit || habit.type !== 'breaking') return;
 
+    const slipEntry: SlipEntry = { date: today, trigger, strategy };
+    const newSlipLog = [...(habit.slipLog || []), slipEntry];
     const newSlipDates = [...(habit.slipDates || []), today];
-    // Remove today from completed dates if present
     const newCompletedDates = habit.completedDates.filter(d => d !== today);
 
     const newHabits = habits.map(h =>
       h.id === id
         ? {
           ...h,
+          slipLog: newSlipLog,
           slipDates: newSlipDates,
           completedDates: newCompletedDates,
-          currentStreak: 0  // Reset streak on slip
+          currentStreak: 0,
         }
         : h
     );
@@ -307,10 +535,7 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
     return habits.filter(h => h.type === type);
   }, [habits]);
 
-  /** Get building habits */
   const buildingHabits = useMemo(() => habits.filter(h => h.type === 'building'), [habits]);
-
-  /** Get breaking habits */
   const breakingHabits = useMemo(() => habits.filter(h => h.type === 'breaking'), [habits]);
 
   return {

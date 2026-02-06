@@ -126,6 +126,7 @@ export default function EditSupplementScreen() {
                     style={styles.scrollView}
                     contentContainerStyle={styles.scrollContent}
                     keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode="interactive"
                 >
                     <View style={styles.content}>
                         {/* Emoji Display */}

@@ -2,9 +2,31 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { GroceryItem, GroceryStats, GroceryCategory } from '@/types/grocery';
+import type { GroceryItem, GroceryStats, GroceryCategory, ReplenishFrequency } from '@/types/grocery';
 import { CATEGORY_KEYWORDS, CATEGORY_CONFIG } from '@/types/grocery';
 import * as Crypto from 'expo-crypto';
+
+const FREQUENCY_DAYS: Partial<Record<ReplenishFrequency, number>> = {
+    weekly: 7,
+    biweekly: 14,
+    monthly: 30,
+};
+
+/**
+ * Compute the next restock date for a grocery staple based on lastPurchased + frequency.
+ * Returns YYYY-MM-DD string or null if not applicable.
+ */
+export function getNextRestockDate(item: GroceryItem): string | null {
+    if (!item.isStaple || !item.lastPurchased) return null;
+    const days = FREQUENCY_DAYS[item.frequency];
+    if (!days) return null;
+    const last = new Date(item.lastPurchased);
+    last.setDate(last.getDate() + days);
+    const year = last.getFullYear();
+    const month = String(last.getMonth() + 1).padStart(2, '0');
+    const day = String(last.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
 
 const GROCERY_STORAGE_KEY = 'daily_groceries';
 
@@ -38,12 +60,6 @@ function autoCategorizeName(name: string): GroceryCategory {
     return 'pantry';
 }
 
-/**
- * Get a default emoji for a category
- */
-function getDefaultEmoji(category: GroceryCategory): string {
-    return CATEGORY_CONFIG[category].emoji;
-}
 
 export const [GroceryProvider, useGroceries] = createContextHook(() => {
     const queryClient = useQueryClient();
@@ -71,7 +87,6 @@ export const [GroceryProvider, useGroceries] = createContextHook(() => {
     const addItem = useCallback(async (
         name: string,
         options?: {
-            emoji?: string;
             category?: GroceryCategory;
             quantity?: string;
             brand?: string;
@@ -87,7 +102,6 @@ export const [GroceryProvider, useGroceries] = createContextHook(() => {
         const newItem: GroceryItem = {
             id: generateId(),
             name,
-            emoji: options?.emoji || getDefaultEmoji(category),
             category,
             quantity: options?.quantity,
             brand: options?.brand,
@@ -108,7 +122,7 @@ export const [GroceryProvider, useGroceries] = createContextHook(() => {
 
     const updateItem = useCallback(async (
         id: string,
-        updates: Partial<Pick<GroceryItem, 'name' | 'emoji' | 'category' | 'quantity' | 'brand' | 'notes' | 'frequency' | 'isStaple'>>
+        updates: Partial<Pick<GroceryItem, 'name' | 'category' | 'quantity' | 'brand' | 'notes' | 'frequency' | 'isStaple'>>
     ) => {
         const newGroceries = groceries.map(g =>
             g.id === id ? { ...g, ...updates } : g
@@ -148,6 +162,7 @@ export const [GroceryProvider, useGroceries] = createContextHook(() => {
                     ...g,
                     isOnList: false,
                     lastPurchased: today,
+                    purchasedAt: new Date().toISOString(),
                     purchaseHistory: [...g.purchaseHistory, today],
                 }
                 : g
@@ -159,17 +174,71 @@ export const [GroceryProvider, useGroceries] = createContextHook(() => {
 
     const clearShoppingList = useCallback(async () => {
         const today = getToday();
-        const newGroceries = groceries.map(g =>
-            g.isOnList
-                ? {
+        const newGroceries = groceries.map(g => {
+            if (g.isOnList) {
+                return {
                     ...g,
                     isOnList: false,
                     lastPurchased: today,
+                    purchasedAt: undefined,
                     purchaseHistory: [...g.purchaseHistory, today],
+                };
+            }
+            if (g.purchasedAt) {
+                return { ...g, purchasedAt: undefined };
+            }
+            return g;
+        });
+
+        setGroceries(newGroceries);
+        await saveGroceries(newGroceries);
+    }, [groceries, saveGroceries]);
+
+    const quickAddItem = useCallback(async (name: string) => {
+        const category = autoCategorizeName(name);
+        const maxOrder = groceries.filter(g => g.category === category).length;
+
+        const newItem: GroceryItem = {
+            id: generateId(),
+            name,
+            category,
+            frequency: 'as_needed',
+            isStaple: false,
+            isOnList: true,
+            purchaseHistory: [],
+            createdAt: new Date().toISOString(),
+            order: maxOrder,
+        };
+
+        const newGroceries = [...groceries, newItem];
+        setGroceries(newGroceries);
+        await saveGroceries(newGroceries);
+        return newItem;
+    }, [groceries, saveGroceries]);
+
+    const undoPurchase = useCallback(async (id: string) => {
+        const item = groceries.find(g => g.id === id);
+        if (!item) return;
+
+        const newGroceries = groceries.map(g =>
+            g.id === id
+                ? {
+                    ...g,
+                    isOnList: true,
+                    purchasedAt: undefined,
+                    purchaseHistory: g.purchaseHistory.slice(0, -1),
                 }
                 : g
         );
 
+        setGroceries(newGroceries);
+        await saveGroceries(newGroceries);
+    }, [groceries, saveGroceries]);
+
+    const clearPurchasedItems = useCallback(async () => {
+        const newGroceries = groceries.map(g =>
+            g.purchasedAt ? { ...g, purchasedAt: undefined } : g
+        );
         setGroceries(newGroceries);
         await saveGroceries(newGroceries);
     }, [groceries, saveGroceries]);
@@ -254,6 +323,22 @@ export const [GroceryProvider, useGroceries] = createContextHook(() => {
         return suggestions;
     }, [groceries]);
 
+    // Items purchased this shopping session
+    const purchasedThisSession = useMemo(() => {
+        const today = getToday();
+        return groceries
+            .filter(g => g.purchasedAt && g.lastPurchased === today)
+            .sort((a, b) => (b.purchasedAt || '').localeCompare(a.purchasedAt || ''));
+    }, [groceries]);
+
+    // Frequently bought items (not currently on list) for quick-add suggestions
+    const frequentItems = useMemo(() => {
+        return groceries
+            .filter(g => !g.isOnList && !g.purchasedAt && g.purchaseHistory.length > 0)
+            .sort((a, b) => b.purchaseHistory.length - a.purchaseHistory.length)
+            .slice(0, 10);
+    }, [groceries]);
+
     // Overall stats
     const stats = useMemo((): GroceryStats => {
         const categoryBreakdown: Record<GroceryCategory, number> = {
@@ -301,6 +386,8 @@ export const [GroceryProvider, useGroceries] = createContextHook(() => {
         staples,
         itemsByCategory,
         suggestedRestock,
+        purchasedThisSession,
+        frequentItems,
         stats,
         isLoading: groceriesQuery.isLoading,
         addItem,
@@ -309,6 +396,9 @@ export const [GroceryProvider, useGroceries] = createContextHook(() => {
         toggleOnList,
         markPurchased,
         clearShoppingList,
+        quickAddItem,
+        undoPurchase,
+        clearPurchasedItems,
         autoCategorizeName,
     };
 });

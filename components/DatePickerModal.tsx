@@ -1,16 +1,21 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     View,
     Text,
     StyleSheet,
     Pressable,
     Modal,
-    Animated,
-    Dimensions,
     Platform,
     useWindowDimensions,
     ScrollView,
 } from 'react-native';
+import Animated, {
+    useSharedValue,
+    useAnimatedStyle,
+    withSpring,
+    withTiming,
+    runOnJS,
+} from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { X, Calendar, Sun, Sunrise, XCircle, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -184,8 +189,8 @@ export function DatePickerModal({
     onSelectDate,
 }: DatePickerModalProps) {
     const { width: screenWidth } = useWindowDimensions();
-    const scaleAnim = useRef(new Animated.Value(0.9)).current;
-    const opacityAnim = useRef(new Animated.Value(0)).current;
+    const scaleVal = useSharedValue(0.9);
+    const opacityVal = useSharedValue(0);
     const [isVisible, setIsVisible] = useState(visible);
     const [showCustomPicker, setShowCustomPicker] = useState(false);
     const [tempDate, setTempDate] = useState(selectedDate || new Date());
@@ -197,36 +202,24 @@ export function DatePickerModal({
             setIsVisible(true);
             setShowCustomPicker(false);
             setTempDate(selectedDate || new Date());
-            Animated.parallel([
-                Animated.spring(scaleAnim, {
-                    toValue: 1,
-                    useNativeDriver: true,
-                    damping: 20,
-                    stiffness: 300,
-                }),
-                Animated.timing(opacityAnim, {
-                    toValue: 1,
-                    duration: 200,
-                    useNativeDriver: true,
-                }),
-            ]).start();
+            scaleVal.value = withSpring(1, { damping: 20, stiffness: 300 });
+            opacityVal.value = withTiming(1, { duration: 200 });
         } else {
-            Animated.parallel([
-                Animated.timing(scaleAnim, {
-                    toValue: 0.9,
-                    duration: 150,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(opacityAnim, {
-                    toValue: 0,
-                    duration: 150,
-                    useNativeDriver: true,
-                }),
-            ]).start(() => {
-                setIsVisible(false);
+            scaleVal.value = withTiming(0.9, { duration: 150 });
+            opacityVal.value = withTiming(0, { duration: 150 }, () => {
+                runOnJS(setIsVisible)(false);
             });
         }
-    }, [visible, scaleAnim, opacityAnim, selectedDate]);
+    }, [visible, selectedDate]);
+
+    const backdropStyle = useAnimatedStyle(() => ({
+        opacity: opacityVal.value,
+    }));
+
+    const contentStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: scaleVal.value }],
+        opacity: opacityVal.value,
+    }));
 
     const handleSelect = (date: Date | null) => {
         Haptics.selectionAsync();
@@ -255,7 +248,7 @@ export function DatePickerModal({
             animationType="none"
         >
             <View style={styles.container}>
-                <Animated.View style={[styles.backdrop, { opacity: opacityAnim }]}>
+                <Animated.View style={[styles.backdrop, backdropStyle]}>
                     <Pressable style={StyleSheet.absoluteFill} onPress={onClose}>
                         {Platform.OS === 'web' ? (
                             <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.5)' }]} />
@@ -272,11 +265,8 @@ export function DatePickerModal({
                 <Animated.View
                     style={[
                         styles.contentContainer,
-                        {
-                            width: modalWidth,
-                            transform: [{ scale: scaleAnim }],
-                            opacity: opacityAnim,
-                        },
+                        { width: modalWidth },
+                        contentStyle,
                     ]}
                 >
                     <View style={styles.header}>

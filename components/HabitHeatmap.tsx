@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Flame, Trophy, Star } from 'lucide-react-native';
+// Note: Best Day and Best Month insights moved to habit-detail.tsx insights section
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CELL_SIZE = Math.floor((SCREEN_WIDTH - 80) / 7);
@@ -243,30 +244,7 @@ export default function HabitHeatmap({
     createdAt,
     onDayPress
 }: HabitHeatmapProps) {
-    // Calculate completion stats
     const totalDays = completedDates.length;
-
-    // Find best month
-    const monthCounts: Record<string, number> = {};
-    completedDates.forEach(date => {
-        const monthKey = date.substring(0, 7);
-        monthCounts[monthKey] = (monthCounts[monthKey] || 0) + 1;
-    });
-
-    const bestMonth = Object.entries(monthCounts).sort((a, b) => b[1] - a[1])[0];
-    const bestMonthLabel = bestMonth
-        ? new Date(bestMonth[0] + '-01').toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-        : 'N/A';
-
-    // Find most consistent day
-    const dayCounts = [0, 0, 0, 0, 0, 0, 0];
-    completedDates.forEach(date => {
-        const dayOfWeek = new Date(date + 'T00:00:00').getDay();
-        dayCounts[dayOfWeek]++;
-    });
-    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const bestDayIndex = dayCounts.indexOf(Math.max(...dayCounts));
-    const bestDay = dayCounts[bestDayIndex] > 0 ? dayNames[bestDayIndex] : 'N/A';
 
     return (
         <View style={styles.container}>
@@ -303,16 +281,6 @@ export default function HabitHeatmap({
                         <Star size={20} color="#5856D6" />
                         <Text style={styles.insightValue}>{totalDays}</Text>
                         <Text style={styles.insightLabel}>Days Completed</Text>
-                    </View>
-                    <View style={styles.insightCard}>
-                        <Text style={styles.insightEmoji}>📅</Text>
-                        <Text style={styles.insightValue}>{bestDay}</Text>
-                        <Text style={styles.insightLabel}>Best Day</Text>
-                    </View>
-                    <View style={styles.insightCard}>
-                        <Text style={styles.insightEmoji}>🏆</Text>
-                        <Text style={styles.insightValue}>{bestMonthLabel}</Text>
-                        <Text style={styles.insightLabel}>Best Month</Text>
                     </View>
                 </View>
             </View>
@@ -520,10 +488,6 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.05,
         shadowRadius: 2,
         elevation: 2,
-    },
-    insightEmoji: {
-        fontSize: 20,
-        marginBottom: 4,
     },
     insightValue: {
         fontSize: 16,

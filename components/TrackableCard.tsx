@@ -1,14 +1,21 @@
-import React, { useRef, useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
-  Animated,
   ActionSheetIOS,
   Alert,
 } from 'react-native';
 import Svg, { Circle, G } from 'react-native-svg';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  useAnimatedProps,
+  withSpring,
+  withTiming,
+  withSequence,
+} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -31,6 +38,8 @@ interface TrackableCardProps {
   onEdit?: () => void;
   onDelete?: () => void;
   energyLevel?: 'low' | 'medium' | 'high';
+  /** Compact mode for grid layout: smaller dimensions, no subtitle */
+  compact?: boolean;
 }
 
 const CARD_SIZE = 100;
@@ -38,6 +47,12 @@ const RING_SIZE = 64;
 const RING_STROKE = 5;
 const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+
+// Compact dimensions
+const COMPACT_RING_SIZE = 48;
+const COMPACT_RING_STROKE = 4;
+const COMPACT_RING_RADIUS = (COMPACT_RING_SIZE - COMPACT_RING_STROKE) / 2;
+const COMPACT_RING_CIRCUMFERENCE = 2 * Math.PI * COMPACT_RING_RADIUS;
 
 export function TrackableCard({
   id,
@@ -52,40 +67,24 @@ export function TrackableCard({
   onEdit,
   onDelete,
   energyLevel,
+  compact = false,
 }: TrackableCardProps) {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const progressAnim = useRef(new Animated.Value(isComplete ? progressPercent : 0)).current;
-  const checkOpacity = useRef(new Animated.Value(isComplete ? 1 : 0)).current;
+  const ringSize = compact ? COMPACT_RING_SIZE : RING_SIZE;
+  const ringStroke = compact ? COMPACT_RING_STROKE : RING_STROKE;
+  const ringRadius = compact ? COMPACT_RING_RADIUS : RING_RADIUS;
+  const ringCircumference = compact ? COMPACT_RING_CIRCUMFERENCE : RING_CIRCUMFERENCE;
+  const scale = useSharedValue(1);
+  const progress = useSharedValue(isComplete ? Math.max(progressPercent, 100) : progressPercent);
+  const checkOpacity = useSharedValue(isComplete ? 1 : 0);
 
   // Animate progress ring when completion state changes
   useEffect(() => {
     if (isComplete) {
-      Animated.parallel([
-        Animated.spring(progressAnim, {
-          toValue: Math.max(progressPercent, 100), // Fill to at least 100% when complete
-          friction: 8,
-          tension: 40,
-          useNativeDriver: false,
-        }),
-        Animated.timing(checkOpacity, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      progress.value = withSpring(Math.max(progressPercent, 100), { damping: 12, stiffness: 40 });
+      checkOpacity.value = withTiming(1, { duration: 200 });
     } else {
-      Animated.parallel([
-        Animated.timing(progressAnim, {
-          toValue: progressPercent,
-          duration: 300,
-          useNativeDriver: false,
-        }),
-        Animated.timing(checkOpacity, {
-          toValue: 0,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      progress.value = withTiming(progressPercent, { duration: 300 });
+      checkOpacity.value = withTiming(0, { duration: 150 });
     }
   }, [isComplete, progressPercent]);
 
@@ -97,22 +96,13 @@ export function TrackableCard({
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
 
-    Animated.sequence([
-      Animated.timing(scaleAnim, {
-        toValue: 0.92,
-        duration: 120,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        friction: 6,
-        tension: 40,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    scale.value = withSequence(
+      withTiming(0.92, { duration: 120 }),
+      withSpring(1, { damping: 10, stiffness: 80 }),
+    );
 
     onPress();
-  }, [isComplete, onPress, scaleAnim]);
+  }, [isComplete, onPress]);
 
   const handleLongPress = useCallback(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -152,12 +142,23 @@ export function TrackableCard({
     );
   }, [title, variant, onEdit, onDelete]);
 
-  // Calculate stroke dash offset for progress
-  const strokeDashoffset = progressAnim.interpolate({
-    inputRange: [0, 100],
-    outputRange: [RING_CIRCUMFERENCE, 0],
-    extrapolate: 'clamp',
+  // Animated props for SVG strokeDashoffset (runs on UI thread)
+  const animatedCircleProps = useAnimatedProps(() => {
+    const clampedProgress = Math.min(Math.max(progress.value, 0), 100);
+    return {
+      strokeDashoffset: ringCircumference * (1 - clampedProgress / 100),
+    };
   });
+
+  // Animated style for scale bounce
+  const scaleStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  // Animated style for check badge opacity
+  const checkStyle = useAnimatedStyle(() => ({
+    opacity: checkOpacity.value,
+  }));
 
   // Color schemes based on variant and state
   const getColors = () => {
@@ -191,67 +192,68 @@ export function TrackableCard({
       onPress={handlePress}
       onLongPress={handleLongPress}
       delayLongPress={500}
-      style={styles.container}
+      style={compact ? styles.compactContainer : styles.container}
     >
       <Animated.View
         style={[
-          styles.iconContainer,
+          compact ? styles.compactIconContainer : styles.iconContainer,
           {
             backgroundColor: colors.cardBg,
             borderColor: colors.border,
-            transform: [{ scale: scaleAnim }],
             shadowColor: colors.shadow,
           },
-          isComplete && styles.iconContainerTaken
+          isComplete && styles.iconContainerTaken,
+          scaleStyle,
         ]}
       >
         {/* Progress Ring */}
-        <View style={styles.ringContainer}>
-          <Svg width={RING_SIZE} height={RING_SIZE}>
-            <G rotation="-90" origin={`${RING_SIZE / 2}, ${RING_SIZE / 2}`}>
+        <View style={compact ? styles.compactRingContainer : styles.ringContainer}>
+          <Svg width={ringSize} height={ringSize}>
+            <G rotation="-90" origin={`${ringSize / 2}, ${ringSize / 2}`}>
               {/* Background ring */}
               <Circle
-                cx={RING_SIZE / 2}
-                cy={RING_SIZE / 2}
-                r={RING_RADIUS}
+                cx={ringSize / 2}
+                cy={ringSize / 2}
+                r={ringRadius}
                 stroke={colors.ringBg}
-                strokeWidth={RING_STROKE}
+                strokeWidth={ringStroke}
                 fill="transparent"
               />
               {/* Progress ring */}
               <AnimatedCircle
-                cx={RING_SIZE / 2}
-                cy={RING_SIZE / 2}
-                r={RING_RADIUS}
+                cx={ringSize / 2}
+                cy={ringSize / 2}
+                r={ringRadius}
                 stroke={colors.ringFill}
-                strokeWidth={RING_STROKE}
+                strokeWidth={ringStroke}
                 fill="transparent"
-                strokeDasharray={RING_CIRCUMFERENCE}
-                strokeDashoffset={strokeDashoffset}
+                strokeDasharray={ringCircumference}
                 strokeLinecap="round"
+                animatedProps={animatedCircleProps}
               />
             </G>
           </Svg>
 
           {/* Emoji centered in ring */}
           <View style={styles.emojiContainer}>
-            <Text style={styles.emoji}>{emoji}</Text>
+            <Text style={compact ? styles.compactEmoji : styles.emoji}>{emoji}</Text>
           </View>
 
           {/* Check overlay - Badge style now */}
           {isComplete && (
             <Animated.View
               style={[
-                styles.badge,
-                { backgroundColor: colors.checkBg, opacity: checkOpacity }
+                compact ? styles.compactBadge : styles.badge,
+                { backgroundColor: colors.checkBg },
+                checkStyle,
               ]}
             >
-              <Text style={styles.checkMark}>✓</Text>
+              <Text style={compact ? styles.compactCheckMark : styles.checkMark}>✓</Text>
             </Animated.View>
           )}
 
           {/* Energy Indicator */}
-          {energyLevel && (
+          {energyLevel && !compact && (
             <View style={styles.energyIndicator}>
               <Text style={styles.energyIndicatorText}>
                 {energyLevel === 'low' ? '🔋' : energyLevel === 'medium' ? '⚡️' : '🔥'}
@@ -261,15 +263,18 @@ export function TrackableCard({
         </View>
       </Animated.View>
 
-      <View style={styles.textContainer}>
+      <View style={compact ? styles.compactTextContainer : styles.textContainer}>
         <Text
-          style={[styles.title, isComplete && styles.titleTaken]}
+          style={[
+            compact ? styles.compactTitle : styles.title,
+            isComplete && styles.titleTaken,
+          ]}
           numberOfLines={1}
         >
           {title}
         </Text>
 
-        {subtitle && (
+        {!compact && subtitle && (
           <Text style={styles.subtitle} numberOfLines={1}>
             {subtitle}
           </Text>
@@ -293,13 +298,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
     elevation: 3,
     marginBottom: 8,
   },
   iconContainerTaken: {
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.12,
   },
   ringContainer: {
     width: RING_SIZE,
@@ -375,5 +380,65 @@ const styles = StyleSheet.create({
   },
   energyIndicatorText: {
     fontSize: 12,
+  },
+  // Compact styles for grid layout
+  compactContainer: {
+    alignItems: 'center',
+    width: '25%',
+    paddingHorizontal: 4,
+    marginBottom: 12,
+  },
+  compactIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 3,
+    marginBottom: 6,
+  },
+  compactRingContainer: {
+    width: COMPACT_RING_SIZE,
+    height: COMPACT_RING_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  compactEmoji: {
+    fontSize: 20,
+  },
+  compactBadge: {
+    position: 'absolute',
+    bottom: -3,
+    right: -3,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  compactCheckMark: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  compactTextContainer: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  compactTitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#000',
+    textAlign: 'center',
   },
 });

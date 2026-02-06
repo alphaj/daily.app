@@ -2,7 +2,6 @@ import { useRouter } from 'expo-router';
 import {
   ChevronLeft,
   ChevronRight,
-  Plus,
   ListTodo,
   GripVertical,
   Target,
@@ -16,12 +15,8 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
-  Dimensions,
   Modal,
-  TextInput,
   Animated,
-  Alert,
-  Image,
   PanResponder,
   LayoutAnimation,
   Platform,
@@ -35,7 +30,7 @@ import { useNotes } from '@/contexts/NoteContext';
 import { useInbox } from '@/contexts/InboxContext';
 import type { Todo } from '@/types/todo';
 import type { Habit } from '@/types/habit';
-import { format, addDays, subDays, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths } from 'date-fns';
+import { format, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths } from 'date-fns';
 import SwipeableRow from '@/components/SwipeableRow';
 import { CelebrationOverlay } from '@/components/CelebrationOverlay';
 import { AddOptionsModal } from '@/components/AddOptionsModal';
@@ -47,8 +42,9 @@ import { CalendarHeader } from '@/components/CalendarHeader';
 import { useWorkMode } from '@/contexts/WorkModeContext';
 import { useSupplements } from '@/contexts/SupplementContext';
 import { TrackableCard } from '@/components/TrackableCard';
-import { SupplementCard } from '@/components/SupplementCard';
 import { EditSupplementModal } from '@/components/EditSupplementModal';
+import { EnergyPickerModal } from '@/components/EnergyPickerModal';
+import { SectionHeader } from '@/components/SectionHeader';
 import type { Supplement } from '@/types/supplement';
 
 import { BlurView } from 'expo-blur';
@@ -56,7 +52,6 @@ import { AmbientBackground } from '@/components/AmbientBackground';
 
 
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ITEM_HEIGHT = 68;
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -597,7 +592,7 @@ export default function HomeScreen() {
   const [editSupplementModalVisible, setEditSupplementModalVisible] = useState(false);
   const [selectedSupplement, setSelectedSupplement] = useState<Supplement | null>(null);
   const [energyTriage, setEnergyTriage] = useState<'survival' | 'normal' | 'peak'>('normal');
-  const slideAnim = useRef(new Animated.Value(1)).current; // Default to 'normal' (index 1)
+  const [energyPickerVisible, setEnergyPickerVisible] = useState(false);
 
 
   // Reflection & Celebration state
@@ -697,23 +692,36 @@ export default function HomeScreen() {
     });
   }, [habits, isCompletedToday, toggleHabitCompletion]);
 
-  const formattedSelectedDate = format(selectedDate, 'MMM d, yyyy');
-  const dayName = format(selectedDate, 'EEEE');
   const isToday = isSameDay(selectedDate, new Date());
+
+  // Completion counts for section headers
+  const habitsCompleted = filteredHabits.filter(h => isCompletedToday(h)).length;
+  const pillsTaken = activeSupplements.filter(s =>
+    s.takenDates.includes(format(selectedDate, 'yyyy-MM-dd'))
+  ).length;
+  const tasksCompleted = todosForDate.filter(t => t.completed).length;
+
+  // Show habits/pills sections only if they have content (or both empty = skip)
+  const hasHabitsOrPills = habits.length > 0 || activeSupplements.length > 0;
+
+  // Limit habits to 8 for grid, with "See all" link
+  const displayHabits = filteredHabits.slice(0, 8);
+  const hasMoreHabits = filteredHabits.length > 8;
 
   return (
     <View style={{ flex: 1 }}>
       <AmbientBackground />
       <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]} edges={['top']}>
 
-        {/* Unified Calendar Header - combines mode toggle, date context, and navigation */}
+        {/* Compact Header with energy capsule */}
         <CalendarHeader
           selectedDate={selectedDate}
           onSelectDate={setSelectedDate}
           onOpenCalendar={() => setCalendarModalVisible(true)}
           onOpenInbox={() => router.push('/inbox')}
           inboxCount={inboxItems.length}
-          hasNoteForDate={hasNoteForDate}
+          energyLevel={energyTriage}
+          onPressEnergy={() => setEnergyPickerVisible(true)}
         />
 
         <ScrollView
@@ -722,83 +730,104 @@ export default function HomeScreen() {
           contentContainerStyle={{ paddingBottom: 140 }}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Date Heading */}
-          <View style={styles.pageHeader}>
-            <Text style={styles.subDate}>
-              {dayName.toUpperCase()} {isToday && <Text style={{ color: '#5856D6' }}>• TODAY</Text>}
-            </Text>
-            <Text style={styles.mainDate}>{formattedSelectedDate}</Text>
-          </View>
 
-          {/* Energy Triage Selector */}
-          <View style={styles.triageContainer}>
-            <View style={styles.triageBackground}>
-              <Animated.View
-                style={[
-                  styles.triageIndicator,
-                  {
-                    width: (SCREEN_WIDTH - 64) / 3,
-                    transform: [{
-                      translateX: slideAnim.interpolate({
-                        inputRange: [0, 1, 2],
-                        outputRange: [0, (SCREEN_WIDTH - 52) / 3, ((SCREEN_WIDTH - 52) / 3) * 2]
-                      })
-                    }]
-                  }
-                ]}
+          {/* Habits Section (grid) */}
+          {habits.length > 0 && (
+            <View style={styles.sectionContainer}>
+              <SectionHeader
+                icon={<Target size={20} color="#8E8E93" />}
+                label="Habits"
+                completed={habitsCompleted}
+                total={filteredHabits.length}
+                onAdd={() => router.push('/add-habit')}
               />
-              {[
-                { id: 'survival', label: 'Survival', icon: '🔋' },
-                { id: 'normal', label: 'Normal', icon: '⚡️' },
-                { id: 'peak', label: 'Peak', icon: '🔥' },
-              ].map((mode, index) => {
-                const isActive = energyTriage === mode.id;
-                return (
-                  <Pressable
-                    key={mode.id}
-                    style={styles.triageButton}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setEnergyTriage(mode.id as any);
-                      Animated.spring(slideAnim, {
-                        toValue: index,
-                        useNativeDriver: true,
-                        damping: 15,
-                        stiffness: 150,
-                      }).start();
-                    }}
-                  >
-                    <Text style={[
-                      styles.triageIcon,
-                      isActive && styles.triageTextActive
-                    ]}>{mode.icon}</Text>
-                    <Text style={[
-                      styles.triageText,
-                      isActive && styles.triageTextActive
-                    ]}>{mode.label}</Text>
-                  </Pressable>
-                );
-              })}
+
+              {filteredHabits.length === 0 ? (
+                <View style={styles.emptyStateCard}>
+                  <Text style={styles.emptyText}>
+                    {energyTriage === 'survival'
+                      ? 'Focusing on recovery. Medium and high-energy habits hidden.'
+                      : 'High-energy habits hidden.'}
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <View style={styles.grid}>
+                    {displayHabits.map(habit => (
+                      <TrackableCard
+                        key={habit.id}
+                        id={habit.id}
+                        emoji={habit.emoji || (habit.type === 'breaking' ? '🚫' : '⚡️')}
+                        title={habit.name}
+                        progressPercent={getWeeklyCompletionRate(habit.completedDates)}
+                        isComplete={isCompletedToday(habit)}
+                        variant={habit.type === 'breaking' ? 'breaking' : 'habit'}
+                        weekDots={getWeekDotsForDates(habit.completedDates)}
+                        onPress={() => handleHabitToggle(habit.id)}
+                        onDelete={() => deleteHabit(habit.id)}
+                        compact
+                      />
+                    ))}
+                  </View>
+                  {hasMoreHabits && (
+                    <Pressable
+                      onPress={() => router.push('/add-habit')}
+                      style={styles.seeAllButton}
+                    >
+                      <Text style={styles.seeAllText}>See all {filteredHabits.length} habits</Text>
+                    </Pressable>
+                  )}
+                </>
+              )}
             </View>
-            {energyTriage === 'survival' && (
-              <Text style={styles.triageHint}>Growth paused. Low-energy maintenance mode.</Text>
-            )}
-          </View>
+          )}
+
+          {/* Pills Section (grid) */}
+          {activeSupplements.length > 0 && (
+            <View style={styles.sectionContainer}>
+              <SectionHeader
+                icon={<Pill size={20} color="#8E8E93" />}
+                label="Pills"
+                completed={pillsTaken}
+                total={activeSupplements.length}
+                onAdd={() => router.push('/add-supplement')}
+              />
+
+              <View style={styles.grid}>
+                {activeSupplements.map(supplement => {
+                  const isTaken = supplement.takenDates.includes(format(selectedDate, 'yyyy-MM-dd'));
+                  return (
+                    <TrackableCard
+                      key={supplement.id}
+                      id={supplement.id}
+                      emoji={supplement.emoji || '💊'}
+                      title={supplement.name}
+                      progressPercent={isTaken ? 100 : 0}
+                      isComplete={isTaken}
+                      variant="supplement"
+                      onPress={() => toggleTaken(supplement.id)}
+                      onDelete={() => deleteSupplement(supplement.id)}
+                      onEdit={() => {
+                        setSelectedSupplement(supplement);
+                        setEditSupplementModalVisible(true);
+                      }}
+                      compact
+                    />
+                  );
+                })}
+              </View>
+            </View>
+          )}
 
           {/* Tasks Section */}
           <View style={styles.sectionContainer}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionTitleRow}>
-                <ListTodo size={20} color="#8E8E93" />
-                <Text style={styles.sectionLabel}>{isPastDate ? 'Completed' : 'Tasks'}</Text>
-              </View>
-              {!isPastDate && (
-                <Pressable onPress={() => router.push('/add-todo')} style={styles.addButton} hitSlop={20}>
-                  <Plus size={18} color="#007AFF" strokeWidth={2} />
-                  <Text style={styles.addLink}>Add</Text>
-                </Pressable>
-              )}
-            </View>
+            <SectionHeader
+              icon={<ListTodo size={20} color="#8E8E93" />}
+              label={isPastDate ? 'Completed' : 'Tasks'}
+              completed={tasksCompleted}
+              total={todosForDate.length}
+              onAdd={!isPastDate ? () => router.push('/add-todo') : undefined}
+            />
 
             {todosForDate.length === 0 ? (
               <View style={styles.emptyStateCard}>
@@ -836,123 +865,6 @@ export default function HomeScreen() {
             )}
           </View>
 
-          {/* Habits Section */}
-          <View style={styles.habitsSection}>
-            <View style={styles.sectionHeaderPadding}>
-              <View style={styles.sectionHeader}>
-                <View style={styles.sectionTitleRow}>
-                  <Target size={20} color="#8E8E93" />
-                  <Text style={styles.sectionLabel}>Habits</Text>
-                </View>
-                <Pressable onPress={() => router.push('/add-habit')} style={styles.addButton} hitSlop={20}>
-                  <Plus size={18} color="#007AFF" strokeWidth={2} />
-                  <Text style={styles.addLink}>Add</Text>
-                </Pressable>
-              </View>
-            </View>
-
-            {habits.length === 0 ? (
-              <View style={styles.emptyHabitsContainer}>
-                <View style={styles.emptyStateCard}>
-                  <Text style={styles.emptyText}>No habits tracked yet</Text>
-                  <Pressable onPress={() => router.push('/add-habit')} style={styles.emptyAddButton}>
-                    <Text style={styles.emptyAddText}>Start a habit</Text>
-                  </Pressable>
-                </View>
-              </View>
-            ) : filteredHabits.length === 0 ? (
-              <View style={styles.emptyHabitsContainer}>
-                <View style={styles.emptyStateCard}>
-                  <Text style={styles.emptyText}>
-                    {energyTriage === 'survival'
-                      ? 'Focusing on recovery. Medium and high-energy habits hidden.'
-                      : 'High-energy habits hidden.'}
-                  </Text>
-                </View>
-              </View>
-            ) : (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.habitsScrollContent} // Reuse or make specific if needed
-                decelerationRate="fast"
-                snapToInterval={100}
-                snapToAlignment="start"
-              >
-                {filteredHabits.map(habit => (
-                  <TrackableCard
-                    key={habit.id}
-                    id={habit.id}
-                    emoji={habit.emoji || (habit.type === 'breaking' ? '🚫' : '⚡️')}
-                    title={habit.name}
-                    subtitle={habit.currentStreak > 0 ? `${habit.currentStreak} day streak` : undefined}
-                    progressPercent={getWeeklyCompletionRate(habit.completedDates)}
-                    isComplete={isCompletedToday(habit)}
-                    variant={habit.type === 'breaking' ? 'breaking' : 'habit'}
-                    weekDots={getWeekDotsForDates(habit.completedDates)}
-                    energyLevel={habit.energyLevel}
-                    onPress={() => handleHabitToggle(habit.id)}
-                    onDelete={() => deleteHabit(habit.id)}
-                  />
-                ))}
-              </ScrollView>
-            )}
-          </View>
-
-          {/* Pills Section */}
-          <View style={styles.habitsSection}>
-            <View style={styles.sectionHeaderPadding}>
-              <View style={styles.sectionHeader}>
-                <View style={styles.sectionTitleRow}>
-                  <Pill size={20} color="#8E8E93" />
-                  <Text style={styles.sectionLabel}>Pills</Text>
-                </View>
-                <Pressable onPress={() => router.push('/add-supplement')} style={styles.addButton} hitSlop={20}>
-                  <Plus size={18} color="#007AFF" strokeWidth={2} />
-                  <Text style={styles.addLink}>Add</Text>
-                </Pressable>
-              </View>
-            </View>
-
-            {activeSupplements.length === 0 ? (
-              <View style={styles.emptyHabitsContainer}>
-                <View style={styles.emptyStateCard}>
-                  <Text style={styles.emptyText}>No supplements tracked yet</Text>
-                  <Pressable onPress={() => router.push('/add-supplement')} style={styles.emptyAddButton}>
-                    <Text style={styles.emptyAddText}>Add a supplement</Text>
-                  </Pressable>
-                </View>
-              </View>
-            ) : (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.pillsScrollContent}
-                decelerationRate="fast"
-                snapToInterval={100}
-                snapToAlignment="start"
-              >
-                {activeSupplements.map(supplement => (
-                  <SupplementCard
-                    key={supplement.id}
-                    supplement={supplement}
-                    isTaken={supplement.takenDates.includes(format(selectedDate, 'yyyy-MM-dd'))}
-                    onToggle={toggleTaken}
-                    onDelete={deleteSupplement}
-                    onEdit={(id) => {
-                      const s = activeSupplements.find(s => s.id === id);
-                      if (s) {
-                        setSelectedSupplement(s);
-                        setEditSupplementModalVisible(true);
-                      }
-                    }}
-                  />
-                ))}
-              </ScrollView>
-            )}
-          </View>
-
-
         </ScrollView>
 
         {/* Unified Command Center (Capture Bar) */}
@@ -980,6 +892,14 @@ export default function HomeScreen() {
           getHabitCompletionForDate={getHabitCompletionForDate}
         />
 
+        {/* Energy Picker Modal */}
+        <EnergyPickerModal
+          visible={energyPickerVisible}
+          onClose={() => setEnergyPickerVisible(false)}
+          selectedLevel={energyTriage}
+          onSelect={setEnergyTriage}
+        />
+
         {/* Add Options Modal */}
         <AddOptionsModal
           visible={addOptionsVisible}
@@ -994,12 +914,18 @@ export default function HomeScreen() {
           onComplete={() => setShowCelebration(false)}
           celebrationPhrase={getCelebrationPhrase()}
         />
-
         {/* Reflection Modal */}
         <ReflectionModal
           visible={showReflection}
           habit={reflectionHabit}
           onDismiss={() => {
+            setShowReflection(false);
+            setReflectionHabit(null);
+          }}
+          onKeepGoing={() => {
+            if (reflectionHabit) {
+              toggleHabitCompletion(reflectionHabit.id);
+            }
             setShowReflection(false);
             setReflectionHabit(null);
           }}
@@ -1038,70 +964,22 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
-  pageHeader: {
-    paddingHorizontal: 24,
-    marginTop: 8,
+  sectionContainer: {
+    paddingHorizontal: 20,
     marginBottom: 24,
   },
-  subDate: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#8E8E93',
-    marginBottom: 4,
-    letterSpacing: 0.8,
-  },
-  mainDate: {
-    fontSize: 34,
-    fontWeight: '800',
-    color: '#000',
-    letterSpacing: -1,
-  },
-  triageHint: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#5856D6',
-    marginTop: 8,
-    textAlign: 'center',
-    opacity: 0.8,
-  },
-  triageContainer: {
-    paddingHorizontal: 24,
-    marginBottom: 28,
-  },
-  triageBackground: {
+  grid: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-    borderRadius: 16,
-    padding: 4,
-    gap: 4,
+    flexWrap: 'wrap',
   },
-  triageButton: {
-    flex: 1,
-    flexDirection: 'row',
+  seeAllButton: {
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 12,
-    gap: 6,
+    paddingVertical: 8,
   },
-  triageButtonActive: {
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  triageIcon: {
-    fontSize: 16,
-  },
-  triageText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#8E8E93',
-  },
-  triageTextActive: {
-    color: '#000',
+  seeAllText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#007AFF',
   },
   todoEnergyIcon: {
     marginLeft: 8,
@@ -1114,55 +992,6 @@ const styles = StyleSheet.create({
   },
   todoEnergyIconText: {
     fontSize: 12,
-  },
-  sectionContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
-  },
-  noteDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#5856D6',
-    marginTop: 2,
-  },
-  calendarNoteDot: {
-    position: 'absolute',
-    bottom: 4,
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#5856D6',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-    paddingHorizontal: 0,
-  },
-  sectionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  sectionLabel: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#000',
-    letterSpacing: -0.4,
-  },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 0,
-    paddingVertical: 4,
-  },
-  addLink: {
-    fontSize: 17,
-    fontWeight: '400',
-    color: '#007AFF',
   },
   todoList: {
   },
@@ -1178,11 +1007,11 @@ const styles = StyleSheet.create({
     paddingLeft: 12,
     borderRadius: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 }, // Increased slightly
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 12,
     elevation: 3,
-    gap: 12, // Increased gap slightly
+    gap: 12,
     minHeight: ITEM_HEIGHT,
   },
   todoItemDragging: {
@@ -1192,12 +1021,12 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 10,
     backgroundColor: '#FAFAFF',
-    transform: [{ scale: 1.02 }], // Subtle scale
+    transform: [{ scale: 1.02 }],
   },
   dragHandle: {
     padding: 6,
     marginLeft: -4,
-    opacity: 0.3, // More subtle
+    opacity: 0.3,
   },
   todoItemCompleted: {
     opacity: 0.6,
@@ -1207,20 +1036,20 @@ const styles = StyleSheet.create({
     height: 26,
     borderRadius: 13,
     borderWidth: 2.5,
-    borderColor: '#C7C7CC', // Neutral gray
+    borderColor: '#C7C7CC',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#fff',
   },
   checkboxUnchecked: {
-    borderColor: '#C7C7CC', // Ensuring it stays gray
+    borderColor: '#C7C7CC',
   },
   checkboxChecked: {
-    backgroundColor: '#5856D6', // Indigo
+    backgroundColor: '#5856D6',
     borderColor: '#5856D6',
   },
   checkboxWork: {
-    borderRadius: 8, // Squircle for work? Or keep round? Let's keep round for consistency for now, or maybe make specific work style. User didn't ask for work specific change, so keeping generic radius but respecting previous logic if needed. Actually previous was 13.
+    borderRadius: 8,
     borderColor: '#C7C7CC',
   },
   checkboxWorkChecked: {
@@ -1231,7 +1060,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 17,
     color: '#000',
-    fontWeight: '500', // Medium weight
+    fontWeight: '500',
     letterSpacing: -0.3,
   },
   todoTextChecked: {
@@ -1267,47 +1096,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#fff',
   },
-  habitsSection: {
-    marginBottom: 24,
-  },
-  sectionHeaderPadding: {
-    paddingHorizontal: 20,
-  },
-  habitsScrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 4,
-    // TrackableCard has its own marginRight
-  },
-  pillsScrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 4,
-    // SupplementCard has its own marginRight
-  },
-  emptyHabitsContainer: {
-    paddingHorizontal: 20,
-  },
-  bottomBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 32,
-    paddingTop: 16,
-    backgroundColor: '#fff',
-    borderTopWidth: 0.5,
-    borderTopColor: '#E5E5EA',
-  },
-  bottomTab: {
-    padding: 8,
-  },
-  fab: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#F2F2F7',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: -16,
-  },
   // Calendar Modal Styles
   modalOverlay: {
     flex: 1,
@@ -1324,10 +1112,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     paddingHorizontal: 16,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.12,
     shadowRadius: 24,
     elevation: 16,
@@ -1464,40 +1249,5 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '400',
     color: '#007AFF',
-  },
-  badge: {
-    position: 'absolute',
-    top: -5,
-    right: -5,
-    backgroundColor: '#FF3B30',
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 5,
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
-  badgeText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  triageIndicator: {
-    position: 'absolute',
-    top: 4,
-    left: 4,
-    // width is set dynamically
-    height: '100%',
-    maxHeight: 36, // Match button height roughly
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
-    elevation: 2,
-    zIndex: 0,
   },
 });

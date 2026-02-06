@@ -4,6 +4,11 @@ import {
     Repeat,
     Trash2,
     Pencil,
+    TrendingUp,
+    TrendingDown,
+    Minus,
+    Lightbulb,
+    BarChart3,
 } from 'lucide-react-native';
 import React, { useState, useCallback } from 'react';
 import {
@@ -16,15 +21,17 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { useHabits } from '@/contexts/HabitContext';
+import { useHabits, getHabitRhythm, getHabitInsights } from '@/contexts/HabitContext';
 import HabitHeatmap from '@/components/HabitHeatmap';
 import { CelebrationOverlay } from '@/components/CelebrationOverlay';
+import { SlipFlowModal } from '@/components/SlipFlowModal';
 
 export default function HabitDetailScreen() {
     const router = useRouter();
     const { id } = useLocalSearchParams<{ id: string }>();
     const { habits, deleteHabit, toggleHabitCompletion, isCompletedToday, logSlip } = useHabits();
     const [showCelebration, setShowCelebration] = useState(false);
+    const [showSlipFlow, setShowSlipFlow] = useState(false);
 
     const habit = habits.find(h => h.id === id);
 
@@ -44,6 +51,9 @@ export default function HabitDetailScreen() {
             </SafeAreaView>
         );
     }
+
+    const rhythm = getHabitRhythm(habit);
+    const insights = getHabitInsights(habit);
 
     const completed = isCompletedToday(habit);
 
@@ -77,21 +87,13 @@ export default function HabitDetailScreen() {
     };
 
     const handleSlip = () => {
-        Alert.alert(
-            'Log a Slip',
-            'This will reset your streak. Are you sure?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Log Slip',
-                    style: 'destructive',
-                    onPress: () => {
-                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                        logSlip(habit.id);
-                    },
-                },
-            ]
-        );
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        setShowSlipFlow(true);
+    };
+
+    const handleSlipSubmit = (trigger?: any, strategy?: string) => {
+        logSlip(habit.id, trigger, strategy);
+        setShowSlipFlow(false);
     };
 
     // Calculate next milestone
@@ -182,29 +184,44 @@ export default function HabitDetailScreen() {
                     </View>
                 </View>
 
-                {/* Next Milestone Card */}
-                {habit.currentStreak > 0 && (
-                    <View style={styles.card}>
-                        <View style={styles.milestoneContainer}>
-                            <View style={styles.milestoneIcon}>
-                                <Text style={styles.milestoneEmoji}>🎯</Text>
+                {/* Rhythm Card */}
+                <View style={styles.card}>
+                    <Text style={styles.cardTitle}>Your Rhythm</Text>
+                    <View style={styles.rhythmGrid}>
+                        <View style={styles.rhythmStat}>
+                            <Text style={styles.rhythmValue}>{rhythm.thisWeek.completed}/{rhythm.thisWeek.scheduled}</Text>
+                            <Text style={styles.rhythmLabel}>This Week</Text>
+                        </View>
+                        <View style={styles.rhythmStat}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                <Text style={styles.rhythmValue}>{Math.round(rhythm.thisMonth.rate * 100)}%</Text>
+                                {rhythm.trend === 'rising' && <TrendingUp size={16} color="#34C759" />}
+                                {rhythm.trend === 'declining' && <TrendingDown size={16} color="#FF9500" />}
+                                {rhythm.trend === 'steady' && <Minus size={14} color="#8E8E93" />}
                             </View>
-                            <View style={styles.milestoneContent}>
-                                <Text style={styles.milestoneTitle}>
-                                    {daysToMilestone} days to {nextMilestone}-day milestone!
-                                </Text>
-                                <View style={styles.milestoneProgress}>
-                                    <View
-                                        style={[
-                                            styles.milestoneProgressFill,
-                                            { width: `${(habit.currentStreak / nextMilestone) * 100}%` }
-                                        ]}
-                                    />
-                                </View>
-                            </View>
+                            <Text style={styles.rhythmLabel}>
+                                {rhythm.lastMonth.rate > 0
+                                    ? (rhythm.trend === 'rising' ? `Up from ${Math.round(rhythm.lastMonth.rate * 100)}%` :
+                                       rhythm.trend === 'declining' ? `Down from ${Math.round(rhythm.lastMonth.rate * 100)}%` :
+                                       'This Month')
+                                    : 'This Month'}
+                            </Text>
+                        </View>
+                        <View style={styles.rhythmStat}>
+                            <Text style={[styles.rhythmValue, { fontSize: 18 }]}>{habit.bestStreak}</Text>
+                            <Text style={styles.rhythmLabel}>Best Streak</Text>
                         </View>
                     </View>
-                )}
+                    {/* 4-week mini bars */}
+                    <View style={styles.miniBarContainer}>
+                        {rhythm.monthlyRates.map((rate, i) => (
+                            <View key={i} style={styles.miniBarWrapper}>
+                                <View style={[styles.miniBar, { height: Math.max(4, rate * 40) }]} />
+                                <Text style={styles.miniBarLabel}>W{i + 1}</Text>
+                            </View>
+                        ))}
+                    </View>
+                </View>
 
                 {/* Heatmap */}
                 <View style={styles.heatmapSection}>
@@ -216,29 +233,96 @@ export default function HabitDetailScreen() {
                     />
                 </View>
 
-                {/* Intention Card (if set) */}
-                {habit.intention && (habit.intention.when || habit.intention.where || habit.intention.cue) && (
+                {/* Intention Card */}
+                {habit.intention && (habit.intention.when || habit.intention.where || habit.intention.cue || habit.intention.insteadAction) ? (
                     <View style={styles.card}>
-                        <Text style={styles.cardTitle}>My Intention</Text>
-                        <View style={styles.intentionContainer}>
-                            {habit.intention.when && (
-                                <View style={styles.intentionRow}>
-                                    <Text style={styles.intentionLabel}>When:</Text>
-                                    <Text style={styles.intentionValue}>{habit.intention.when}</Text>
-                                </View>
-                            )}
-                            {habit.intention.where && (
-                                <View style={styles.intentionRow}>
-                                    <Text style={styles.intentionLabel}>Where:</Text>
-                                    <Text style={styles.intentionValue}>{habit.intention.where}</Text>
-                                </View>
-                            )}
-                            {habit.intention.cue && (
-                                <View style={styles.intentionRow}>
-                                    <Text style={styles.intentionLabel}>Cue:</Text>
-                                    <Text style={styles.intentionValue}>{habit.intention.cue}</Text>
-                                </View>
-                            )}
+                        <View style={styles.intentionHeader}>
+                            <Lightbulb size={18} color="#FF9500" />
+                            <Text style={styles.cardTitle}>My Plan</Text>
+                        </View>
+                        {habit.type === 'building' ? (
+                            <Text style={styles.intentionNatural}>
+                                {habit.intention.when && <>After I <Text style={styles.intentionBold}>{habit.intention.when}</Text>, </>}
+                                I will <Text style={styles.intentionBold}>{habit.name.toLowerCase()}</Text>
+                                {habit.intention.where && <> at <Text style={styles.intentionBold}>{habit.intention.where}</Text></>}
+                            </Text>
+                        ) : (
+                            <View style={styles.intentionContainer}>
+                                {habit.intention.cue && (
+                                    <Text style={styles.intentionNatural}>
+                                        When I feel the urge, my trigger is usually <Text style={styles.intentionBold}>{habit.intention.cue}</Text>
+                                    </Text>
+                                )}
+                                {habit.intention.insteadAction && (
+                                    <Text style={[styles.intentionNatural, { marginTop: 8 }]}>
+                                        Instead, I will <Text style={styles.intentionBold}>{habit.intention.insteadAction}</Text>
+                                    </Text>
+                                )}
+                            </View>
+                        )}
+                    </View>
+                ) : (
+                    <Pressable style={styles.card} onPress={() => router.push({ pathname: '/edit-habit', params: { id } })}>
+                        <View style={styles.intentionHeader}>
+                            <Lightbulb size={18} color="#C7C7CC" />
+                            <Text style={[styles.cardTitle, { color: '#8E8E93' }]}>Add a plan to increase your success rate</Text>
+                        </View>
+                    </Pressable>
+                )}
+
+                {/* Insights */}
+                {insights.totalCompletions > 7 && (
+                    <View style={styles.card}>
+                        <View style={styles.intentionHeader}>
+                            <BarChart3 size={18} color="#5856D6" />
+                            <Text style={styles.cardTitle}>Insights</Text>
+                        </View>
+                        <View style={styles.insightsList}>
+                            <View style={styles.insightRow}>
+                                <View style={[styles.insightDot, { backgroundColor: '#34C759' }]} />
+                                <Text style={styles.insightText}>
+                                    <Text style={styles.insightBold}>{insights.bestDay.name}s</Text> — {Math.round(insights.bestDay.rate * 100)}% completion
+                                </Text>
+                            </View>
+                            <View style={styles.insightRow}>
+                                <View style={[styles.insightDot, { backgroundColor: '#FF9500' }]} />
+                                <Text style={styles.insightText}>
+                                    <Text style={styles.insightBold}>{insights.hardestDay.name}s</Text> — {Math.round(insights.hardestDay.rate * 100)}% completion
+                                </Text>
+                            </View>
+                            <View style={styles.insightRow}>
+                                <View style={[styles.insightDot, { backgroundColor: '#5856D6' }]} />
+                                <Text style={styles.insightText}>
+                                    {insights.totalCompletions} days completed since {new Date(habit.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                </Text>
+                            </View>
+                        </View>
+                    </View>
+                )}
+
+                {/* Trigger Patterns (breaking habits only) */}
+                {habit.type === 'breaking' && (habit.slipLog || []).filter(s => s.trigger).length >= 2 && (
+                    <View style={styles.card}>
+                        <Text style={styles.cardTitle}>Trigger Patterns</Text>
+                        <View style={styles.triggerList}>
+                            {Object.entries(
+                                (habit.slipLog || [])
+                                    .filter(s => s.trigger)
+                                    .reduce((acc, s) => {
+                                        acc[s.trigger!] = (acc[s.trigger!] || 0) + 1;
+                                        return acc;
+                                    }, {} as Record<string, number>)
+                            )
+                                .sort((a, b) => b[1] - a[1])
+                                .map(([trigger, count]) => (
+                                    <View key={trigger} style={styles.triggerRow}>
+                                        <Text style={styles.triggerName}>{trigger.charAt(0).toUpperCase() + trigger.slice(1)}</Text>
+                                        <View style={styles.triggerBarBg}>
+                                            <View style={[styles.triggerBarFill, { flex: count as number }]} />
+                                        </View>
+                                        <Text style={styles.triggerCount}>{count}</Text>
+                                    </View>
+                                ))}
                         </View>
                     </View>
                 )}
@@ -252,6 +336,15 @@ export default function HabitDetailScreen() {
                     })}
                 </Text>
             </ScrollView>
+
+            {/* Slip Flow Modal */}
+            <SlipFlowModal
+                visible={showSlipFlow}
+                habitName={habit.name}
+                previousStrategies={(habit.slipLog || []).map(s => s.strategy).filter(Boolean) as string[]}
+                onSubmit={handleSlipSubmit}
+                onClose={() => setShowSlipFlow(false)}
+            />
         </SafeAreaView>
     );
 }
@@ -484,10 +577,123 @@ const styles = StyleSheet.create({
         flex: 1,
         lineHeight: 20,
     },
+    rhythmGrid: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        marginBottom: 16,
+    },
+    rhythmStat: {
+        alignItems: 'center',
+    },
+    rhythmValue: {
+        fontSize: 24,
+        fontWeight: '800',
+        color: '#000',
+        letterSpacing: -0.5,
+    },
+    rhythmLabel: {
+        fontSize: 12,
+        fontWeight: '500',
+        color: '#8E8E93',
+        marginTop: 4,
+    },
+    miniBarContainer: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'flex-end',
+        gap: 12,
+        paddingTop: 8,
+        borderTopWidth: 1,
+        borderTopColor: '#F2F2F7',
+    },
+    miniBarWrapper: {
+        alignItems: 'center',
+        gap: 4,
+    },
+    miniBar: {
+        width: 24,
+        backgroundColor: '#5856D6',
+        borderRadius: 4,
+        minHeight: 4,
+    },
+    miniBarLabel: {
+        fontSize: 10,
+        color: '#8E8E93',
+        fontWeight: '600',
+    },
+    intentionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 12,
+    },
+    intentionNatural: {
+        fontSize: 16,
+        color: '#000',
+        lineHeight: 24,
+    },
+    intentionBold: {
+        fontWeight: '700',
+    },
+    insightsList: {
+        gap: 12,
+    },
+    insightRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    insightDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+    },
+    insightText: {
+        fontSize: 14,
+        color: '#000',
+        flex: 1,
+    },
+    insightBold: {
+        fontWeight: '700',
+    },
+    triggerList: {
+        gap: 10,
+    },
+    triggerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    triggerName: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#000',
+        width: 80,
+    },
+    triggerBarBg: {
+        flex: 1,
+        height: 8,
+        backgroundColor: '#F2F2F7',
+        borderRadius: 4,
+        flexDirection: 'row',
+        overflow: 'hidden',
+    },
+    triggerBarFill: {
+        height: '100%',
+        backgroundColor: '#FF6B6B',
+        borderRadius: 4,
+    },
+    triggerCount: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#8E8E93',
+        width: 24,
+        textAlign: 'right',
+    },
     createdText: {
         fontSize: 13,
         fontWeight: '500',
-        color: '#8E8E93', // Slightly darker than previous C7C7CC for better readability on gray
+        color: '#8E8E93',
         textAlign: 'center',
         marginBottom: 20,
         marginTop: 10,

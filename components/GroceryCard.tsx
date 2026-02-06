@@ -7,9 +7,10 @@ import {
     Animated,
     Alert,
 } from 'react-native';
-import { Check, RotateCcw } from 'lucide-react-native';
+import { Check, RotateCcw, ShoppingCart, X, CheckCircle2 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import SwipeableRow from '@/components/SwipeableRow';
+import { GroceryIcon } from '@/components/GroceryIcon';
 import type { GroceryItem } from '@/types/grocery';
 import { CATEGORY_CONFIG, FREQUENCY_CONFIG } from '@/types/grocery';
 
@@ -88,10 +89,29 @@ export function GroceryCard({
         onMarkPurchased(item.id);
     }, [item.id, onMarkPurchased]);
 
+    const handleRemoveFromList = useCallback(() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        onToggleList(item.id);
+    }, [item.id, onToggleList]);
+
+    const handleAddToList = useCallback(() => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        onToggleList(item.id);
+    }, [item.id, onToggleList]);
+
     return (
         <SwipeableRow
-            onDelete={handleDelete}
-            {...(isShoppingMode && { onConvertToTask: handleSwipeComplete })}
+            onDelete={isShoppingMode ? handleRemoveFromList : handleDelete}
+            onConvertToTask={isShoppingMode ? handleSwipeComplete : handleAddToList}
+            rightActionColor={isShoppingMode ? '#FF9500' : '#FF3B30'}
+            rightActionIcon={isShoppingMode
+                ? <X size={24} color="#fff" strokeWidth={2.5} />
+                : undefined
+            }
+            leftActionIcon={isShoppingMode
+                ? <CheckCircle2 size={22} color="#fff" strokeWidth={2} />
+                : <ShoppingCart size={22} color="#fff" strokeWidth={2} />
+            }
         >
             <Pressable
                 onPress={handlePress}
@@ -109,9 +129,14 @@ export function GroceryCard({
                     {/* Category accent */}
                     <View style={[styles.categoryAccent, { backgroundColor: categoryConfig.color }]} />
 
-                    {/* Emoji */}
-                    <View style={[styles.emojiContainer, { backgroundColor: categoryConfig.color + '15' }]}>
-                        <Text style={styles.emoji}>{item.emoji || categoryConfig.emoji}</Text>
+                    {/* Icon */}
+                    <View style={[styles.iconContainer, { backgroundColor: categoryConfig.color + '15' }]}>
+                        <GroceryIcon
+                            name={item.name}
+                            category={item.category}
+                            size={20}
+                            color={categoryConfig.color}
+                        />
                     </View>
 
                     {/* Content */}
@@ -166,33 +191,31 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: '#fff',
-        paddingVertical: 14,
+        paddingVertical: 11,
         paddingHorizontal: 16,
         paddingLeft: 4,
-        gap: 12,
+        gap: 10,
+        minHeight: 44,
     },
     cardFirst: {
-        borderTopLeftRadius: 16,
-        borderTopRightRadius: 16,
+        borderTopLeftRadius: 10,
+        borderTopRightRadius: 10,
     },
     cardLast: {
-        borderBottomLeftRadius: 16,
-        borderBottomRightRadius: 16,
+        borderBottomLeftRadius: 10,
+        borderBottomRightRadius: 10,
     },
     categoryAccent: {
         width: 3,
-        height: 32,
-        borderRadius: 2,
+        height: 28,
+        borderRadius: 1.5,
     },
-    emojiContainer: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
+    iconContainer: {
+        width: 36,
+        height: 36,
+        borderRadius: 8,
         alignItems: 'center',
         justifyContent: 'center',
-    },
-    emoji: {
-        fontSize: 20,
     },
     content: {
         flex: 1,
@@ -251,23 +274,19 @@ const styles = StyleSheet.create({
         borderColor: '#34C759',
     },
     checkCircle: {
-        width: 28,
-        height: 28,
-        borderRadius: 14,
+        width: 24,
+        height: 24,
+        borderRadius: 12,
         backgroundColor: '#34C759',
         alignItems: 'center',
         justifyContent: 'center',
-        shadowColor: '#34C759',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
     },
     separator: {
         position: 'absolute',
         bottom: 0,
-        left: 72,
+        left: 64,
         right: 0,
         height: StyleSheet.hairlineWidth,
-        backgroundColor: '#E5E5EA',
+        backgroundColor: 'rgba(60, 60, 67, 0.12)',
     },
 });

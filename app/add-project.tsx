@@ -94,6 +94,7 @@ export default function AddProjectScreen() {
           style={styles.content}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
         >
           {/* Type Toggle */}
           <View style={styles.typeToggleContainer}>

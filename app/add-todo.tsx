@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
-import { X, Mic, Square, ChevronLeft, Calendar, Flag, ChevronRight } from 'lucide-react-native';
+import { X, Mic, Square, ChevronLeft, Calendar, Flag, ChevronRight, Clock } from 'lucide-react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useState, useRef } from 'react';
 import {
     View,
@@ -12,6 +13,8 @@ import {
     ActivityIndicator,
     Animated,
     ScrollView,
+    Modal,
+    Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -21,7 +24,6 @@ import { useWorkMode } from '@/contexts/WorkModeContext';
 import { format, isToday, isTomorrow, addDays } from 'date-fns';
 import { DatePickerModal } from '@/components/DatePickerModal';
 import { PriorityPickerModal } from '@/components/PriorityPickerModal';
-import { Alert } from 'react-native';
 
 export default function AddTodoScreen() {
     const router = useRouter();
@@ -33,6 +35,8 @@ export default function AddTodoScreen() {
     const [energyLevel, setEnergyLevel] = useState<'low' | 'medium' | 'high'>('medium');
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [showPriorityPicker, setShowPriorityPicker] = useState(false);
+    const [dueTime, setDueTime] = useState<string | undefined>(undefined);
+    const [showTimePicker, setShowTimePicker] = useState(false);
 
     const [isRecording, setIsRecording] = useState(false);
     const [isTranscribing, setIsTranscribing] = useState(false);
@@ -177,7 +181,7 @@ export default function AddTodoScreen() {
     const handleSave = () => {
         if (title.trim()) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            addTodo(title.trim(), dueDate || new Date(), priority, isWorkMode, energyLevel);
+            addTodo(title.trim(), dueDate || new Date(), priority, isWorkMode, energyLevel, dueTime);
             router.back();
         }
     };
@@ -252,7 +256,11 @@ export default function AddTodoScreen() {
                     </Pressable>
                 </View>
 
-                <ScrollView contentContainerStyle={styles.scrollContent}>
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode="interactive"
+                >
                     <View style={styles.content}>
                         <View style={styles.section}>
                             <Text style={styles.label}>WHAT DO YOU NEED TO DO TODAY?</Text>
@@ -338,6 +346,50 @@ export default function AddTodoScreen() {
                                         <ChevronRight size={16} color="#C7C7CC" strokeWidth={2} />
                                     </View>
                                 </Pressable>
+
+                                <View style={styles.separatorContainer}>
+                                    <View style={styles.separator} />
+                                </View>
+
+                                <Pressable
+                                    style={({ pressed }) => [
+                                        styles.detailRow,
+                                        pressed && styles.detailRowPressed
+                                    ]}
+                                    onPress={() => {
+                                        Haptics.selectionAsync();
+                                        if (dueTime) {
+                                            setShowTimePicker(true);
+                                        } else {
+                                            setDueTime('09:00');
+                                            setShowTimePicker(true);
+                                        }
+                                    }}
+                                    onLongPress={() => {
+                                        if (dueTime) {
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                            setDueTime(undefined);
+                                        }
+                                    }}
+                                >
+                                    <View style={styles.detailLeft}>
+                                        <View style={[styles.iconContainer, { backgroundColor: dueTime ? '#5856D6' : '#8E8E93' }]}>
+                                            <Clock size={18} color="#fff" strokeWidth={2.5} />
+                                        </View>
+                                        <Text style={styles.detailLabel}>Time</Text>
+                                    </View>
+                                    <View style={styles.detailRight}>
+                                        <Text style={styles.detailValue}>
+                                            {dueTime ? (() => {
+                                                const [h, m] = dueTime.split(':').map(Number);
+                                                const period = h >= 12 ? 'PM' : 'AM';
+                                                const displayH = h % 12 || 12;
+                                                return `${displayH}:${m.toString().padStart(2, '0')} ${period}`;
+                                            })() : 'None'}
+                                        </Text>
+                                        <ChevronRight size={16} color="#C7C7CC" strokeWidth={2} />
+                                    </View>
+                                </Pressable>
                             </View>
                         </View>
                         <View style={styles.section}>
@@ -387,6 +439,56 @@ export default function AddTodoScreen() {
                 selectedPriority={priority}
                 onSelectPriority={setPriority}
             />
+
+            {/* Time Picker Modal */}
+            <Modal
+                visible={showTimePicker}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setShowTimePicker(false)}
+            >
+                <View style={styles.timePickerOverlay}>
+                    <Pressable
+                        style={StyleSheet.absoluteFill}
+                        onPress={() => setShowTimePicker(false)}
+                    />
+                    <View style={styles.timePickerModal}>
+                        <View style={styles.timePickerHeader}>
+                            <Pressable onPress={() => {
+                                setDueTime(undefined);
+                                setShowTimePicker(false);
+                            }}>
+                                <Text style={styles.timePickerCancel}>Remove</Text>
+                            </Pressable>
+                            <Text style={styles.timePickerTitle}>Due Time</Text>
+                            <Pressable onPress={() => setShowTimePicker(false)}>
+                                <Text style={styles.timePickerDone}>Done</Text>
+                            </Pressable>
+                        </View>
+                        <View style={styles.timePickerContent}>
+                            <DateTimePicker
+                                value={(() => {
+                                    const [h, m] = (dueTime || '09:00').split(':').map(Number);
+                                    const d = new Date();
+                                    d.setHours(h);
+                                    d.setMinutes(m);
+                                    return d;
+                                })()}
+                                mode="time"
+                                display="spinner"
+                                onChange={(event: any, selectedDate?: Date) => {
+                                    if (selectedDate) {
+                                        const hours = selectedDate.getHours().toString().padStart(2, '0');
+                                        const minutes = selectedDate.getMinutes().toString().padStart(2, '0');
+                                        setDueTime(`${hours}:${minutes}`);
+                                    }
+                                }}
+                                themeVariant="light"
+                            />
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -592,5 +694,43 @@ const styles = StyleSheet.create({
     },
     energyLabelTextActive: {
         color: '#007AFF',
+    },
+    timePickerOverlay: {
+        flex: 1,
+        justifyContent: 'flex-end',
+        backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    },
+    timePickerModal: {
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        paddingBottom: 34,
+    },
+    timePickerHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        borderBottomWidth: 0.5,
+        borderBottomColor: '#E5E5EA',
+    },
+    timePickerTitle: {
+        fontSize: 17,
+        fontWeight: '600',
+        color: '#000',
+    },
+    timePickerCancel: {
+        fontSize: 17,
+        color: '#FF3B30',
+    },
+    timePickerDone: {
+        fontSize: 17,
+        fontWeight: '600',
+        color: '#007AFF',
+    },
+    timePickerContent: {
+        paddingHorizontal: 20,
+        paddingVertical: 8,
     },
 });

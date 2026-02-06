@@ -1,13 +1,19 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import {
     View,
     Text,
     StyleSheet,
     Pressable,
-    Animated,
     Alert,
     ActionSheetIOS,
 } from 'react-native';
+import Animated, {
+    useSharedValue,
+    useAnimatedStyle,
+    withTiming,
+    withSpring,
+    withSequence,
+} from 'react-native-reanimated';
 import { Check, Flame } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import type { Supplement } from '@/types/supplement';
@@ -27,27 +33,18 @@ export function SupplementCard({
     onDelete,
     onEdit,
 }: SupplementCardProps) {
-    const scaleAnim = useRef(new Animated.Value(1)).current;
+    const scale = useSharedValue(1);
 
     const handlePress = useCallback(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-        Animated.sequence([
-            Animated.timing(scaleAnim, {
-                toValue: 0.92,
-                duration: 120,
-                useNativeDriver: true,
-            }),
-            Animated.spring(scaleAnim, {
-                toValue: 1,
-                friction: 6,
-                tension: 40,
-                useNativeDriver: true,
-            }),
-        ]).start();
+        scale.value = withSequence(
+            withTiming(0.92, { duration: 120 }),
+            withSpring(1, { damping: 10, stiffness: 80 }),
+        );
 
         onToggle(supplement.id);
-    }, [supplement.id, onToggle, scaleAnim]);
+    }, [supplement.id, onToggle]);
 
     const handleLongPress = useCallback(() => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -81,6 +78,10 @@ export function SupplementCard({
         );
     }, [supplement.id, supplement.name, supplement.dosage, onDelete, onEdit]);
 
+    const scaleStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: scale.value }],
+    }));
+
     return (
         <Pressable
             onPress={handlePress}
@@ -92,7 +93,7 @@ export function SupplementCard({
                 style={[
                     styles.iconContainer,
                     isTaken ? styles.iconContainerTaken : styles.iconContainerUntaken,
-                    { transform: [{ scale: scaleAnim }] }
+                    scaleStyle,
                 ]}
             >
                 {/* Progress/State Ring or Background */}
@@ -147,8 +148,8 @@ const styles = StyleSheet.create({
         marginBottom: 8,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
+        shadowOpacity: 0.06,
+        shadowRadius: 4,
         elevation: 3,
     },
     iconContainerUntaken: {
@@ -161,7 +162,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#C8E6C9',
         shadowColor: '#4CAF50',
-        shadowOpacity: 0.2,
+        shadowOpacity: 0.12,
     },
     ring: {
         width: 54,
@@ -222,7 +223,6 @@ const styles = StyleSheet.create({
     },
     nameTaken: {
         color: '#3C3C43',
-        // opacity: 0.6, // Optional: fade text when taken?
     },
     dosage: {
         fontSize: 11,

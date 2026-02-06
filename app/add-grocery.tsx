@@ -13,8 +13,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, Check } from 'lucide-react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useGroceries } from '@/contexts/GroceryContext';
+import { GroceryIcon } from '@/components/GroceryIcon';
 import {
     CATEGORY_CONFIG,
     FREQUENCY_CONFIG,
@@ -134,13 +136,19 @@ export default function AddGroceryScreen() {
                     style={styles.content}
                     showsVerticalScrollIndicator={false}
                     keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode="interactive"
                 >
                     {/* Preview Card */}
                     <View style={styles.previewCard}>
                         <View style={[styles.previewAccent, { backgroundColor: CATEGORY_CONFIG[category].color }]} />
                         <View style={styles.previewContent}>
-                            <View style={[styles.previewEmojiContainer, { backgroundColor: CATEGORY_CONFIG[category].color + '15' }]}>
-                                <Text style={styles.previewEmoji}>{CATEGORY_CONFIG[category].emoji}</Text>
+                            <View style={[styles.previewIconContainer, { backgroundColor: CATEGORY_CONFIG[category].color + '15' }]}>
+                                <GroceryIcon
+                                    name={name || undefined}
+                                    category={category}
+                                    size={28}
+                                    color={CATEGORY_CONFIG[category].color}
+                                />
                             </View>
                             <Text style={styles.previewName} numberOfLines={1}>
                                 {name || 'Item Name'}
@@ -184,7 +192,11 @@ export default function AddGroceryScreen() {
                                     ]}
                                     onPress={() => handleCategorySelect(cat)}
                                 >
-                                    <Text style={styles.categoryChipEmoji}>{config.emoji}</Text>
+                                    <MaterialCommunityIcons
+                                        name={config.icon as any}
+                                        size={16}
+                                        color={category === cat ? config.color : '#8E8E93'}
+                                    />
                                     <Text style={[
                                         styles.categoryChipText,
                                         category === cat && styles.categoryChipTextSelected,
@@ -379,16 +391,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: 24,
     },
-    previewEmojiContainer: {
+    previewIconContainer: {
         width: 56,
         height: 56,
         borderRadius: 16,
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: 12,
-    },
-    previewEmoji: {
-        fontSize: 28,
     },
     previewName: {
         fontSize: 20,
@@ -454,9 +463,6 @@ const styles = StyleSheet.create({
     },
     categoryChipSelected: {
         backgroundColor: '#fff',
-    },
-    categoryChipEmoji: {
-        fontSize: 16,
     },
     categoryChipText: {
         fontSize: 14,

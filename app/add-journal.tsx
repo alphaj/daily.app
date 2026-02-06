@@ -8,6 +8,8 @@ import {
     ScrollView,
     TextInput,
     ActivityIndicator,
+    KeyboardAvoidingView,
+    Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -191,6 +193,10 @@ export default function AddJournalScreen() {
         <View style={styles.container}>
             <AmbientBackground />
             <SafeAreaView style={styles.safeArea} edges={['top']}>
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    style={{ flex: 1 }}
+                >
                 {/* Header */}
                 <View style={styles.header}>
                     <Pressable
@@ -226,6 +232,8 @@ export default function AddJournalScreen() {
                     style={styles.scrollView}
                     contentContainerStyle={styles.scrollContent}
                     showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode="interactive"
                 >
                     {/* Recording Section */}
                     <View style={styles.recordingSection}>
@@ -300,6 +308,7 @@ export default function AddJournalScreen() {
                         </View>
                     )}
                 </ScrollView>
+                </KeyboardAvoidingView>
             </SafeAreaView>
         </View>
     );

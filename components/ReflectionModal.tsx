@@ -18,9 +18,10 @@ interface ReflectionModalProps {
     visible: boolean;
     habit: Habit | null;
     onDismiss: () => void;
+    onKeepGoing?: () => void;
 }
 
-export function ReflectionModal({ visible, habit, onDismiss }: ReflectionModalProps) {
+export function ReflectionModal({ visible, habit, onDismiss, onKeepGoing }: ReflectionModalProps) {
     const scaleAnim = useRef(new Animated.Value(0.8)).current;
     const opacityAnim = useRef(new Animated.Value(0)).current;
 
@@ -46,7 +47,7 @@ export function ReflectionModal({ visible, habit, onDismiss }: ReflectionModalPr
         }
     }, [visible, scaleAnim, opacityAnim]);
 
-    const handleDismiss = () => {
+    const animateOut = (callback: () => void) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         Animated.parallel([
             Animated.timing(scaleAnim, {
@@ -60,8 +61,18 @@ export function ReflectionModal({ visible, habit, onDismiss }: ReflectionModalPr
                 useNativeDriver: true,
             }),
         ]).start(() => {
-            onDismiss();
+            callback();
         });
+    };
+
+    const handleDismiss = () => animateOut(onDismiss);
+
+    const handleKeepGoing = () => {
+        if (onKeepGoing) {
+            animateOut(onKeepGoing);
+        } else {
+            handleDismiss();
+        }
     };
 
     if (!visible || !habit) return null;
@@ -114,9 +125,13 @@ export function ReflectionModal({ visible, habit, onDismiss }: ReflectionModalPr
                                 <Text style={styles.whyStatement}>"{whyStatement}"</Text>
                             </View>
 
-                            {/* Action Button */}
-                            <Pressable style={styles.actionButton} onPress={handleDismiss}>
+                            {/* Action Buttons */}
+                            <Pressable style={styles.actionButton} onPress={handleKeepGoing}>
                                 <Text style={styles.actionButtonText}>I've got this</Text>
+                            </Pressable>
+
+                            <Pressable style={styles.dismissButton} onPress={handleDismiss}>
+                                <Text style={styles.dismissButtonText}>Dismiss</Text>
                             </Pressable>
                         </Pressable>
                     </Animated.View>
@@ -225,10 +240,21 @@ const styles = StyleSheet.create({
         paddingVertical: 16,
         borderRadius: 14,
         alignItems: 'center',
+        marginBottom: 8,
     },
     actionButtonText: {
         fontSize: 17,
         fontWeight: '600',
         color: '#fff',
+    },
+    dismissButton: {
+        width: '100%',
+        paddingVertical: 12,
+        alignItems: 'center',
+    },
+    dismissButtonText: {
+        fontSize: 15,
+        fontWeight: '500',
+        color: '#8E8E93',
     },
 });

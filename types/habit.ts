@@ -2,6 +2,14 @@ export interface ImplementationIntention {
   when?: string;
   where?: string;
   cue?: string;
+  /** For breaking habits: what to do instead */
+  insteadAction?: string;
+}
+
+export interface SlipEntry {
+  date: string;
+  trigger?: 'stress' | 'boredom' | 'social' | 'environment' | 'autopilot' | 'other';
+  strategy?: string;
 }
 
 /** Day of week indices (0 = Sunday, 1 = Monday, ..., 6 = Saturday) */
@@ -32,10 +40,16 @@ export interface Habit {
   isWork?: boolean;
   /** For breaking habits: optional notes about triggers */
   triggerNotes?: string;
-  /** For breaking habits: dates when user slipped */
+  /** For breaking habits: dates when user slipped (legacy) */
   slipDates?: string[];
+  /** For breaking habits: structured slip log */
+  slipLog?: SlipEntry[];
   /** Energy cost of maintaining this habit */
   energyLevel?: 'low' | 'medium' | 'high';
+  /** Optional preferred time of day for this habit (HH:mm format). If unset, shows as all-day. */
+  preferredTime?: string;
+  /** Notification IDs for scheduled reminders */
+  notificationIds?: string[];
 }
 
 export interface HabitStats {

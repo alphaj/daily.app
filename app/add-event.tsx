@@ -1,6 +1,7 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { X, ChevronLeft, Calendar, Clock, Palette, FileText } from 'lucide-react-native';
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import {
     View,
     Text,
@@ -10,11 +11,19 @@ import {
     KeyboardAvoidingView,
     Platform,
     ActivityIndicator,
-    Animated,
     ScrollView,
     Switch,
     Modal,
 } from 'react-native';
+import Animated, {
+    useSharedValue,
+    useAnimatedStyle,
+    withSpring,
+    withTiming,
+    withRepeat,
+    withSequence,
+} from 'react-native-reanimated';
+import { BlurView } from 'expo-blur';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Audio } from 'expo-av';
@@ -27,50 +36,124 @@ import { Alert } from 'react-native';
 
 export default function AddEventScreen() {
     const router = useRouter();
-    const params = useLocalSearchParams<{ date?: string }>();
+    const params = useLocalSearchParams<{ date?: string; startTime?: string }>();
     const { addEvent } = useCalendarEvents();
 
     const [title, setTitle] = useState('');
     const [selectedDate, setSelectedDate] = useState<Date>(
         params.date ? parse(params.date, 'yyyy-MM-dd', new Date()) : new Date()
     );
-    const [isAllDay, setIsAllDay] = useState(true);
-    const [startTime, setStartTime] = useState('09:00');
-    const [endTime, setEndTime] = useState('10:00');
+    // If startTime is provided, default to non-all-day event
+    const [isAllDay, setIsAllDay] = useState(!params.startTime);
+    const [startTime, setStartTime] = useState(params.startTime || '09:00');
+    // Calculate end time as 1 hour after start time
+    const [endTime, setEndTime] = useState(() => {
+        if (params.startTime) {
+            const [hours] = params.startTime.split(':').map(Number);
+            const endHour = Math.min(hours + 1, 23);
+            return `${endHour.toString().padStart(2, '0')}:00`;
+        }
+        return '10:00';
+    });
     const [selectedColor, setSelectedColor] = useState(EVENT_COLORS[4]); // Blue default
     const [notes, setNotes] = useState('');
 
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [showColorPicker, setShowColorPicker] = useState(false);
+    const [showStartTimePicker, setShowStartTimePicker] = useState(false);
+    const [showEndTimePicker, setShowEndTimePicker] = useState(false);
 
     const [isRecording, setIsRecording] = useState(false);
     const [isTranscribing, setIsTranscribing] = useState(false);
     const recordingRef = useRef<Audio.Recording | null>(null);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
-    const pulseAnim = useRef(new Animated.Value(1)).current;
 
-    const startPulse = () => {
-        Animated.loop(
-            Animated.sequence([
-                Animated.timing(pulseAnim, {
-                    toValue: 1.2,
-                    duration: 500,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(pulseAnim, {
-                    toValue: 1,
-                    duration: 500,
-                    useNativeDriver: true,
-                }),
-            ])
-        ).start();
-    };
+    // Reanimated pulse
+    const pulseScale = useSharedValue(1);
 
-    const stopPulse = () => {
-        pulseAnim.stopAnimation();
-        pulseAnim.setValue(1);
-    };
+    const startPulse = useCallback(() => {
+        pulseScale.value = withRepeat(
+            withSequence(
+                withSpring(1.2, { damping: 8, stiffness: 120 }),
+                withSpring(1, { damping: 8, stiffness: 120 })
+            ),
+            -1
+        );
+    }, []);
+
+    const stopPulse = useCallback(() => {
+        pulseScale.value = withSpring(1, { damping: 14, stiffness: 200 });
+    }, []);
+
+    const pulseAnimStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: pulseScale.value }],
+    }));
+
+    // Color picker modal animation
+    const colorModalScale = useSharedValue(0.85);
+    const colorModalOpacity = useSharedValue(0);
+
+    useEffect(() => {
+        if (showColorPicker) {
+            colorModalScale.value = withSpring(1, { damping: 16, stiffness: 240 });
+            colorModalOpacity.value = withTiming(1, { duration: 200 });
+        } else {
+            colorModalScale.value = withTiming(0.85, { duration: 150 });
+            colorModalOpacity.value = withTiming(0, { duration: 150 });
+        }
+    }, [showColorPicker]);
+
+    const colorModalAnimStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: colorModalScale.value }],
+        opacity: colorModalOpacity.value,
+    }));
+
+    const colorBackdropAnimStyle = useAnimatedStyle(() => ({
+        opacity: colorModalOpacity.value,
+    }));
+
+    // Time picker modal animations
+    const startTimeTranslateY = useSharedValue(300);
+    const startTimeBackdropOpacity = useSharedValue(0);
+    const endTimeTranslateY = useSharedValue(300);
+    const endTimeBackdropOpacity = useSharedValue(0);
+
+    useEffect(() => {
+        if (showStartTimePicker) {
+            startTimeTranslateY.value = withSpring(0, { damping: 20, stiffness: 240 });
+            startTimeBackdropOpacity.value = withTiming(1, { duration: 200 });
+        } else {
+            startTimeTranslateY.value = withSpring(300, { damping: 20, stiffness: 200 });
+            startTimeBackdropOpacity.value = withTiming(0, { duration: 200 });
+        }
+    }, [showStartTimePicker]);
+
+    useEffect(() => {
+        if (showEndTimePicker) {
+            endTimeTranslateY.value = withSpring(0, { damping: 20, stiffness: 240 });
+            endTimeBackdropOpacity.value = withTiming(1, { duration: 200 });
+        } else {
+            endTimeTranslateY.value = withSpring(300, { damping: 20, stiffness: 200 });
+            endTimeBackdropOpacity.value = withTiming(0, { duration: 200 });
+        }
+    }, [showEndTimePicker]);
+
+    const startTimeSlideStyle = useAnimatedStyle(() => ({
+        transform: [{ translateY: startTimeTranslateY.value }],
+    }));
+
+    const startTimeBackdropStyle = useAnimatedStyle(() => ({
+        opacity: startTimeBackdropOpacity.value,
+    }));
+
+    const endTimeSlideStyle = useAnimatedStyle(() => ({
+        transform: [{ translateY: endTimeTranslateY.value }],
+    }));
+
+    const endTimeBackdropStyle = useAnimatedStyle(() => ({
+        opacity: endTimeBackdropOpacity.value,
+    }));
 
     const startRecording = async () => {
         try {
@@ -219,6 +302,50 @@ export default function AddEventScreen() {
         return format(selectedDate, 'MMM d, yyyy');
     };
 
+    // Convert time string (HH:mm) to Date object for picker
+    const timeStringToDate = (timeStr: string): Date => {
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        const date = new Date();
+        date.setHours(hours);
+        date.setMinutes(minutes);
+        return date;
+    };
+
+    // Format time for display (e.g., "2:30 PM")
+    const formatTimeDisplay = (timeStr: string): string => {
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        const period = hours >= 12 ? 'PM' : 'AM';
+        const displayHours = hours % 12 || 12;
+        return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+    };
+
+    // Handle time change from picker
+    const handleStartTimeChange = (event: any, selectedDate?: Date) => {
+        if (selectedDate) {
+            const hours = selectedDate.getHours().toString().padStart(2, '0');
+            const minutes = selectedDate.getMinutes().toString().padStart(2, '0');
+            setStartTime(`${hours}:${minutes}`);
+        }
+    };
+
+    const handleEndTimeChange = (event: any, selectedDate?: Date) => {
+        if (selectedDate) {
+            const hours = selectedDate.getHours().toString().padStart(2, '0');
+            const minutes = selectedDate.getMinutes().toString().padStart(2, '0');
+            setEndTime(`${hours}:${minutes}`);
+        }
+    };
+
+    const confirmStartTime = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setShowStartTimePicker(false);
+    };
+
+    const confirmEndTime = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setShowEndTimePicker(false);
+    };
+
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
             <KeyboardAvoidingView
@@ -228,12 +355,12 @@ export default function AddEventScreen() {
                 <View style={styles.header}>
                     <Pressable
                         style={({ pressed }) => [
-                            styles.closeButton,
+                            styles.cancelButton,
                             pressed && styles.buttonPressed
                         ]}
                         onPress={handleCancel}
                     >
-                        <ChevronLeft size={24} color="#000" strokeWidth={2} />
+                        <Text style={styles.cancelButtonText}>Cancel</Text>
                     </Pressable>
                     <Text style={styles.headerTitle}>New Event</Text>
                     <Pressable
@@ -256,7 +383,11 @@ export default function AddEventScreen() {
                     </Pressable>
                 </View>
 
-                <ScrollView contentContainerStyle={styles.scrollContent}>
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode="interactive"
+                >
                     <View style={styles.content}>
                         <View style={styles.section}>
                             <Text style={styles.label}>EVENT TITLE</Text>
@@ -286,7 +417,7 @@ export default function AddEventScreen() {
                                     {isTranscribing ? (
                                         <ActivityIndicator size="small" color={isRecording ? "#fff" : "#007AFF"} />
                                     ) : isRecording ? (
-                                        <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+                                        <Animated.View style={pulseAnimStyle}>
                                             <Square size={16} color="#fff" fill="#fff" />
                                         </Animated.View>
                                     ) : (
@@ -346,34 +477,44 @@ export default function AddEventScreen() {
                                         </View>
 
                                         {/* Start Time */}
-                                        <View style={styles.detailRow}>
+                                        <Pressable
+                                            style={({ pressed }) => [
+                                                styles.detailRow,
+                                                pressed && styles.detailRowPressed
+                                            ]}
+                                            onPress={() => {
+                                                Haptics.selectionAsync();
+                                                setShowStartTimePicker(true);
+                                            }}
+                                        >
                                             <Text style={styles.timeLabel}>Starts</Text>
-                                            <TextInput
-                                                style={styles.timeInput}
-                                                value={startTime}
-                                                onChangeText={setStartTime}
-                                                placeholder="09:00"
-                                                placeholderTextColor="#C7C7CC"
-                                                keyboardType="numbers-and-punctuation"
-                                            />
-                                        </View>
+                                            <View style={styles.detailRight}>
+                                                <Text style={styles.timeValue}>{formatTimeDisplay(startTime)}</Text>
+                                                <ChevronRight size={16} color="#C7C7CC" strokeWidth={2} />
+                                            </View>
+                                        </Pressable>
 
                                         <View style={styles.separatorContainer}>
                                             <View style={styles.separator} />
                                         </View>
 
                                         {/* End Time */}
-                                        <View style={styles.detailRow}>
+                                        <Pressable
+                                            style={({ pressed }) => [
+                                                styles.detailRow,
+                                                pressed && styles.detailRowPressed
+                                            ]}
+                                            onPress={() => {
+                                                Haptics.selectionAsync();
+                                                setShowEndTimePicker(true);
+                                            }}
+                                        >
                                             <Text style={styles.timeLabel}>Ends</Text>
-                                            <TextInput
-                                                style={styles.timeInput}
-                                                value={endTime}
-                                                onChangeText={setEndTime}
-                                                placeholder="10:00"
-                                                placeholderTextColor="#C7C7CC"
-                                                keyboardType="numbers-and-punctuation"
-                                            />
-                                        </View>
+                                            <View style={styles.detailRight}>
+                                                <Text style={styles.timeValue}>{formatTimeDisplay(endTime)}</Text>
+                                                <ChevronRight size={16} color="#C7C7CC" strokeWidth={2} />
+                                            </View>
+                                        </Pressable>
                                     </>
                                 )}
 
@@ -429,18 +570,21 @@ export default function AddEventScreen() {
                 onSelectDate={setSelectedDate}
             />
 
-            {/* Color Picker Modal */}
+            {/* Color Picker Modal — blur + spring */}
             <Modal
                 visible={showColorPicker}
                 transparent
-                animationType="fade"
+                animationType="none"
                 onRequestClose={() => setShowColorPicker(false)}
             >
                 <Pressable
                     style={styles.colorModalOverlay}
                     onPress={() => setShowColorPicker(false)}
                 >
-                    <View style={styles.colorModalContent}>
+                    <Animated.View style={[StyleSheet.absoluteFill, colorBackdropAnimStyle]}>
+                        <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+                    </Animated.View>
+                    <Animated.View style={[styles.colorModalContent, colorModalAnimStyle]}>
                         <Text style={styles.colorModalTitle}>Choose Color</Text>
                         <View style={styles.colorGrid}>
                             {EVENT_COLORS.map((color) => (
@@ -459,8 +603,82 @@ export default function AddEventScreen() {
                                 />
                             ))}
                         </View>
-                    </View>
+                    </Animated.View>
                 </Pressable>
+            </Modal>
+
+            {/* Start Time Picker — spring slide-up */}
+            <Modal
+                visible={showStartTimePicker}
+                transparent
+                animationType="none"
+                onRequestClose={() => setShowStartTimePicker(false)}
+            >
+                <View style={styles.timePickerOverlayContainer}>
+                    <Animated.View style={[styles.timePickerBackdrop, startTimeBackdropStyle]}>
+                        <Pressable
+                            style={StyleSheet.absoluteFill}
+                            onPress={() => setShowStartTimePicker(false)}
+                        />
+                    </Animated.View>
+                    <Animated.View style={[styles.timePickerModal, startTimeSlideStyle]}>
+                        <View style={styles.timePickerHeader}>
+                            <Pressable onPress={() => setShowStartTimePicker(false)}>
+                                <Text style={styles.timePickerCancel}>Cancel</Text>
+                            </Pressable>
+                            <Text style={styles.timePickerTitle}>Start Time</Text>
+                            <Pressable onPress={confirmStartTime}>
+                                <Text style={styles.timePickerDone}>Done</Text>
+                            </Pressable>
+                        </View>
+                        <View style={styles.timePickerContent}>
+                            <DateTimePicker
+                                value={timeStringToDate(startTime)}
+                                mode="time"
+                                display="spinner"
+                                onChange={handleStartTimeChange}
+                                themeVariant="light"
+                            />
+                        </View>
+                    </Animated.View>
+                </View>
+            </Modal>
+
+            {/* End Time Picker — spring slide-up */}
+            <Modal
+                visible={showEndTimePicker}
+                transparent
+                animationType="none"
+                onRequestClose={() => setShowEndTimePicker(false)}
+            >
+                <View style={styles.timePickerOverlayContainer}>
+                    <Animated.View style={[styles.timePickerBackdrop, endTimeBackdropStyle]}>
+                        <Pressable
+                            style={StyleSheet.absoluteFill}
+                            onPress={() => setShowEndTimePicker(false)}
+                        />
+                    </Animated.View>
+                    <Animated.View style={[styles.timePickerModal, endTimeSlideStyle]}>
+                        <View style={styles.timePickerHeader}>
+                            <Pressable onPress={() => setShowEndTimePicker(false)}>
+                                <Text style={styles.timePickerCancel}>Cancel</Text>
+                            </Pressable>
+                            <Text style={styles.timePickerTitle}>End Time</Text>
+                            <Pressable onPress={confirmEndTime}>
+                                <Text style={styles.timePickerDone}>Done</Text>
+                            </Pressable>
+                        </View>
+                        <View style={styles.timePickerContent}>
+                            <DateTimePicker
+                                value={timeStringToDate(endTime)}
+                                mode="time"
+                                display="spinner"
+                                onChange={handleEndTimeChange}
+                                themeVariant="light"
+                            />
+                        </View>
+                    </Animated.View>
+                </View>
             </Modal>
         </SafeAreaView>
     );
@@ -483,18 +701,14 @@ const styles = StyleSheet.create({
         backgroundColor: '#F2F2F7',
         zIndex: 10,
     },
-    closeButton: {
-        width: 40,
-        height: 40,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#fff',
-        borderRadius: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 2,
+    cancelButton: {
+        paddingVertical: 8,
+        paddingHorizontal: 4,
+    },
+    cancelButtonText: {
+        fontSize: 17,
+        fontWeight: '400',
+        color: '#007AFF',
     },
     headerTitle: {
         fontSize: 17,
@@ -643,6 +857,55 @@ const styles = StyleSheet.create({
         textAlign: 'right',
         minWidth: 60,
     },
+    timeValue: {
+        fontSize: 17,
+        color: '#007AFF',
+        fontWeight: '500',
+    },
+    // Time Picker Modal Styles
+    timePickerOverlayContainer: {
+        flex: 1,
+        justifyContent: 'flex-end',
+    },
+    timePickerBackdrop: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    },
+    timePickerModal: {
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        paddingBottom: 34,
+    },
+    timePickerHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: '#E5E5EA',
+    },
+    timePickerTitle: {
+        fontSize: 17,
+        fontWeight: '600',
+        color: '#000',
+    },
+    timePickerCancel: {
+        fontSize: 17,
+        color: '#8E8E93',
+    },
+    timePickerDone: {
+        fontSize: 17,
+        fontWeight: '600',
+        color: '#007AFF',
+    },
+    timePickerContent: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 10,
+        minHeight: 200,
+    },
     colorPreview: {
         width: 24,
         height: 24,
@@ -666,7 +929,6 @@ const styles = StyleSheet.create({
     },
     colorModalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.4)',
         justifyContent: 'center',
         alignItems: 'center',
     },
