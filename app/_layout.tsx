@@ -18,6 +18,7 @@ import { LaterProvider } from "@/contexts/LaterContext";
 import { CalendarEventProvider } from "@/contexts/CalendarEventContext";
 import { JournalProvider } from "@/contexts/JournalContext";
 import { trpc, trpcClient } from "@/lib/trpc";
+import { useWidgetSync } from "@/hooks/useWidgetSync";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -43,6 +44,7 @@ function useProtectedRoute() {
 
 function RootLayoutNav() {
   useProtectedRoute();
+  useWidgetSync();
 
   useEffect(() => {
     SplashScreen.hideAsync();
