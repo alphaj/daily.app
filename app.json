@@ -77,6 +77,13 @@
         {
           "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone for voice-to-text input when adding tasks, habits, and notes. Audio is processed on your device and is not stored or transmitted."
         }
+      ],
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "Allow $(PRODUCT_NAME) to read your health data to display your steps, activity, and wellness metrics alongside your daily habits.",
+          "NSHealthUpdateUsageDescription": "Allow $(PRODUCT_NAME) to save health data."
+        }
       ]
     ],
     "experiments": {

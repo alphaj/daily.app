@@ -12,6 +12,7 @@ import {
     Heart,
     CheckCircle2,
     Zap,
+    Activity,
 } from 'lucide-react-native';
 import React, { useRef } from 'react';
 import {
@@ -183,6 +184,12 @@ export default function MenuScreen() {
                         <MenuItem
                             icon={<View style={[styles.iconBox, { backgroundColor: '#FF9500' }]}><Bell size={19} color="white" strokeWidth={2.5} /></View>}
                             title="Notifications"
+                        />
+                        <MenuItem
+                            icon={<View style={[styles.iconBox, { backgroundColor: '#FF3B30' }]}><Activity size={19} color="white" strokeWidth={2.5} /></View>}
+                            title="Apple Health"
+                            subtitle="Steps, calories, sleep"
+                            onPress={() => router.push('/health')}
                             isLast
                         />
                     </MenuSection>

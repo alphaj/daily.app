@@ -17,6 +17,7 @@ import { OnboardingProvider, useOnboarding } from "@/contexts/OnboardingContext"
 import { LaterProvider } from "@/contexts/LaterContext";
 import { CalendarEventProvider } from "@/contexts/CalendarEventContext";
 import { JournalProvider } from "@/contexts/JournalContext";
+import { HealthProvider } from "@/contexts/HealthContext";
 import { trpc, trpcClient } from "@/lib/trpc";
 
 SplashScreen.preventAutoHideAsync();
@@ -74,12 +75,14 @@ function RootLayoutNav() {
       <Stack.Screen name="privacy-policy" options={{ headerShown: false, animation: 'slide_from_right' }} />
       <Stack.Screen name="journal" options={{ headerShown: false, animation: 'fade' }} />
       <Stack.Screen name="add-journal" options={{ presentation: "modal", headerShown: false }} />
+      <Stack.Screen name="health" options={{ headerShown: false, animation: 'slide_from_right' }} />
     </Stack>
   );
 }
 
 function AppWrapper() {
   return (
+    <HealthProvider>
     <JournalProvider>
       <CalendarEventProvider>
         <GroceryProvider>
@@ -107,6 +110,7 @@ function AppWrapper() {
         </GroceryProvider>
       </CalendarEventProvider>
     </JournalProvider>
+    </HealthProvider>
   );
 }
 

@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Sparkles, Zap, Target, Pill, ShoppingCart, Mic } from 'lucide-react-native';
+import { Sparkles, Zap, Target, Pill, ShoppingCart, Mic, Activity } from 'lucide-react-native';
 import Svg, { Circle } from 'react-native-svg';
 
 import * as Haptics from 'expo-haptics';
@@ -19,6 +19,7 @@ import { useProjects } from '@/contexts/ProjectContext';
 import { useSupplements } from '@/contexts/SupplementContext';
 import { useGroceries } from '@/contexts/GroceryContext';
 import { useJournal } from '@/contexts/JournalContext';
+import { useHealth } from '@/contexts/HealthContext';
 
 // Progress Ring Component - Proper SVG with rounded caps
 function ProgressRing({ progress, size = 60, strokeWidth = 5, color = '#34C759' }: {
@@ -163,6 +164,7 @@ export default function LifeScreen() {
     const { activeSupplements, isTakenToday } = useSupplements();
     const { stats: groceryStats } = useGroceries();
     const { hasTodayEntry, getTodayEntries, totalEntries } = useJournal();
+    const { isAvailable: healthAvailable, isAuthorized: healthAuthorized, todayData: healthData } = useHealth();
 
     // Calculate live stats
     const habitStats = useMemo(() => {
@@ -283,7 +285,7 @@ export default function LifeScreen() {
                         />
                     </View>
 
-                    {/* Journal Card */}
+                    {/* Journal & Health Cards */}
                     <View style={styles.compactSection}>
                         <CompactCard
                             Icon={Mic}
@@ -292,6 +294,16 @@ export default function LifeScreen() {
                             subtitle={hasTodayEntry ? 'entries today' : 'start recording'}
                             color="#5856D6"
                             onPress={() => router.push('/journal')}
+                        />
+                        <CompactCard
+                            Icon={Activity}
+                            title="Health"
+                            stat={healthAuthorized
+                                ? healthData.steps.toLocaleString()
+                                : '--'}
+                            subtitle={healthAuthorized ? 'steps today' : 'connect'}
+                            color="#FF3B30"
+                            onPress={() => router.push('/health')}
                         />
                     </View>
 

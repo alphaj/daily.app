@@ -35,7 +35,8 @@ function getActiveRoute(pathname: string): NavRoute {
         pathname === '/money' ||
         pathname === '/add-supplement' ||
         pathname === '/edit-supplement' ||
-        pathname === '/later'
+        pathname === '/later' ||
+        pathname === '/health'
     ) return 'life';
 
     return 'home';
