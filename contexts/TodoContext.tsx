@@ -46,7 +46,6 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
     date?: Date,
     priority?: 'low' | 'medium' | 'high',
     isWork?: boolean,
-    energyLevel?: 'low' | 'medium' | 'high',
     dueTime?: string
   ) => {
     const dueDate = date ? getDateKey(date) : getToday();
@@ -59,7 +58,6 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
       dueTime,
       priority,
       isWork,
-      energyLevel,
       createdAt: new Date().toISOString(),
     };
 

@@ -17,6 +17,7 @@ import Animated, {
 import { Check, Flame } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import type { Supplement } from '@/types/supplement';
+import { SupplementIcon } from '@/components/SupplementIcon';
 
 interface SupplementCardProps {
     supplement: Supplement;
@@ -98,7 +99,7 @@ export function SupplementCard({
             >
                 {/* Progress/State Ring or Background */}
                 <View style={[styles.ring, isTaken && styles.ringTaken]}>
-                    <Text style={styles.emoji}>{supplement.emoji || '💊'}</Text>
+                    <SupplementIcon name={supplement.name} size={26} />
                 </View>
 
                 {/* Status Badge */}
@@ -175,9 +176,6 @@ const styles = StyleSheet.create({
     },
     ringTaken: {
         borderColor: '#4CAF50',
-    },
-    emoji: {
-        fontSize: 26,
     },
     badge: {
         position: 'absolute',

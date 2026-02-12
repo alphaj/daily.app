@@ -6,41 +6,32 @@ import {
   Pressable,
   Animated,
 } from 'react-native';
-import { Inbox, Briefcase, Sun } from 'lucide-react-native';
+import { Inbox, Briefcase, Sun, Settings } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { format, isSameDay } from 'date-fns';
 import { useWorkMode } from '@/contexts/WorkModeContext';
-import { EnergyLevel } from './EnergyPickerModal';
 
 interface CalendarHeaderProps {
   selectedDate: Date;
   onSelectDate: (date: Date) => void;
   onOpenCalendar: () => void;
   onOpenInbox: () => void;
+  onOpenSettings: () => void;
   inboxCount: number;
   headerLeft?: React.ReactNode;
-  energyLevel?: EnergyLevel;
-  onPressEnergy?: () => void;
 }
 
-const ENERGY_DISPLAY: Record<EnergyLevel, { emoji: string; label: string }> = {
-  survival: { emoji: '🔋', label: 'Survival' },
-  normal: { emoji: '⚡️', label: 'Normal' },
-  peak: { emoji: '🔥', label: 'Peak' },
-};
-
 /**
- * CalendarHeader: Compact header with date, mode toggle, energy capsule, and inbox.
+ * CalendarHeader: Compact header with date, mode toggle, and inbox.
  */
 export function CalendarHeader({
   selectedDate,
   onSelectDate,
   onOpenCalendar,
   onOpenInbox,
+  onOpenSettings,
   inboxCount,
   headerLeft,
-  energyLevel = 'normal',
-  onPressEnergy,
 }: CalendarHeaderProps) {
   const { currentMode, setMode } = useWorkMode();
   const isWork = currentMode === 'work';
@@ -58,8 +49,6 @@ export function CalendarHeader({
     setMode(isWork ? 'life' : 'work');
   }, [isWork, setMode]);
 
-  const energy = ENERGY_DISPLAY[energyLevel];
-
   return (
     <View style={styles.container}>
       {/* Top Row: Date (Left) | Actions (Right) */}
@@ -69,6 +58,13 @@ export function CalendarHeader({
         </Text>
 
         <View style={styles.topActions}>
+          {/* Settings */}
+          <Pressable
+            style={({ pressed }) => [styles.inboxButton, pressed && { opacity: 0.6 }]}
+            onPress={onOpenSettings}
+          >
+            <Settings size={20} color="#8E8E93" />
+          </Pressable>
           {/* Inbox */}
           <Pressable
             style={({ pressed }) => [styles.inboxButton, pressed && { opacity: 0.6 }]}
@@ -93,14 +89,6 @@ export function CalendarHeader({
         </Pressable>
 
         <View style={styles.capsuleRow}>
-          {/* Energy Capsule */}
-          <Pressable onPress={onPressEnergy}>
-            <View style={styles.energyCapsule}>
-              <Text style={styles.energyEmoji}>{energy.emoji}</Text>
-              <Text style={styles.energyLabel}>{energy.label}</Text>
-            </View>
-          </Pressable>
-
           {/* Mode Toggle */}
           <Pressable onPress={handleModeToggle}>
             <Animated.View style={[
@@ -193,24 +181,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-  },
-  // Energy capsule (matches focusCapsule style)
-  energyCapsule: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 32,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    backgroundColor: '#F2F2F7',
-    gap: 4,
-  },
-  energyEmoji: {
-    fontSize: 14,
-  },
-  energyLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#000',
   },
   focusCapsule: {
     flexDirection: 'row',

@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { ArrowLeft, ChevronDown, ChevronUp, Star, Mail, Shield } from 'lucide-react-native';
+import { ArrowLeft, ChevronDown, ChevronUp, Star, Mail, Shield, Download, Trash2 } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
     View,
@@ -9,13 +9,17 @@ import {
     ScrollView,
     Linking,
     Platform,
+    Alert,
+    Share as RNShare,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as StoreReview from 'expo-store-review';
 import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { AmbientBackground } from '@/components/AmbientBackground';
+import { useOnboarding } from '@/contexts/OnboardingContext';
 
 const FAQ_ITEMS = [
     {
@@ -28,7 +32,7 @@ const FAQ_ITEMS = [
     },
     {
         question: 'Where is my data stored?',
-        answer: 'All your data is stored locally on your device. Nothing is sent to any server. This means your data is private but also means it won\'t transfer if you switch devices (cloud sync coming soon).',
+        answer: 'All your data is stored locally on your device. Nothing is sent to any server. This means your data is private but also means it won\'t transfer if you switch devices.',
     },
     {
         question: 'Can I track habits on specific days?',
@@ -62,6 +66,7 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
 
 export default function SettingsHelpScreen() {
     const router = useRouter();
+    const { resetOnboarding } = useOnboarding();
 
     const handleRateApp = async () => {
         try {
@@ -78,6 +83,44 @@ export default function SettingsHelpScreen() {
             console.log('Error requesting review:', error);
             Linking.openURL('https://apps.apple.com/app/id6740611817?action=write-review');
         }
+    };
+
+    const handleExportData = async () => {
+        try {
+            const keys = await AsyncStorage.getAllKeys();
+            const entries = await AsyncStorage.multiGet(keys);
+            const data: Record<string, unknown> = {};
+            for (const [key, value] of entries) {
+                try {
+                    data[key] = value ? JSON.parse(value) : null;
+                } catch {
+                    data[key] = value;
+                }
+            }
+            const json = JSON.stringify(data, null, 2);
+            await RNShare.share({ message: json, title: 'Daily App Data Export' });
+        } catch (error) {
+            console.log('Error exporting data:', error);
+        }
+    };
+
+    const handleClearData = () => {
+        Alert.alert(
+            'Clear All Data',
+            'This will permanently delete all your habits, todos, supplements, and settings. This cannot be undone.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Clear Everything',
+                    style: 'destructive',
+                    onPress: async () => {
+                        await AsyncStorage.clear();
+                        await resetOnboarding();
+                        router.replace('/(onboarding)/get-started');
+                    },
+                },
+            ]
+        );
     };
 
     return (
@@ -136,18 +179,34 @@ export default function SettingsHelpScreen() {
                         </Pressable>
                     </View>
 
+                    <Text style={styles.sectionLabel}>DATA</Text>
+                    <View style={styles.section}>
+                        <Pressable
+                            style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}
+                            onPress={handleExportData}
+                        >
+                            <View style={styles.linkIcon}>
+                                <Download size={20} color="#000" strokeWidth={2} />
+                            </View>
+                            <Text style={styles.linkTitle}>Export Data</Text>
+                        </Pressable>
+                        <View style={styles.separator} />
+                        <Pressable
+                            style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}
+                            onPress={handleClearData}
+                        >
+                            <View style={styles.linkIcon}>
+                                <Trash2 size={20} color="#FF3B30" strokeWidth={2} />
+                            </View>
+                            <Text style={[styles.linkTitle, styles.dangerText]}>Clear All Data</Text>
+                        </Pressable>
+                    </View>
+
                     <Text style={styles.sectionLabel}>APP INFO</Text>
                     <View style={styles.section}>
                         <View style={styles.infoRow}>
                             <Text style={styles.infoLabel}>Version</Text>
                             <Text style={styles.infoValue}>{Constants.expoConfig?.version ?? '1.0.0'}</Text>
-                        </View>
-                        <View style={styles.separator} />
-                        <View style={styles.infoRow}>
-                            <Text style={styles.infoLabel}>Build</Text>
-                            <Text style={styles.infoValue}>
-                                {(Constants.expoConfig?.ios?.buildNumber) ?? (Constants.expoConfig?.android?.versionCode?.toString()) ?? '1'}
-                            </Text>
                         </View>
                     </View>
                 </ScrollView>
@@ -203,6 +262,7 @@ const styles = StyleSheet.create({
     linkRowPressed: { backgroundColor: 'rgba(0,0,0,0.05)' },
     linkIcon: { width: 30, marginRight: 10 },
     linkTitle: { fontSize: 16, fontWeight: '400', color: '#000' },
+    dangerText: { color: '#FF3B30' },
     infoRow: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
         paddingVertical: 14, paddingHorizontal: 16,

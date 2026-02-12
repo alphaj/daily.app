@@ -71,8 +71,6 @@ export default function EditHabitScreen() {
   const [intentionCue, setIntentionCue] = useState('');
   const [intentionWhere, setIntentionWhere] = useState('');
   const [intentionInstead, setIntentionInstead] = useState('');
-  // Missing fields for edit parity
-  const [energyLevel, setEnergyLevel] = useState<'low' | 'medium' | 'high'>('medium');
   const [isWork, setIsWork] = useState(false);
   const [triggerNotes, setTriggerNotes] = useState('');
 
@@ -90,8 +88,6 @@ export default function EditHabitScreen() {
       setIntentionCue(habit.intention?.cue || '');
       setIntentionWhere(habit.intention?.where || '');
       setIntentionInstead(habit.intention?.insteadAction || '');
-      // Parity fields
-      setEnergyLevel(habit.energyLevel || 'medium');
       setIsWork(habit.isWork || false);
       setTriggerNotes(habit.triggerNotes || '');
     }
@@ -120,7 +116,6 @@ export default function EditHabitScreen() {
         scheduledDays,
         preferredTime: hasPreferredTime ? preferredTime : undefined,
         intention: Object.keys(intention).length > 0 ? intention : undefined,
-        energyLevel,
         isWork,
         triggerNotes: habit?.type === 'breaking' ? triggerNotes.trim() || undefined : undefined,
       });
@@ -463,38 +458,6 @@ export default function EditHabitScreen() {
               <Text style={styles.planHint}>
                 Having a plan makes you 2-3x more likely to follow through
               </Text>
-            </View>
-
-            {/* Energy Level Section */}
-            <View style={styles.energySection}>
-              <Text style={styles.sectionLabelSmall}>ENERGY COST</Text>
-              <View style={styles.energyRow}>
-                {[
-                  { level: 'low', emoji: '🔋', label: 'Easy' },
-                  { level: 'medium', emoji: '⚡️', label: 'Normal' },
-                  { level: 'high', emoji: '🎯', label: 'Deep' },
-                ].map((item) => (
-                  <Pressable
-                    key={item.level}
-                    style={[
-                      styles.energyButton,
-                      energyLevel === item.level && styles.energyButtonActive,
-                    ]}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setEnergyLevel(item.level as 'low' | 'medium' | 'high');
-                    }}
-                  >
-                    <Text style={styles.energyEmoji}>{item.emoji}</Text>
-                    <Text style={[
-                      styles.energyLabelText,
-                      energyLevel === item.level && styles.energyLabelTextActive
-                    ]}>
-                      {item.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
             </View>
 
             {/* Work Related Toggle */}
@@ -927,51 +890,6 @@ const styles = StyleSheet.create({
     fontStyle: 'normal',
     letterSpacing: -0.1,
     marginTop: 4,
-  },
-  energySection: {
-    width: '100%',
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  energyRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  energyButton: {
-    flex: 1,
-    backgroundColor: '#F5F5F7',
-    borderRadius: 16,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    borderWidth: 1.5,
-    borderColor: 'transparent',
-  },
-  energyButtonActive: {
-    backgroundColor: '#fff',
-    borderColor: '#5856D6',
-    shadowColor: '#5856D6',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  energyEmoji: {
-    fontSize: 20,
-  },
-  energyLabelText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#8E8E93',
-  },
-  energyLabelTextActive: {
-    color: '#5856D6',
   },
   workSection: {
     width: '100%',

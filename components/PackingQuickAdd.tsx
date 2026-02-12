@@ -7,24 +7,20 @@ import {
     Pressable,
     ScrollView,
 } from 'react-native';
-import { Plus, SlidersHorizontal } from 'lucide-react-native';
+import { Plus } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import type { GroceryItem } from '@/types/grocery';
+import type { PackingCategory } from '@/types/travel';
+import { PACKING_CATEGORY_CONFIG } from '@/types/travel';
 
-interface GroceryQuickAddProps {
-    onAddItem: (name: string) => void;
-    suggestions: GroceryItem[];
-    onAddSuggestion: (item: GroceryItem) => void;
-    onExpandPress: () => void;
+const CATEGORIES = Object.entries(PACKING_CATEGORY_CONFIG) as [PackingCategory, typeof PACKING_CATEGORY_CONFIG[PackingCategory]][];
+
+interface PackingQuickAddProps {
+    onAddItem: (name: string, category: PackingCategory) => void;
 }
 
-export function GroceryQuickAdd({
-    onAddItem,
-    suggestions,
-    onAddSuggestion,
-    onExpandPress,
-}: GroceryQuickAddProps) {
+export function PackingQuickAdd({ onAddItem }: PackingQuickAddProps) {
     const [text, setText] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState<PackingCategory>('clothes');
     const [isFocused, setIsFocused] = useState(false);
     const inputRef = useRef<TextInput>(null);
 
@@ -33,45 +29,47 @@ export function GroceryQuickAdd({
         if (!trimmed) return;
 
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        onAddItem(trimmed);
+        onAddItem(trimmed, selectedCategory);
         setText('');
-    }, [text, onAddItem]);
+    }, [text, selectedCategory, onAddItem]);
 
-    const handleSuggestionPress = useCallback((item: GroceryItem) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        onAddSuggestion(item);
-    }, [onAddSuggestion]);
-
-    const showSuggestions = isFocused && suggestions.length > 0 && text.length === 0;
+    const handleCategorySelect = useCallback((cat: PackingCategory) => {
+        Haptics.selectionAsync();
+        setSelectedCategory(cat);
+    }, []);
 
     return (
         <View style={styles.container}>
-            {/* Suggestion chips (inline, above the add row) */}
-            {showSuggestions && (
+            {/* Category pills */}
+            {isFocused && (
                 <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.suggestionsContent}
-                    style={styles.suggestionsRow}
+                    contentContainerStyle={styles.categoryContent}
+                    style={styles.categoryRow}
                     keyboardShouldPersistTaps="always"
                 >
-                    {suggestions.map(item => (
+                    {CATEGORIES.map(([cat, config]) => (
                         <Pressable
-                            key={item.id}
-                            style={({ pressed }) => [
-                                styles.suggestionChip,
-                                pressed && { opacity: 0.7 },
+                            key={cat}
+                            style={[
+                                styles.categoryChip,
+                                selectedCategory === cat && { backgroundColor: config.color + '18', borderColor: config.color },
                             ]}
-                            onPress={() => handleSuggestionPress(item)}
+                            onPress={() => handleCategorySelect(cat)}
                         >
-                            <Text style={styles.suggestionText} numberOfLines={1}>{item.name}</Text>
-                            <Plus size={12} color="#007AFF" strokeWidth={2.5} />
+                            <Text style={[
+                                styles.categoryText,
+                                selectedCategory === cat && { color: config.color, fontWeight: '600' },
+                            ]}>
+                                {config.label}
+                            </Text>
                         </Pressable>
                     ))}
                 </ScrollView>
             )}
 
-            {/* Inline add row */}
+            {/* Input row */}
             <View style={styles.addRow}>
                 <View style={[
                     styles.plusCircle,
@@ -97,55 +95,38 @@ export function GroceryQuickAdd({
                     returnKeyType="done"
                     blurOnSubmit={false}
                 />
-
-                {isFocused && (
-                    <Pressable
-                        style={({ pressed }) => [
-                            styles.expandButton,
-                            pressed && { opacity: 0.6 },
-                        ]}
-                        onPress={onExpandPress}
-                        hitSlop={8}
-                    >
-                        <SlidersHorizontal size={18} color="#8E8E93" />
-                    </Pressable>
-                )}
             </View>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        // Inline within the ScrollView, not floating
-    },
-    suggestionsRow: {
+    container: {},
+    categoryRow: {
         marginBottom: 8,
         maxHeight: 36,
     },
-    suggestionsContent: {
+    categoryContent: {
         paddingHorizontal: 4,
         gap: 6,
     },
-    suggestionChip: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#fff',
+    categoryChip: {
         paddingHorizontal: 12,
         paddingVertical: 7,
         borderRadius: 20,
-        gap: 6,
+        backgroundColor: '#fff',
+        borderWidth: 1.5,
+        borderColor: 'transparent',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.04,
         shadowRadius: 3,
         elevation: 1,
     },
-    suggestionText: {
-        fontSize: 14,
+    categoryText: {
+        fontSize: 13,
         fontWeight: '500',
-        color: '#000',
-        maxWidth: 120,
+        color: '#8E8E93',
     },
     addRow: {
         flexDirection: 'row',
@@ -179,8 +160,5 @@ const styles = StyleSheet.create({
         paddingVertical: 0,
         lineHeight: 22,
         fontWeight: '400',
-    },
-    expandButton: {
-        padding: 4,
     },
 });

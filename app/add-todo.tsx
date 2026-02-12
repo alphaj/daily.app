@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { X, Mic, Square, ChevronLeft, Calendar, Flag, ChevronRight, Clock } from 'lucide-react-native';
+import { ArrowLeft, Mic, Square } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useState, useRef } from 'react';
 import {
@@ -17,13 +17,13 @@ import {
     Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Audio } from 'expo-av';
 import { useTodos } from '@/contexts/TodoContext';
 import { useWorkMode } from '@/contexts/WorkModeContext';
 import { format, isToday, isTomorrow, addDays } from 'date-fns';
 import { DatePickerModal } from '@/components/DatePickerModal';
-import { PriorityPickerModal } from '@/components/PriorityPickerModal';
 
 export default function AddTodoScreen() {
     const router = useRouter();
@@ -32,9 +32,7 @@ export default function AddTodoScreen() {
     const [title, setTitle] = useState('');
     const [priority, setPriority] = useState<'low' | 'medium' | 'high' | undefined>(undefined);
     const [dueDate, setDueDate] = useState<Date | null>(new Date());
-    const [energyLevel, setEnergyLevel] = useState<'low' | 'medium' | 'high'>('medium');
     const [showDatePicker, setShowDatePicker] = useState(false);
-    const [showPriorityPicker, setShowPriorityPicker] = useState(false);
     const [dueTime, setDueTime] = useState<string | undefined>(undefined);
     const [showTimePicker, setShowTimePicker] = useState(false);
 
@@ -181,263 +179,241 @@ export default function AddTodoScreen() {
     const handleSave = () => {
         if (title.trim()) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            addTodo(title.trim(), dueDate || new Date(), priority, isWorkMode, energyLevel, dueTime);
+            addTodo(title.trim(), dueDate || new Date(), priority, isWorkMode, dueTime);
             router.back();
         }
     };
 
-    const handleCancel = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        if (router.canGoBack()) {
-            router.back();
+    const getWhenLabel = (): string => {
+        if (!dueDate) return 'No Date';
+        if (isToday(dueDate)) return 'Today';
+        if (isTomorrow(dueDate)) return 'Tomorrow';
+        return format(dueDate, 'MMM d');
+    };
+
+    const getTimeLabel = (): string => {
+        if (!dueTime) return 'No Time';
+        const [h, m] = dueTime.split(':').map(Number);
+        const period = h >= 12 ? 'PM' : 'AM';
+        const displayH = h % 12 || 12;
+        return `${displayH}:${m.toString().padStart(2, '0')} ${period}`;
+    };
+
+    const whenOptions = () => {
+        const options: { label: string; key: string }[] = [];
+        options.push({ label: 'Today', key: 'today' });
+        options.push({ label: 'Tomorrow', key: 'tomorrow' });
+
+        if (dueDate && !isToday(dueDate) && !isTomorrow(dueDate)) {
+            options.push({ label: format(dueDate, 'MMM d'), key: 'picked' });
         } else {
-            router.replace('/');
+            options.push({ label: 'Pick Date', key: 'pick' });
+        }
+
+        options.push({ label: 'No Date', key: 'nodate' });
+        return options;
+    };
+
+    const isWhenActive = (key: string): boolean => {
+        if (key === 'today') return dueDate !== null && isToday(dueDate);
+        if (key === 'tomorrow') return dueDate !== null && isTomorrow(dueDate);
+        if (key === 'picked') return dueDate !== null && !isToday(dueDate) && !isTomorrow(dueDate);
+        if (key === 'pick') return false;
+        if (key === 'nodate') return dueDate === null;
+        return false;
+    };
+
+    const handleWhenPress = (key: string) => {
+        Haptics.selectionAsync();
+        if (key === 'today') {
+            setDueDate(new Date());
+        } else if (key === 'tomorrow') {
+            setDueDate(addDays(new Date(), 1));
+        } else if (key === 'pick' || key === 'picked') {
+            setShowDatePicker(true);
+        } else if (key === 'nodate') {
+            setDueDate(null);
         }
     };
 
-    const openPriorityPicker = () => {
-        Haptics.selectionAsync();
-        setShowPriorityPicker(true);
-    };
+    const priorityOptions: { label: string; value: 'low' | 'medium' | 'high' | undefined }[] = [
+        { label: 'None', value: undefined },
+        { label: 'Low', value: 'low' },
+        { label: 'Medium', value: 'medium' },
+        { label: 'High', value: 'high' },
+    ];
 
-    const openDatePicker = () => {
-        Haptics.selectionAsync();
-        setShowDatePicker(true);
-    };
-
-    const getPriorityColor = () => {
-        switch (priority) {
-            case 'high': return '#FF3B30';
-            case 'medium': return '#FF9500';
-            case 'low': return '#34C759';
-            default: return '#8E8E93';
+    const timeOptions = () => {
+        if (dueTime) {
+            return [
+                { label: 'No Time', key: 'notime' },
+                { label: getTimeLabel(), key: 'settime' },
+            ];
         }
+        return [
+            { label: 'No Time', key: 'notime' },
+            { label: 'Set Time', key: 'settime' },
+        ];
     };
 
-    const getPriorityLabel = () => {
-        if (!priority) return 'None';
-        return priority.charAt(0).toUpperCase() + priority.slice(1);
+    const isTimeActive = (key: string): boolean => {
+        if (key === 'notime') return !dueTime;
+        if (key === 'settime') return !!dueTime;
+        return false;
+    };
+
+    const handleTimePress = (key: string) => {
+        Haptics.selectionAsync();
+        if (key === 'notime') {
+            setDueTime(undefined);
+        } else if (key === 'settime') {
+            if (!dueTime) {
+                setDueTime('09:00');
+            }
+            setShowTimePicker(true);
+        }
     };
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={styles.keyboardView}
+                style={{ flex: 1 }}
             >
-                <View style={styles.header}>
+            <View style={styles.header}>
+                <Pressable onPress={() => router.back()} style={styles.iconBtn}>
+                    <ArrowLeft size={24} color="#000" />
+                </Pressable>
+                <Text style={styles.headerTitle}>Add Task</Text>
+                <View style={{ width: 40 }} />
+            </View>
+
+            <ScrollView
+                contentContainerStyle={styles.content}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="interactive"
+            >
+                <LinearGradient
+                    colors={['#E3F2FD', '#BBDEFB']}
+                    style={styles.heroCard}
+                >
+                    <View style={styles.mainEmojiContainer}>
+                        <Text style={{ fontSize: 48 }}>📝</Text>
+                    </View>
+                    <TextInput
+                        style={styles.heroInput}
+                        placeholder="Task name..."
+                        placeholderTextColor="rgba(13,71,161,0.3)"
+                        value={title}
+                        onChangeText={setTitle}
+                        textAlign="center"
+                        autoFocus
+                    />
                     <Pressable
-                        style={({ pressed }) => [
-                            styles.closeButton,
-                            pressed && styles.buttonPressed
+                        style={[
+                            styles.voiceButton,
+                            isRecording && styles.voiceButtonRecording,
                         ]}
-                        onPress={handleCancel}
+                        onPress={handleVoicePress}
+                        disabled={isTranscribing}
                     >
-                        <ChevronLeft size={24} color="#000" strokeWidth={2} />
+                        {isTranscribing ? (
+                            <ActivityIndicator size="small" color={isRecording ? "#fff" : "#0D47A1"} />
+                        ) : isRecording ? (
+                            <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+                                <Square size={14} color="#fff" fill="#fff" />
+                            </Animated.View>
+                        ) : (
+                            <Mic size={18} color="#0D47A1" />
+                        )}
                     </Pressable>
-                    <Text style={styles.headerTitle}>New Task</Text>
-                    <Pressable
-                        style={({ pressed }) => [
-                            styles.saveButton,
-                            !title.trim() && styles.saveButtonDisabled,
-                            pressed && title.trim() && styles.buttonPressed
-                        ]}
-                        onPress={handleSave}
-                        disabled={!title.trim()}
-                    >
-                        <Text
-                            style={[
-                                styles.saveButtonText,
-                                !title.trim() && styles.saveButtonTextDisabled,
-                            ]}
-                        >
-                            Add
-                        </Text>
-                    </Pressable>
+                </LinearGradient>
+
+                {/* When? section */}
+                <View style={styles.pickerSection}>
+                    <Text style={styles.sectionTitle}>When?</Text>
+                    <View style={styles.tagContainer}>
+                        {whenOptions().map(opt => {
+                            const active = isWhenActive(opt.key);
+                            return (
+                                <Pressable
+                                    key={opt.key}
+                                    style={[
+                                        styles.tag,
+                                        active && styles.tagActive,
+                                    ]}
+                                    onPress={() => handleWhenPress(opt.key)}
+                                >
+                                    <Text style={[styles.tagText, active && styles.tagTextActive]}>{opt.label}</Text>
+                                </Pressable>
+                            );
+                        })}
+                    </View>
                 </View>
 
-                <ScrollView
-                    contentContainerStyle={styles.scrollContent}
-                    keyboardShouldPersistTaps="handled"
-                    keyboardDismissMode="interactive"
-                >
-                    <View style={styles.content}>
-                        <View style={styles.section}>
-                            <Text style={styles.label}>WHAT DO YOU NEED TO DO TODAY?</Text>
-                            <View style={styles.inputCard}>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="e.g. Call mom, Buy groceries"
-                                    placeholderTextColor="#C7C7CC"
-                                    value={title}
-                                    onChangeText={setTitle}
-                                    autoFocus
-                                    multiline
-                                    scrollEnabled={false}
-                                    onSubmitEditing={handleSave}
-                                    blurOnSubmit={true}
-                                    submitBehavior="submit"
-                                    returnKeyType="done"
-                                />
+                {/* Priority section */}
+                <View style={styles.pickerSection}>
+                    <Text style={styles.sectionTitle}>Priority</Text>
+                    <View style={styles.tagContainer}>
+                        {priorityOptions.map(opt => {
+                            const active = priority === opt.value;
+                            return (
                                 <Pressable
+                                    key={opt.label}
                                     style={[
-                                        styles.voiceButton,
-                                        isRecording && styles.voiceButtonRecording,
-                                    ]}
-                                    onPress={handleVoicePress}
-                                    disabled={isTranscribing}
-                                >
-                                    {isTranscribing ? (
-                                        <ActivityIndicator size="small" color={isRecording ? "#fff" : "#007AFF"} />
-                                    ) : isRecording ? (
-                                        <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-                                            <Square size={16} color="#fff" fill="#fff" />
-                                        </Animated.View>
-                                    ) : (
-                                        <Mic size={22} color="#007AFF" />
-                                    )}
-                                </Pressable>
-                            </View>
-                        </View>
-
-                        <View style={styles.section}>
-                            <Text style={styles.label}>DETAILS</Text>
-                            <View style={styles.detailsCard}>
-                                <Pressable
-                                    style={({ pressed }) => [
-                                        styles.detailRow,
-                                        pressed && styles.detailRowPressed
-                                    ]}
-                                    onPress={openDatePicker}
-                                >
-                                    <View style={styles.detailLeft}>
-                                        <View style={[styles.iconContainer, { backgroundColor: '#007AFF' }]}>
-                                            <Calendar size={18} color="#fff" strokeWidth={2.5} />
-                                        </View>
-                                        <Text style={styles.detailLabel}>Due Date</Text>
-                                    </View>
-                                    <View style={styles.detailRight}>
-                                        <Text style={styles.detailValue}>
-                                            {!dueDate ? 'No Date' : isToday(dueDate) ? 'Today' : isTomorrow(dueDate) ? 'Tomorrow' : format(dueDate, 'MMM d')}
-                                        </Text>
-                                        <ChevronRight size={16} color="#C7C7CC" strokeWidth={2} />
-                                    </View>
-                                </Pressable>
-
-                                <View style={styles.separatorContainer}>
-                                    <View style={styles.separator} />
-                                </View>
-
-                                <Pressable
-                                    style={({ pressed }) => [
-                                        styles.detailRow,
-                                        pressed && styles.detailRowPressed
-                                    ]}
-                                    onPress={openPriorityPicker}
-                                >
-                                    <View style={styles.detailLeft}>
-                                        <View style={[styles.iconContainer, { backgroundColor: getPriorityColor() }]}>
-                                            <Flag size={18} color="#fff" strokeWidth={2.5} />
-                                        </View>
-                                        <Text style={styles.detailLabel}>Priority</Text>
-                                    </View>
-                                    <View style={styles.detailRight}>
-                                        <Text style={styles.detailValue}>{getPriorityLabel()}</Text>
-                                        <ChevronRight size={16} color="#C7C7CC" strokeWidth={2} />
-                                    </View>
-                                </Pressable>
-
-                                <View style={styles.separatorContainer}>
-                                    <View style={styles.separator} />
-                                </View>
-
-                                <Pressable
-                                    style={({ pressed }) => [
-                                        styles.detailRow,
-                                        pressed && styles.detailRowPressed
+                                        styles.tag,
+                                        active && styles.tagActive,
                                     ]}
                                     onPress={() => {
                                         Haptics.selectionAsync();
-                                        if (dueTime) {
-                                            setShowTimePicker(true);
-                                        } else {
-                                            setDueTime('09:00');
-                                            setShowTimePicker(true);
-                                        }
-                                    }}
-                                    onLongPress={() => {
-                                        if (dueTime) {
-                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                            setDueTime(undefined);
-                                        }
+                                        setPriority(opt.value);
                                     }}
                                 >
-                                    <View style={styles.detailLeft}>
-                                        <View style={[styles.iconContainer, { backgroundColor: dueTime ? '#5856D6' : '#8E8E93' }]}>
-                                            <Clock size={18} color="#fff" strokeWidth={2.5} />
-                                        </View>
-                                        <Text style={styles.detailLabel}>Time</Text>
-                                    </View>
-                                    <View style={styles.detailRight}>
-                                        <Text style={styles.detailValue}>
-                                            {dueTime ? (() => {
-                                                const [h, m] = dueTime.split(':').map(Number);
-                                                const period = h >= 12 ? 'PM' : 'AM';
-                                                const displayH = h % 12 || 12;
-                                                return `${displayH}:${m.toString().padStart(2, '0')} ${period}`;
-                                            })() : 'None'}
-                                        </Text>
-                                        <ChevronRight size={16} color="#C7C7CC" strokeWidth={2} />
-                                    </View>
+                                    <Text style={[styles.tagText, active && styles.tagTextActive]}>{opt.label}</Text>
                                 </Pressable>
-                            </View>
-                        </View>
-                        <View style={styles.section}>
-                            <Text style={styles.label}>ENERGY COST</Text>
-                            <View style={styles.energyRow}>
-                                {[
-                                    { level: 'low', emoji: '🔋', label: 'Easy' },
-                                    { level: 'medium', emoji: '⚡️', label: 'Normal' },
-                                    { level: 'high', emoji: '🎯', label: 'Deep' },
-                                ].map((item) => (
-                                    <Pressable
-                                        key={item.level}
-                                        style={[
-                                            styles.energyButton,
-                                            energyLevel === item.level && styles.energyButtonActive,
-                                        ]}
-                                        onPress={() => {
-                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                            setEnergyLevel(item.level as 'low' | 'medium' | 'high');
-                                        }}
-                                    >
-                                        <Text style={styles.energyEmoji}>{item.emoji}</Text>
-                                        <Text style={[
-                                            styles.energyLabelText,
-                                            energyLevel === item.level && styles.energyLabelTextActive
-                                        ]}>
-                                            {item.label}
-                                        </Text>
-                                    </Pressable>
-                                ))}
-                            </View>
-                        </View>
+                            );
+                        })}
                     </View>
-                </ScrollView>
+                </View>
+
+                {/* Time section */}
+                <View style={styles.pickerSection}>
+                    <Text style={styles.sectionTitle}>Time</Text>
+                    <View style={styles.tagContainer}>
+                        {timeOptions().map(opt => {
+                            const active = isTimeActive(opt.key);
+                            return (
+                                <Pressable
+                                    key={opt.key}
+                                    style={[
+                                        styles.tag,
+                                        active && styles.tagActive,
+                                    ]}
+                                    onPress={() => handleTimePress(opt.key)}
+                                >
+                                    <Text style={[styles.tagText, active && styles.tagTextActive]}>{opt.label}</Text>
+                                </Pressable>
+                            );
+                        })}
+                    </View>
+                </View>
+            </ScrollView>
             </KeyboardAvoidingView>
+
+            <View style={styles.footer}>
+                <Pressable
+                    style={styles.bigButton}
+                    onPress={handleSave}
+                >
+                    <Text style={styles.bigButtonText}>Done</Text>
+                </Pressable>
+            </View>
 
             <DatePickerModal
                 visible={showDatePicker}
                 onClose={() => setShowDatePicker(false)}
                 selectedDate={dueDate}
                 onSelectDate={setDueDate}
-            />
-
-            <PriorityPickerModal
-                visible={showPriorityPicker}
-                onClose={() => setShowPriorityPicker(false)}
-                selectedPriority={priority}
-                onSelectPriority={setPriority}
             />
 
             {/* Time Picker Modal */}
@@ -447,25 +423,25 @@ export default function AddTodoScreen() {
                 animationType="slide"
                 onRequestClose={() => setShowTimePicker(false)}
             >
-                <View style={styles.timePickerOverlay}>
+                <View style={styles.modalOverlay}>
                     <Pressable
                         style={StyleSheet.absoluteFill}
                         onPress={() => setShowTimePicker(false)}
                     />
-                    <View style={styles.timePickerModal}>
-                        <View style={styles.timePickerHeader}>
+                    <View style={styles.modalSheet}>
+                        <View style={styles.modalHeader}>
                             <Pressable onPress={() => {
                                 setDueTime(undefined);
                                 setShowTimePicker(false);
                             }}>
-                                <Text style={styles.timePickerCancel}>Remove</Text>
+                                <Text style={styles.modalRemove}>Remove</Text>
                             </Pressable>
-                            <Text style={styles.timePickerTitle}>Due Time</Text>
+                            <Text style={styles.modalTitle}>Due Time</Text>
                             <Pressable onPress={() => setShowTimePicker(false)}>
-                                <Text style={styles.timePickerDone}>Done</Text>
+                                <Text style={styles.modalDone}>Done</Text>
                             </Pressable>
                         </View>
-                        <View style={styles.timePickerContent}>
+                        <View style={styles.modalBody}>
                             <DateTimePicker
                                 value={(() => {
                                     const [h, m] = (dueTime || '09:00').split(':').map(Number);
@@ -496,217 +472,137 @@ export default function AddTodoScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F2F2F7',
-    },
-    keyboardView: {
-        flex: 1,
+        backgroundColor: '#FAFAFA',
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        backgroundColor: '#F2F2F7',
-        zIndex: 10,
+        paddingHorizontal: 20,
+        height: 56,
     },
-    closeButton: {
+    iconBtn: {
         width: 40,
         height: 40,
         justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: '#fff',
         borderRadius: 20,
-        // Soft shadow
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
         shadowRadius: 4,
-        elevation: 2,
     },
     headerTitle: {
-        fontSize: 17,
+        fontSize: 18,
         fontWeight: '700',
-        color: '#000',
-    },
-    saveButton: {
-        height: 36,
-        paddingHorizontal: 18,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#E5E5EA', // Default disabled-ish look, overridden if active
-        borderRadius: 18,
-    },
-    saveButtonDisabled: {
-        backgroundColor: '#E5E5EA',
-    },
-    saveButtonText: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#000', // Or gray if disabled? Let's check logic
-    },
-    saveButtonTextDisabled: {
-        color: '#8E8E93',
-    },
-    buttonPressed: {
-        opacity: 0.7,
-    },
-    scrollContent: {
-        paddingBottom: 40,
     },
     content: {
         padding: 20,
-        gap: 28,
+        gap: 32,
     },
-    section: {
-        gap: 8,
+    heroCard: {
+        borderRadius: 32,
+        padding: 32,
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: 240,
     },
-    label: {
-        fontSize: 13,
-        color: '#8E8E93',
-        fontWeight: '500',
-        marginLeft: 16,
-        marginBottom: 2,
+    mainEmojiContainer: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        backgroundColor: 'rgba(255,255,255,0.6)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 20,
     },
-    inputCard: {
-        flexDirection: 'row',
-        alignItems: 'flex-start', // Top align for multiline
-        backgroundColor: '#fff',
-        borderRadius: 24, // Squircle-ish
-        padding: 16,
-        minHeight: 80,
-        // Soft shadow
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.04,
-        shadowRadius: 12,
-        elevation: 3,
-    },
-    input: {
-        flex: 1,
-        fontSize: 19,
-        color: '#000',
-        marginTop: 0, // Align with icon
-        marginRight: 12,
-        minHeight: 40,
-        textAlignVertical: 'top',
-        lineHeight: 24,
+    heroInput: {
+        fontSize: 28,
+        fontWeight: '800',
+        color: '#0D47A1',
+        width: '100%',
     },
     voiceButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '#F2F2F7',
+        position: 'absolute',
+        bottom: 16,
+        right: 16,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: 'rgba(255,255,255,0.7)',
         justifyContent: 'center',
         alignItems: 'center',
     },
     voiceButtonRecording: {
         backgroundColor: '#FF3B30',
     },
-    detailsCard: {
-        backgroundColor: '#fff',
-        borderRadius: 16,
-        overflow: 'hidden',
-        // Shadow
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.04,
-        shadowRadius: 8,
-        elevation: 2,
+    pickerSection: {
+        gap: 16,
     },
-    detailRow: {
+    sectionTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#333',
+        marginLeft: 4,
+    },
+    tagContainer: {
         flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingVertical: 14,
-        paddingHorizontal: 16,
+        flexWrap: 'wrap',
+        gap: 10,
+    },
+    tag: {
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 24,
         backgroundColor: '#fff',
-        minHeight: 56,
-    },
-    detailRowPressed: {
-        backgroundColor: '#F9F9F9',
-    },
-    detailLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 14,
-    },
-    iconContainer: {
-        width: 32,
-        height: 32,
-        borderRadius: 8, // Smooth corners
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    detailLabel: {
-        fontSize: 17,
-        color: '#000',
-        fontWeight: '500',
-    },
-    detailRight: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-    detailValue: {
-        fontSize: 17,
-        color: '#8E8E93',
-    },
-    separatorContainer: {
-        paddingLeft: 60, // Indent separator to match text start
-        backgroundColor: '#fff',
-    },
-    separator: {
-        height: StyleSheet.hairlineWidth,
-        backgroundColor: '#E5E5EA',
-    },
-    energyRow: {
-        flexDirection: 'row',
-        gap: 12,
-    },
-    energyButton: {
-        flex: 1,
-        backgroundColor: '#fff',
-        borderRadius: 16,
-        paddingVertical: 14,
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 4,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.04,
-        shadowRadius: 8,
-        elevation: 2,
         borderWidth: 1,
-        borderColor: 'transparent',
+        borderColor: '#eee',
     },
-    energyButtonActive: {
-        backgroundColor: '#F2F2F7',
-        borderColor: '#007AFF',
+    tagActive: {
+        backgroundColor: '#0D47A1',
+        borderColor: '#0D47A1',
     },
-    energyEmoji: {
-        fontSize: 20,
-    },
-    energyLabelText: {
-        fontSize: 13,
+    tagText: {
+        fontSize: 15,
         fontWeight: '600',
-        color: '#8E8E93',
+        color: '#555',
     },
-    energyLabelTextActive: {
-        color: '#007AFF',
+    tagTextActive: {
+        color: '#fff',
     },
-    timePickerOverlay: {
+    footer: {
+        padding: 20,
+    },
+    bigButton: {
+        backgroundColor: '#FF7043',
+        height: 64,
+        borderRadius: 32,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#FF7043',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 16,
+    },
+    bigButtonText: {
+        color: '#fff',
+        fontSize: 20,
+        fontWeight: '700',
+        letterSpacing: 0.5,
+    },
+    modalOverlay: {
         flex: 1,
         justifyContent: 'flex-end',
         backgroundColor: 'rgba(0, 0, 0, 0.3)',
     },
-    timePickerModal: {
+    modalSheet: {
         backgroundColor: '#fff',
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
         paddingBottom: 34,
     },
-    timePickerHeader: {
+    modalHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -715,21 +611,21 @@ const styles = StyleSheet.create({
         borderBottomWidth: 0.5,
         borderBottomColor: '#E5E5EA',
     },
-    timePickerTitle: {
+    modalTitle: {
         fontSize: 17,
         fontWeight: '600',
         color: '#000',
     },
-    timePickerCancel: {
+    modalRemove: {
         fontSize: 17,
         color: '#FF3B30',
     },
-    timePickerDone: {
+    modalDone: {
         fontSize: 17,
         fontWeight: '600',
         color: '#007AFF',
     },
-    timePickerContent: {
+    modalBody: {
         paddingHorizontal: 20,
         paddingVertical: 8,
     },

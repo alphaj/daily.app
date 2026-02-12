@@ -8,7 +8,6 @@ import {
     Droplets,
     Zap,
     Pill,
-    Mic,
     Sun,
     Moon,
     Clock,
@@ -138,14 +137,6 @@ export default function FlowScreen() {
 
                     {/* Evening Section */}
                     <SectionHeader title="EVENING WIND DOWN" icon={Moon} />
-
-                    <TimelineItem
-                        time="9:00 PM"
-                        title="Journal Reflection"
-                        icon={Mic}
-                        color="#5856D6"
-                        onPress={() => router.push('/journal')}
-                    />
 
                     {/* End of Day */}
                     <View style={styles.endMarker}>

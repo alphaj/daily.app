@@ -2,11 +2,11 @@ import React from 'react';
 import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LayoutGrid, Settings, Infinity, Plus, Calendar } from 'lucide-react-native';
+import { LayoutGrid, Infinity, Plus } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
 
-export type NavRoute = 'home' | 'life' | 'menu' | 'command' | 'calendar';
+export type NavRoute = 'home' | 'life' | 'command';
 
 interface BottomNavBarProps {
     onFabPress?: () => void;
@@ -14,18 +14,13 @@ interface BottomNavBarProps {
 
 const NAV_ITEMS: { route: NavRoute; path: string; icon: any; label: string }[] = [
     { route: 'home', path: '/', icon: LayoutGrid, label: 'Home' },
+    { route: 'command', path: '', icon: Plus, label: 'Capture' },
     { route: 'life', path: '/life', icon: Infinity, label: 'Life' },
-    { route: 'command', path: '', icon: Plus, label: 'Capture' }, // Middle button
-    { route: 'calendar', path: '/history', icon: Calendar, label: 'Calendar' },
-    { route: 'menu', path: '/menu', icon: Settings, label: 'Profile' },
 ];
 
 function getActiveRoute(pathname: string): NavRoute {
     if (pathname === '/') return 'home';
-    if (pathname === '/menu') return 'menu';
-    if (pathname === '/inbox') return 'home';
-    if (pathname === '/history') return 'calendar';
-    // Life encompasses projects, habits, money, supplements, later
+    if (pathname === '/history') return 'home';
     if (
         pathname === '/life' ||
         pathname === '/projects' ||
@@ -35,7 +30,8 @@ function getActiveRoute(pathname: string): NavRoute {
         pathname === '/money' ||
         pathname === '/add-supplement' ||
         pathname === '/edit-supplement' ||
-        pathname === '/later'
+        pathname === '/later' ||
+        pathname === '/travel'
     ) return 'life';
 
     return 'home';
@@ -51,18 +47,17 @@ export function BottomNavBar({ onFabPress }: BottomNavBarProps) {
         Haptics.selectionAsync();
 
         if (route === 'command') {
-            onFabPress?.();
+            if (onFabPress) {
+                onFabPress();
+            } else {
+                router.push('/?capture=1' as any);
+            }
             return;
         }
 
         if (pathname === path) return;
 
-        // Use push for Settings so swipe-back gesture works
-        if (route === 'menu') {
-            router.push(path as any);
-        } else {
-            router.replace(path as any);
-        }
+        router.replace(path as any);
     };
 
     const ContainerComponent = Platform.OS === 'web' ? View : BlurView;

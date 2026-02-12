@@ -1,202 +1,177 @@
-import { useRouter } from 'expo-router';
-import {
-    Pin,
-    MessageCircle,
-    Lightbulb,
-    Bell,
-    CheckCircle2,
-    Clock,
-    Send,
-    Trash2,
-    Inbox as InboxIcon,
-    Archive,
-    RotateCcw,
-    ArrowLeft,
-    ChevronRight,
-} from 'lucide-react-native';
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import {
     View,
     Text,
     StyleSheet,
-    Pressable,
     ScrollView,
+    Pressable,
     TextInput,
+    ActionSheetIOS,
     KeyboardAvoidingView,
     Platform,
-    ActionSheetIOS,
-    Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeInDown, FadeOutRight, LinearTransition } from 'react-native-reanimated';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import {
+    Inbox,
+    Pin,
+    MessageCircle,
+    Lightbulb,
+    CheckCircle2,
+    Bell,
+    Clock,
+    Plus,
+    ChevronDown,
+    ChevronRight,
+    RotateCcw,
+} from 'lucide-react-native';
+import { formatDistanceToNow } from 'date-fns';
+import SwipeableRow from '@/components/SwipeableRow';
 import { useInbox } from '@/contexts/InboxContext';
 import { useTodos } from '@/contexts/TodoContext';
 import { useHabits } from '@/contexts/HabitContext';
-import { TYPE_CONFIG, type InboxItem } from '@/types/inbox';
-import { formatDistanceToNow } from 'date-fns';
-import { BottomNavBar } from '@/components/BottomNavBar';
 import { AmbientBackground } from '@/components/AmbientBackground';
-import SwipeableRow from '@/components/SwipeableRow';
+import { BottomNavBar } from '@/components/BottomNavBar';
+import type { InboxItem, InboxItemType } from '@/types/inbox';
+import { TYPE_CONFIG } from '@/types/inbox';
 
-const ICON_MAP: Record<string, any> = {
+const ICON_MAP: Record<string, React.ComponentType<any>> = {
     MessageCircle,
     Lightbulb,
-    Bell,
     CheckCircle2,
+    Bell,
     Clock,
 };
 
-function InboxItemCard({
+function getIcon(name: string) {
+    return ICON_MAP[name] || MessageCircle;
+}
+
+function DashboardTile({
+    label,
+    count,
+    icon: IconComponent,
+    color,
+    isSelected,
+    onPress,
+}: {
+    label: string;
+    count: number;
+    icon: React.ComponentType<any>;
+    color: string;
+    isSelected: boolean;
+    onPress: () => void;
+}) {
+    return (
+        <Pressable
+            onPress={() => {
+                Haptics.selectionAsync();
+                onPress();
+            }}
+            style={[
+                styles.tile,
+                isSelected && { borderColor: color, borderWidth: 2 },
+            ]}
+        >
+            <View style={[styles.tileIconCircle, { backgroundColor: color }]}>
+                <IconComponent size={16} color="#fff" strokeWidth={2.5} />
+            </View>
+            <Text style={styles.tileCount}>{count}</Text>
+            <Text style={styles.tileLabel}>{label}</Text>
+        </Pressable>
+    );
+}
+
+function ItemRow({
     item,
+    onArchive,
     onDelete,
     onTogglePin,
-    onArchive,
     onConvertToTask,
     onConvertToHabit,
-    isLast,
 }: {
     item: InboxItem;
+    onArchive: (id: string) => void;
     onDelete: (id: string) => void;
     onTogglePin: (id: string) => void;
-    onArchive: (id: string) => void;
     onConvertToTask: (id: string, content: string) => void;
     onConvertToHabit: (id: string, content: string) => void;
-    isLast?: boolean;
 }) {
     const config = TYPE_CONFIG[item.type];
-    const IconComponent = ICON_MAP[config.icon] || MessageCircle;
+    const timeAgo = formatDistanceToNow(new Date(item.createdAt), { addSuffix: true });
 
-    const timeAgo = formatDistanceToNow(new Date(item.createdAt), { addSuffix: false });
-    const formattedTime = timeAgo
-        .replace('about ', '')
-        .replace(' days', 'd')
-        .replace(' day', 'd')
-        .replace(' hours', 'h')
-        .replace(' hour', 'h')
-        .replace(' minutes', 'm')
-        .replace(' minute', 'm');
-
-    const handleDelete = useCallback(() => {
-        onDelete(item.id);
-    }, [item.id, onDelete]);
-
-    const handleConvertToTask = useCallback(() => {
-        onConvertToTask(item.id, item.content);
-    }, [item.id, item.content, onConvertToTask]);
-
-    const handleConvertToHabit = useCallback(() => {
-        onConvertToHabit(item.id, item.content);
-    }, [item.id, item.content, onConvertToHabit]);
-
-    const handleLongPress = useCallback(() => {
+    const handleLongPress = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        const options = [
-            'Convert to Task',
-            'Convert to Habit',
-            'Archive',
-            item.isPinned ? 'Unpin' : 'Pin',
-            'Delete',
-            'Cancel',
-        ];
         ActionSheetIOS.showActionSheetWithOptions(
             {
-                options,
+                options: [
+                    'Convert to Task',
+                    'Convert to Habit',
+                    'Archive',
+                    item.isPinned ? 'Unpin' : 'Pin',
+                    'Delete',
+                    'Cancel',
+                ],
                 destructiveButtonIndex: 4,
                 cancelButtonIndex: 5,
-                title: item.content,
             },
             (buttonIndex) => {
-                if (buttonIndex === 0) handleConvertToTask();
-                else if (buttonIndex === 1) handleConvertToHabit();
-                else if (buttonIndex === 2) onArchive(item.id);
-                else if (buttonIndex === 3) onTogglePin(item.id);
-                else if (buttonIndex === 4) handleDelete();
-            }
+                switch (buttonIndex) {
+                    case 0:
+                        onConvertToTask(item.id, item.content);
+                        break;
+                    case 1:
+                        onConvertToHabit(item.id, item.content);
+                        break;
+                    case 2:
+                        onArchive(item.id);
+                        break;
+                    case 3:
+                        onTogglePin(item.id);
+                        break;
+                    case 4:
+                        onDelete(item.id);
+                        break;
+                }
+            },
         );
-    }, [item, handleConvertToTask, handleConvertToHabit, handleDelete, onTogglePin, onArchive]);
+    };
 
     return (
         <SwipeableRow
-            onDelete={handleDelete}
-            onConvertToTask={handleConvertToTask}
-            onConvertToHabit={handleConvertToHabit}
+            onDelete={() => onDelete(item.id)}
+            onConvertToTask={() => onConvertToTask(item.id, item.content)}
+            onConvertToHabit={() => onConvertToHabit(item.id, item.content)}
         >
             <Pressable
-                style={styles.inboxItem}
                 onLongPress={handleLongPress}
-                delayLongPress={300}
+                style={styles.itemRow}
             >
-                <IconComponent size={20} color={config.color} strokeWidth={2} />
+                <Pressable
+                    onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        onArchive(item.id);
+                    }}
+                    hitSlop={8}
+                >
+                    <View style={[styles.radioCircle, { borderColor: config.color }]} />
+                </Pressable>
                 <View style={styles.itemContent}>
-                    <Text style={styles.itemText} numberOfLines={2}>{item.content}</Text>
-                    <Text style={styles.itemMeta}>
-                        {config.label} · {formattedTime}
+                    <Text style={styles.itemText} numberOfLines={2}>
+                        {item.content}
                     </Text>
                 </View>
                 {item.isPinned && (
-                    <Pin size={12} color="#FF9500" strokeWidth={2.5} fill="#FF9500" />
+                    <Pin size={13} color="#FF9500" strokeWidth={2.5} style={styles.pinIcon} />
                 )}
-                {!isLast && <View style={styles.separator} />}
+                <Text style={styles.itemTime}>{timeAgo}</Text>
             </Pressable>
         </SwipeableRow>
     );
 }
 
-function ArchivedRow({
-    item,
-    onRestore,
-    onDelete,
-    isLast,
-}: {
-    item: InboxItem;
-    onRestore: (id: string) => void;
-    onDelete: (id: string) => void;
-    isLast?: boolean;
-}) {
-    const config = TYPE_CONFIG[item.type];
-    const IconComponent = ICON_MAP[config.icon] || MessageCircle;
-
-    return (
-        <View style={styles.archivedRow}>
-            <View style={styles.archivedContent}>
-                <IconComponent size={16} color="#8E8E93" strokeWidth={2} />
-                <Text style={styles.archivedTitle} numberOfLines={1}>
-                    {item.content}
-                </Text>
-            </View>
-            <View style={styles.archivedActions}>
-                <Pressable
-                    style={styles.archivedAction}
-                    onPress={() => {
-                        Haptics.selectionAsync();
-                        onRestore(item.id);
-                    }}
-                    hitSlop={10}
-                >
-                    <RotateCcw size={16} color="#007AFF" strokeWidth={2} />
-                </Pressable>
-                <Pressable
-                    style={styles.archivedAction}
-                    onPress={() => {
-                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                        Alert.alert('Delete Item', 'This will permanently remove this item.', [
-                            { text: 'Cancel', style: 'cancel' },
-                            { text: 'Delete', style: 'destructive', onPress: () => onDelete(item.id) },
-                        ]);
-                    }}
-                    hitSlop={10}
-                >
-                    <Trash2 size={16} color="#FF3B30" strokeWidth={2} />
-                </Pressable>
-            </View>
-            {!isLast && <View style={styles.archivedSeparator} />}
-        </View>
-    );
-}
-
 export default function InboxScreen() {
-    const router = useRouter();
     const {
         items,
         archivedItems,
@@ -210,34 +185,64 @@ export default function InboxScreen() {
     const { addTodo } = useTodos();
     const { addHabit } = useHabits();
     const [inputText, setInputText] = useState('');
-    const [showArchive, setShowArchive] = useState(false);
+    const [selectedType, setSelectedType] = useState<InboxItemType | null>(null);
+    const [showCompleted, setShowCompleted] = useState(false);
     const inputRef = useRef<TextInput>(null);
 
     const pinnedItems = getPinnedItems();
-    const unpinnedItems = items.filter((item) => !item.isPinned);
 
-    const handleAddPress = () => {
+    const handleAddPress = useCallback(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         inputRef.current?.focus();
-    };
+    }, []);
 
-    const handleSubmit = () => {
+    const handleSubmit = useCallback(() => {
         if (inputText.trim()) {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            addItem(inputText);
+            addItem(inputText, selectedType || undefined);
             setInputText('');
+            setSelectedType(null);
         }
-    };
+    }, [inputText, selectedType, addItem]);
 
-    const handleConvertToTask = (id: string, content: string) => {
+    const handleConvertToTask = useCallback((id: string, content: string) => {
         addTodo(content);
         archiveItem(id);
-    };
+    }, [addTodo, archiveItem]);
 
-    const handleConvertToHabit = (id: string, content: string) => {
+    const handleConvertToHabit = useCallback((id: string, content: string) => {
         addHabit(content);
         archiveItem(id);
-    };
+    }, [addHabit, archiveItem]);
+
+    const activeItems = useMemo(
+        () => items.filter((i) => !i.isArchived),
+        [items],
+    );
+
+    const typeCounts = useMemo(() => {
+        const counts: Partial<Record<InboxItemType, number>> = {};
+        for (const item of activeItems) {
+            counts[item.type] = (counts[item.type] || 0) + 1;
+        }
+        return counts;
+    }, [activeItems]);
+
+    const activeTypes = useMemo(
+        () =>
+            (Object.keys(TYPE_CONFIG) as InboxItemType[]).filter(
+                (t) => (typeCounts[t] || 0) > 0,
+            ),
+        [typeCounts],
+    );
+
+    const filteredItems = useMemo(
+        () =>
+            selectedType
+                ? activeItems.filter((i) => i.type === selectedType)
+                : activeItems,
+        [activeItems, selectedType],
+    );
 
     return (
         <View style={styles.root}>
@@ -247,160 +252,172 @@ export default function InboxScreen() {
                     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                     style={styles.flex}
                 >
-                    {/* Header */}
-                    <View style={styles.header}>
-                        <Pressable
-                            style={styles.backButton}
-                            onPress={() => router.back()}
-                            hitSlop={20}
-                        >
-                            <ArrowLeft size={20} color="#000" strokeWidth={2.5} />
-                        </Pressable>
-                        <Text style={styles.headerTitle}>Inbox</Text>
-                        <View style={styles.headerRight} />
-                    </View>
-
                     <ScrollView
-                        style={styles.scrollView}
+                        style={styles.scroll}
                         contentContainerStyle={styles.scrollContent}
-                        showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled"
+                        showsVerticalScrollIndicator={false}
                         keyboardDismissMode="interactive"
                     >
-                        {/* Input */}
-                        <View style={styles.inputSection}>
-                            <View style={styles.inputRow}>
-                                <TextInput
-                                    ref={inputRef}
-                                    style={styles.input}
-                                    placeholder="What's on your mind?"
-                                    placeholderTextColor="#8E8E93"
-                                    value={inputText}
-                                    onChangeText={setInputText}
-                                    onSubmitEditing={handleSubmit}
-                                    returnKeyType="done"
-                                    blurOnSubmit={false}
-                                    multiline
-                                />
-                                {inputText.trim().length > 0 && (
-                                    <Pressable
-                                        style={({ pressed }) => [
-                                            styles.sendButton,
-                                            pressed && { opacity: 0.7 },
-                                        ]}
-                                        onPress={handleSubmit}
-                                    >
-                                        <Send size={16} color="#fff" strokeWidth={2.5} />
-                                    </Pressable>
-                                )}
-                            </View>
-                        </View>
+                        {/* Title */}
+                        <Animated.Text
+                            entering={FadeInDown.duration(400).delay(50)}
+                            style={styles.title}
+                        >
+                            Inbox
+                        </Animated.Text>
 
-                        {/* Pinned Section */}
-                        {pinnedItems.length > 0 && (
-                            <View style={styles.section}>
-                                <Text style={styles.sectionTitle}>Pinned</Text>
-                                <View style={styles.listContainer}>
-                                    {pinnedItems.map((item, index) => (
-                                        <Animated.View
-                                            key={item.id}
-                                            entering={FadeInDown.delay(index * 50).duration(300)}
-                                            exiting={FadeOutRight.duration(250)}
-                                            layout={LinearTransition.springify().damping(18).stiffness(120)}
-                                        >
-                                            <InboxItemCard
-                                                item={item}
-                                                onDelete={deleteItem}
-                                                onTogglePin={togglePin}
-                                                onArchive={archiveItem}
-                                                onConvertToTask={handleConvertToTask}
-                                                onConvertToHabit={handleConvertToHabit}
-                                                isLast={index === pinnedItems.length - 1}
-                                            />
-                                        </Animated.View>
-                                    ))}
-                                </View>
+                        {/* Dashboard Grid */}
+                        <Animated.View
+                            entering={FadeInDown.duration(400).delay(100)}
+                            style={styles.dashboardGrid}
+                        >
+                            <DashboardTile
+                                label="All"
+                                count={activeItems.length}
+                                icon={Inbox}
+                                color="#007AFF"
+                                isSelected={selectedType === null}
+                                onPress={() => setSelectedType(null)}
+                            />
+                            <DashboardTile
+                                label="Pinned"
+                                count={pinnedItems.length}
+                                icon={Pin}
+                                color="#FF9500"
+                                isSelected={false}
+                                onPress={() => setSelectedType(null)}
+                            />
+                            {activeTypes.map((type) => {
+                                const cfg = TYPE_CONFIG[type];
+                                const Icon = getIcon(cfg.icon);
+                                return (
+                                    <DashboardTile
+                                        key={type}
+                                        label={cfg.label}
+                                        count={typeCounts[type] || 0}
+                                        icon={Icon}
+                                        color={cfg.color}
+                                        isSelected={selectedType === type}
+                                        onPress={() =>
+                                            setSelectedType(selectedType === type ? null : type)
+                                        }
+                                    />
+                                );
+                            })}
+                        </Animated.View>
+
+                        {/* Inline New Item Row */}
+                        <Animated.View
+                            entering={FadeInDown.duration(400).delay(150)}
+                            style={styles.newItemRow}
+                        >
+                            <View style={styles.newItemCircle}>
+                                <Plus size={14} color="#8E8E93" strokeWidth={2.5} />
                             </View>
+                            <TextInput
+                                ref={inputRef}
+                                style={styles.newItemInput}
+                                placeholder="New Item"
+                                placeholderTextColor="#C7C7CC"
+                                value={inputText}
+                                onChangeText={setInputText}
+                                onSubmitEditing={handleSubmit}
+                                returnKeyType="done"
+                                blurOnSubmit={false}
+                            />
+                        </Animated.View>
+
+                        {/* Item List */}
+                        {filteredItems.length === 0 && (
+                            <Animated.View
+                                entering={FadeInDown.duration(400).delay(200)}
+                                style={styles.emptyState}
+                            >
+                                <Inbox size={48} color="#C7C7CC" strokeWidth={1.5} />
+                                <Text style={styles.emptyTitle}>No Items</Text>
+                                <Text style={styles.emptySubtitle}>
+                                    Tap + to add a new item
+                                </Text>
+                            </Animated.View>
                         )}
 
-                        {/* Recent Section */}
-                        {unpinnedItems.length === 0 && pinnedItems.length === 0 ? (
-                            <View style={styles.emptyState}>
-                                <InboxIcon size={36} color="#C7C7CC" strokeWidth={1.5} />
-                                <Text style={styles.emptyTitle}>No items yet</Text>
-                                <Text style={styles.emptySubtitle}>
-                                    Jot down thoughts, ideas, or tasks
-                                </Text>
-                            </View>
-                        ) : unpinnedItems.length > 0 ? (
-                            <View style={styles.section}>
-                                {pinnedItems.length > 0 && (
-                                    <Text style={styles.sectionTitle}>Recent</Text>
+                        {filteredItems.map((item, index) => (
+                            <Animated.View
+                                key={item.id}
+                                entering={FadeInDown.duration(300).delay(180 + index * 40)}
+                            >
+                                <ItemRow
+                                    item={item}
+                                    onArchive={archiveItem}
+                                    onDelete={deleteItem}
+                                    onTogglePin={togglePin}
+                                    onConvertToTask={handleConvertToTask}
+                                    onConvertToHabit={handleConvertToHabit}
+                                />
+                                {index < filteredItems.length - 1 && (
+                                    <View style={styles.separator} />
                                 )}
-                                <View style={styles.listContainer}>
-                                    {unpinnedItems.map((item, index) => (
-                                        <Animated.View
-                                            key={item.id}
-                                            entering={FadeInDown.delay(index * 50).duration(300)}
-                                            exiting={FadeOutRight.duration(250)}
-                                            layout={LinearTransition.springify().damping(18).stiffness(120)}
-                                        >
-                                            <InboxItemCard
-                                                item={item}
-                                                onDelete={deleteItem}
-                                                onTogglePin={togglePin}
-                                                onArchive={archiveItem}
-                                                onConvertToTask={handleConvertToTask}
-                                                onConvertToHabit={handleConvertToHabit}
-                                                isLast={index === unpinnedItems.length - 1}
-                                            />
-                                        </Animated.View>
-                                    ))}
-                                </View>
-                            </View>
-                        ) : null}
+                            </Animated.View>
+                        ))}
 
-                        {/* Archive Section */}
+                        {/* Completed / Archive Section */}
                         {archivedItems.length > 0 && (
-                            <View style={styles.section}>
+                            <Animated.View
+                                entering={FadeInDown.duration(400).delay(250)}
+                            >
                                 <Pressable
-                                    style={styles.archiveToggle}
                                     onPress={() => {
                                         Haptics.selectionAsync();
-                                        setShowArchive(!showArchive);
+                                        setShowCompleted(!showCompleted);
                                     }}
+                                    style={styles.completedHeader}
                                 >
-                                    <View style={styles.archiveToggleLeft}>
-                                        <Archive size={16} color="#8E8E93" strokeWidth={2} />
-                                        <Text style={styles.archiveToggleText}>
-                                            Archived
-                                        </Text>
-                                        <Text style={styles.archiveCount}>{archivedItems.length}</Text>
-                                    </View>
-                                    <ChevronRight
-                                        size={16}
-                                        color="#C7C7CC"
-                                        strokeWidth={2}
-                                        style={{
-                                            transform: [{ rotate: showArchive ? '90deg' : '0deg' }],
-                                        }}
-                                    />
+                                    {showCompleted ? (
+                                        <ChevronDown size={18} color="#8E8E93" strokeWidth={2} />
+                                    ) : (
+                                        <ChevronRight size={18} color="#8E8E93" strokeWidth={2} />
+                                    )}
+                                    <Text style={styles.completedTitle}>Completed</Text>
+                                    <Text style={styles.completedCount}>
+                                        {archivedItems.length}
+                                    </Text>
                                 </Pressable>
 
-                                {showArchive && (
-                                    <View style={styles.listContainer}>
-                                        {archivedItems.map((item, index) => (
-                                            <ArchivedRow
-                                                key={item.id}
-                                                item={item}
-                                                onRestore={restoreItem}
-                                                onDelete={deleteItem}
-                                                isLast={index === archivedItems.length - 1}
-                                            />
-                                        ))}
-                                    </View>
-                                )}
-                            </View>
+                                {showCompleted &&
+                                    archivedItems.map((item, index) => (
+                                        <Animated.View
+                                            key={item.id}
+                                            entering={FadeInDown.duration(250).delay(index * 30)}
+                                            style={styles.archivedRow}
+                                        >
+                                            <View
+                                                style={[
+                                                    styles.radioCircleFilled,
+                                                    { backgroundColor: TYPE_CONFIG[item.type].color },
+                                                ]}
+                                            >
+                                                <CheckCircle2 size={14} color="#fff" strokeWidth={2.5} />
+                                            </View>
+                                            <Text style={styles.archivedText} numberOfLines={1}>
+                                                {item.content}
+                                            </Text>
+                                            <Pressable
+                                                onPress={() => {
+                                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                                    restoreItem(item.id);
+                                                }}
+                                                hitSlop={8}
+                                                style={styles.restoreButton}
+                                            >
+                                                <RotateCcw size={15} color="#007AFF" strokeWidth={2} />
+                                            </Pressable>
+                                            {index < archivedItems.length - 1 && (
+                                                <View style={styles.separatorArchived} />
+                                            )}
+                                        </Animated.View>
+                                    ))}
+                            </Animated.View>
                         )}
                     </ScrollView>
 
@@ -421,207 +438,201 @@ const styles = StyleSheet.create({
     flex: {
         flex: 1,
     },
-    header: {
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-    },
-    backButton: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: 'rgba(255,255,255,0.8)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-    },
-    headerTitle: {
-        fontSize: 17,
-        fontWeight: '600',
-        color: '#000',
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        textAlign: 'center',
-        zIndex: -1,
-    },
-    headerRight: {
-        width: 36,
-    },
-    scrollView: {
+    scroll: {
         flex: 1,
     },
     scrollContent: {
         paddingHorizontal: 16,
         paddingBottom: 120,
-        paddingTop: 8,
     },
-    inputSection: {
-        marginBottom: 24,
-        backgroundColor: 'rgba(255,255,255,0.7)',
-        borderRadius: 16,
-        overflow: 'hidden',
+    title: {
+        fontSize: 34,
+        fontWeight: '800',
+        color: '#000',
+        letterSpacing: -0.5,
+        marginTop: 8,
+        marginBottom: 16,
     },
-    inputRow: {
+
+    // Dashboard Grid
+    dashboardGrid: {
         flexDirection: 'row',
-        alignItems: 'flex-end',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        gap: 12,
+        flexWrap: 'wrap',
+        gap: 10,
+        marginBottom: 24,
     },
-    input: {
+    tile: {
+        backgroundColor: 'rgba(255,255,255,0.8)',
+        borderRadius: 16,
+        padding: 12,
+        minWidth: '47%',
+        flexGrow: 1,
+        flexBasis: '47%',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+        elevation: 2,
+        borderWidth: 2,
+        borderColor: 'transparent',
+    },
+    tileIconCircle: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 8,
+    },
+    tileCount: {
+        fontSize: 28,
+        fontWeight: '700',
+        color: '#000',
+        letterSpacing: -0.5,
+        lineHeight: 32,
+    },
+    tileLabel: {
+        fontSize: 13,
+        fontWeight: '500',
+        color: '#8E8E93',
+        marginTop: 2,
+    },
+
+    // New Item Row
+    newItemRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 4,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: 'rgba(0,0,0,0.1)',
+        marginBottom: 4,
+    },
+    newItemCircle: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        borderWidth: 1.5,
+        borderColor: '#C7C7CC',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 12,
+    },
+    newItemInput: {
         flex: 1,
         fontSize: 17,
         color: '#000',
-        fontWeight: '400',
-        letterSpacing: -0.3,
-        minHeight: 24,
-        maxHeight: 100,
-        paddingTop: 0,
-        paddingBottom: 0,
+        padding: 0,
     },
-    sendButton: {
-        width: 30,
-        height: 30,
-        borderRadius: 15,
-        backgroundColor: '#007AFF',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    section: {
-        marginBottom: 24,
-    },
-    sectionTitle: {
-        fontSize: 13,
-        fontWeight: '600',
-        color: '#8E8E93',
-        marginBottom: 8,
-        marginLeft: 4,
-        textTransform: 'uppercase',
-        letterSpacing: -0.1,
-    },
-    listContainer: {
-        backgroundColor: 'rgba(255,255,255,0.7)',
-        borderRadius: 16,
-        overflow: 'hidden',
-    },
-    inboxItem: {
+
+    // Item Row
+    itemRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 14,
-        paddingHorizontal: 16,
-        gap: 12,
+        paddingVertical: 13,
+        paddingHorizontal: 4,
+        backgroundColor: 'transparent',
     },
-    separator: {
-        position: 'absolute',
-        bottom: 0,
-        left: 48,
-        right: 0,
-        height: StyleSheet.hairlineWidth,
-        backgroundColor: 'rgba(60,60,67,0.1)',
+    radioCircle: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        borderWidth: 2,
+        marginRight: 12,
     },
     itemContent: {
         flex: 1,
-        justifyContent: 'center',
+        marginRight: 8,
     },
     itemText: {
         fontSize: 17,
         fontWeight: '400',
         color: '#000',
         lineHeight: 22,
-        letterSpacing: -0.4,
     },
-    itemMeta: {
+    pinIcon: {
+        marginRight: 6,
+    },
+    itemTime: {
         fontSize: 13,
         color: '#8E8E93',
         fontWeight: '400',
-        marginTop: 2,
-        letterSpacing: -0.1,
     },
+    separator: {
+        height: StyleSheet.hairlineWidth,
+        backgroundColor: 'rgba(0,0,0,0.1)',
+        marginLeft: 40,
+    },
+
+    // Empty State
     emptyState: {
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 80,
-        gap: 8,
+        paddingVertical: 60,
     },
     emptyTitle: {
-        fontSize: 17,
+        fontSize: 20,
         fontWeight: '600',
-        color: '#3C3C43',
-        marginTop: 8,
-        letterSpacing: -0.4,
+        color: '#8E8E93',
+        marginTop: 12,
     },
     emptySubtitle: {
         fontSize: 15,
-        color: '#8E8E93',
-        letterSpacing: -0.2,
+        color: '#C7C7CC',
+        marginTop: 4,
     },
-    archiveToggle: {
+
+    // Completed Section
+    completedHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        backgroundColor: 'rgba(255,255,255,0.7)',
-        borderRadius: 16,
         paddingVertical: 14,
-        paddingHorizontal: 16,
-        marginBottom: 8,
+        marginTop: 16,
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: 'rgba(0,0,0,0.1)',
     },
-    archiveToggleLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-    },
-    archiveToggleText: {
+    completedTitle: {
         fontSize: 17,
-        fontWeight: '400',
-        color: '#000',
-        letterSpacing: -0.2,
-    },
-    archiveCount: {
-        fontSize: 15,
-        fontWeight: '400',
+        fontWeight: '600',
         color: '#8E8E93',
+        marginLeft: 6,
+        flex: 1,
+    },
+    completedCount: {
+        fontSize: 15,
+        fontWeight: '500',
+        color: '#C7C7CC',
     },
     archivedRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingVertical: 12,
-        paddingHorizontal: 16,
+        paddingVertical: 10,
+        paddingHorizontal: 4,
     },
-    archivedSeparator: {
+    radioCircleFilled: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 12,
+    },
+    archivedText: {
+        flex: 1,
+        fontSize: 16,
+        color: '#8E8E93',
+        textDecorationLine: 'line-through',
+    },
+    restoreButton: {
+        padding: 4,
+        marginLeft: 8,
+    },
+    separatorArchived: {
         position: 'absolute',
         bottom: 0,
         left: 40,
         right: 0,
         height: StyleSheet.hairlineWidth,
-        backgroundColor: 'rgba(60,60,67,0.1)',
-    },
-    archivedContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-        flex: 1,
-    },
-    archivedTitle: {
-        fontSize: 15,
-        color: '#8E8E93',
-        flex: 1,
-        fontWeight: '400',
-        textDecorationLine: 'line-through',
-        letterSpacing: -0.3,
-    },
-    archivedActions: {
-        flexDirection: 'row',
-        gap: 16,
-        paddingLeft: 12,
-    },
-    archivedAction: {
-        padding: 4,
+        backgroundColor: 'rgba(0,0,0,0.08)',
     },
 });

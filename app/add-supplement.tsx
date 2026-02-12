@@ -16,13 +16,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useSupplements } from '@/contexts/SupplementContext';
 import type { Supplement } from '@/types/supplement';
+import { SupplementIcon } from '@/components/SupplementIcon';
 
 export default function AddSupplementScreen() {
     const router = useRouter();
     const { addSupplement } = useSupplements();
 
     const [name, setName] = useState('');
-    const [selectedEmoji, setSelectedEmoji] = useState<string>('💊');
     const [frequency, setFrequency] = useState<Supplement['frequency']>('daily');
 
     const handleSave = async () => {
@@ -30,7 +30,7 @@ export default function AddSupplementScreen() {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             await addSupplement(
                 name.trim(),
-                selectedEmoji,
+                '💊',
                 undefined,
                 frequency,
                 undefined
@@ -38,8 +38,6 @@ export default function AddSupplementScreen() {
             router.back();
         }
     };
-
-    const EMOJIS = ['💊', '💉', '🩹', '🧴', '🥛', '🧪', '🌿', '⚗️', '🧘', '✨', '⚡'];
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
@@ -51,7 +49,7 @@ export default function AddSupplementScreen() {
                 <Pressable onPress={() => router.back()} style={styles.iconBtn}>
                     <ArrowLeft size={24} color="#000" />
                 </Pressable>
-                <Text style={styles.headerTitle}>Add Habit</Text>
+                <Text style={styles.headerTitle}>Add Supplement</Text>
                 <View style={{ width: 40 }} />
             </View>
 
@@ -65,7 +63,7 @@ export default function AddSupplementScreen() {
                     style={styles.heroCard}
                 >
                     <View style={styles.mainEmojiContainer}>
-                        <Text style={styles.mainEmoji}>{selectedEmoji}</Text>
+                        <SupplementIcon name={name} size={48} />
                     </View>
                     <TextInput
                         style={styles.heroInput}
@@ -76,24 +74,6 @@ export default function AddSupplementScreen() {
                         textAlign="center"
                     />
                 </LinearGradient>
-
-                <View style={styles.pickerSection}>
-                    <Text style={styles.sectionTitle}>Choose Icon</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.emojiList}>
-                        {EMOJIS.map(emoji => (
-                            <Pressable
-                                key={emoji}
-                                style={[
-                                    styles.emojiItem,
-                                    selectedEmoji === emoji && styles.emojiItemActive
-                                ]}
-                                onPress={() => setSelectedEmoji(emoji)}
-                            >
-                                <Text style={styles.emojiItemText}>{emoji}</Text>
-                            </Pressable>
-                        ))}
-                    </ScrollView>
-                </View>
 
                 <View style={styles.pickerSection}>
                     <Text style={styles.sectionTitle}>How Often?</Text>
@@ -179,9 +159,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         marginBottom: 20,
     },
-    mainEmoji: {
-        fontSize: 60,
-    },
     heroInput: {
         fontSize: 28,
         fontWeight: '800',
@@ -196,27 +173,6 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: '#333',
         marginLeft: 4,
-    },
-    emojiList: {
-        paddingRight: 20,
-        gap: 12,
-    },
-    emojiItem: {
-        width: 60,
-        height: 60,
-        borderRadius: 20,
-        backgroundColor: '#fff',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 2,
-        borderColor: 'transparent',
-    },
-    emojiItemActive: {
-        borderColor: '#004D40',
-        backgroundColor: '#E0F2F1',
-    },
-    emojiItemText: {
-        fontSize: 30,
     },
     tagContainer: {
         flexDirection: 'row',

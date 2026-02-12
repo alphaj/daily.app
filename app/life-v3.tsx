@@ -14,6 +14,7 @@ import { useTravel } from '@/contexts/TravelContext';
 import type { Habit, DayCompletion } from '@/types/habit';
 import type { Project } from '@/types/project';
 import type { Supplement } from '@/types/supplement';
+import { VariantPicker } from '@/components/VariantPicker';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const GRID_GAP = 12;
@@ -367,6 +368,7 @@ export default function LifeScreen() {
     return (
         <View style={styles.container}>
             <AmbientBackground />
+            <VariantPicker group="life" current={2} />
             <SafeAreaView edges={['top']} style={styles.safeArea}>
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
                     {/* Page Title */}
@@ -433,7 +435,13 @@ export default function LifeScreen() {
                             takenCount={supplementsTakenToday}
                             isTakenToday={isTakenToday}
                             onToggle={(id) => toggleTaken(id)}
-                            onPress={() => router.push('/add-supplement')}
+                            onPress={() => {
+                                if (activeSupplements.length === 0) {
+                                    router.push('/add-supplement');
+                                } else {
+                                    router.push('/life' as any);
+                                }
+                            }}
                         />
 
                         {/* Row 4: Two Quick Link Tiles */}

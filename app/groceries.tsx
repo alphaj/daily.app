@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
     View,
     Text,
@@ -13,33 +13,31 @@ import Animated, {
     FadeInDown,
     FadeOutRight,
     LinearTransition,
-    useSharedValue,
-    useAnimatedStyle,
-    withTiming,
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
     ShoppingCart,
-    Package,
     Check,
     ChevronDown,
     ChevronUp,
     RotateCcw,
     Search,
     X,
+    CheckCircle2,
+    Clock,
+    Plus,
 } from 'lucide-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useGroceries } from '@/contexts/GroceryContext';
 import { GroceryCard } from '@/components/GroceryCard';
 import { GroceryQuickAdd } from '@/components/GroceryQuickAdd';
-import { GroceryIcon } from '@/components/GroceryIcon';
 import { BottomNavBar } from '@/components/BottomNavBar';
 import { AmbientBackground } from '@/components/AmbientBackground';
 import { CATEGORY_CONFIG, type GroceryCategory, type GroceryItem } from '@/types/grocery';
 
-type ViewMode = 'pantry' | 'shopping';
+type ViewMode = 'list' | 'items';
 
 export default function GroceriesScreen() {
     const router = useRouter();
@@ -61,26 +59,10 @@ export default function GroceriesScreen() {
     } = useGroceries();
 
     const [viewMode, setViewMode] = useState<ViewMode>(
-        shoppingList.length > 0 ? 'shopping' : 'pantry'
+        shoppingList.length > 0 ? 'list' : 'items'
     );
-    const [isDoneSectionCollapsed, setIsDoneSectionCollapsed] = useState(false);
+    const [isCheckedOffCollapsed, setIsCheckedOffCollapsed] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-
-    // --- Progress bar animation ---
-    const purchasedCount = purchasedThisSession.length;
-    const remainingCount = shoppingList.length;
-    const totalCount = purchasedCount + remainingCount;
-    const progressPercent = totalCount > 0 ? (purchasedCount / totalCount) * 100 : 0;
-
-    const progressWidth = useSharedValue(0);
-
-    useEffect(() => {
-        progressWidth.value = withTiming(progressPercent, { duration: 400 });
-    }, [progressPercent, progressWidth]);
-
-    const progressAnimatedStyle = useAnimatedStyle(() => ({
-        width: `${progressWidth.value}%`,
-    }));
 
     const handleAddPress = useCallback(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -97,10 +79,10 @@ export default function GroceriesScreen() {
         router.push(`/add-grocery?id=${item.id}`);
     }, [router]);
 
-    const handleDoneShopping = useCallback(() => {
+    const handleClearList = useCallback(() => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         clearShoppingList();
-        setViewMode('pantry');
+        setViewMode('items');
     }, [clearShoppingList]);
 
     const handleQuickAdd = useCallback((name: string) => {
@@ -115,28 +97,6 @@ export default function GroceriesScreen() {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         undoPurchase(id);
     }, [undoPurchase]);
-
-    const handleClearPurchased = useCallback(() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        clearPurchasedItems();
-    }, [clearPurchasedItems]);
-
-    // Group shopping list by category for aisle-based display
-    const shoppingListByCategory = useMemo(() => {
-        const grouped: Partial<Record<GroceryCategory, GroceryItem[]>> = {};
-
-        shoppingList.forEach(item => {
-            if (!grouped[item.category]) {
-                grouped[item.category] = [];
-            }
-            grouped[item.category]!.push(item);
-        });
-
-        return Object.entries(grouped)
-            .sort(([a], [b]) =>
-                CATEGORY_CONFIG[a as GroceryCategory].order - CATEGORY_CONFIG[b as GroceryCategory].order
-            );
-    }, [shoppingList]);
 
     // Non-empty categories for pantry view
     const nonEmptyCategories = useMemo(() => {
@@ -157,16 +117,19 @@ export default function GroceriesScreen() {
         );
     }, [groceries, searchQuery]);
 
-    // Progress text
-    const progressText = useMemo(() => {
-        if (progressPercent > 0) {
-            return `${Math.round(progressPercent)}% done — ${remainingCount} left`;
-        }
-        return `${totalCount} items to buy`;
-    }, [progressPercent, remainingCount, totalCount]);
-
     // Shopping mode has items if either active or purchased items exist
     const hasShoppingItems = shoppingList.length > 0 || purchasedThisSession.length > 0;
+
+    // All items checked off = completion state
+    const isAllDone = shoppingList.length === 0 && purchasedThisSession.length > 0;
+
+    // Dynamic title
+    const pageTitle = viewMode === 'list' ? 'Shopping' : 'My Items';
+
+    // Frequent items not currently on list (for suggestions)
+    const availableSuggestions = useMemo(() => {
+        return frequentItems.filter(item => !item.isOnList);
+    }, [frequentItems]);
 
     return (
         <View style={styles.container}>
@@ -185,40 +148,23 @@ export default function GroceriesScreen() {
                     >
                         {/* Header */}
                         <View style={styles.pageHeader}>
-                            <Text style={styles.subTitle}>YOUR KITCHEN</Text>
-                            <Text style={styles.mainTitle}>Groceries</Text>
+                            <Text style={styles.mainTitle}>{pageTitle}</Text>
                         </View>
 
-                        {/* Mode Toggle */}
+                        {/* Segmented Control */}
                         <View style={styles.modeToggleContainer}>
                             <Pressable
                                 style={[
                                     styles.modeOption,
-                                    viewMode === 'pantry' && styles.modeOptionSelected,
+                                    viewMode === 'list' && styles.modeOptionSelected,
                                 ]}
-                                onPress={() => handleModeToggle('pantry')}
+                                onPress={() => handleModeToggle('list')}
                             >
-                                <Package size={16} color={viewMode === 'pantry' ? '#000' : '#8E8E93'} />
                                 <Text style={[
                                     styles.modeOptionText,
-                                    viewMode === 'pantry' && styles.modeOptionTextSelected,
+                                    viewMode === 'list' && styles.modeOptionTextSelected,
                                 ]}>
-                                    Pantry
-                                </Text>
-                            </Pressable>
-                            <Pressable
-                                style={[
-                                    styles.modeOption,
-                                    viewMode === 'shopping' && styles.modeOptionSelected,
-                                ]}
-                                onPress={() => handleModeToggle('shopping')}
-                            >
-                                <ShoppingCart size={16} color={viewMode === 'shopping' ? '#000' : '#8E8E93'} />
-                                <Text style={[
-                                    styles.modeOptionText,
-                                    viewMode === 'shopping' && styles.modeOptionTextSelected,
-                                ]}>
-                                    Shopping
+                                    List
                                 </Text>
                                 {stats.onListCount > 0 && (
                                     <View style={styles.countBadge}>
@@ -226,10 +172,24 @@ export default function GroceriesScreen() {
                                     </View>
                                 )}
                             </Pressable>
+                            <Pressable
+                                style={[
+                                    styles.modeOption,
+                                    viewMode === 'items' && styles.modeOptionSelected,
+                                ]}
+                                onPress={() => handleModeToggle('items')}
+                            >
+                                <Text style={[
+                                    styles.modeOptionText,
+                                    viewMode === 'items' && styles.modeOptionTextSelected,
+                                ]}>
+                                    Items
+                                </Text>
+                            </Pressable>
                         </View>
 
-                        {viewMode === 'shopping' ? (
-                            /* Shopping Mode */
+                        {viewMode === 'list' ? (
+                            /* ======== LIST (SHOPPING) MODE ======== */
                             <>
                                 {!hasShoppingItems ? (
                                     <View style={styles.emptyState}>
@@ -238,139 +198,130 @@ export default function GroceriesScreen() {
                                         </View>
                                         <Text style={styles.emptyTitle}>Your list is empty</Text>
                                         <Text style={styles.emptySubtitle}>
-                                            Tap items in your pantry to add them to your shopping list
+                                            Switch to Items and tap to add things to your list
                                         </Text>
                                     </View>
-                                ) : (
-                                    <>
-                                        {/* Progress Bar */}
-                                        <View style={styles.progressContainer}>
-                                            <View style={styles.progressBar}>
-                                                <Animated.View
-                                                    style={[styles.progressFill, progressAnimatedStyle]}
-                                                />
-                                            </View>
-                                            <Text style={styles.progressText}>
-                                                {progressText}
-                                            </Text>
+                                ) : isAllDone ? (
+                                    /* Completion state */
+                                    <Animated.View
+                                        entering={FadeInDown.duration(400).delay(300)}
+                                        style={styles.completionState}
+                                    >
+                                        <View style={styles.completionIcon}>
+                                            <CheckCircle2 size={48} color="#34C759" strokeWidth={1.5} />
                                         </View>
-
-                                        {/* Shopping List by Category */}
-                                        {shoppingListByCategory.map(([category, items]) => (
-                                            <View key={category} style={styles.categorySection}>
-                                                <View style={styles.sectionHeaderRow}>
-                                                    <MaterialCommunityIcons
-                                                        name={CATEGORY_CONFIG[category as GroceryCategory].icon as any}
-                                                        size={14}
-                                                        color="#6D6D72"
-                                                    />
-                                                    <Text style={styles.sectionHeaderText}>
-                                                        {CATEGORY_CONFIG[category as GroceryCategory].label.toUpperCase()}
-                                                    </Text>
-                                                </View>
-                                                <View style={styles.listContainer}>
-                                                    {items.map((item, index) => (
-                                                        <Animated.View
-                                                            key={item.id}
-                                                            entering={FadeInDown.delay(index * 50).duration(300)}
-                                                            exiting={FadeOutRight.duration(250)}
-                                                            layout={LinearTransition.springify().damping(18).stiffness(120)}
-                                                        >
-                                                            <GroceryCard
-                                                                item={item}
-                                                                onToggleList={toggleOnList}
-                                                                onMarkPurchased={markPurchased}
-                                                                onDelete={deleteItem}
-                                                                onEdit={handleEdit}
-                                                                isShoppingMode
-                                                                isFirst={index === 0}
-                                                                isLast={index === items.length - 1}
-                                                            />
-                                                        </Animated.View>
-                                                    ))}
-                                                </View>
-                                            </View>
-                                        ))}
-
-                                        {/* Purchased "Done" Section */}
-                                        {purchasedThisSession.length > 0 && (
-                                            <View style={styles.doneSection}>
-                                                <Pressable
-                                                    style={styles.doneSectionHeader}
-                                                    onPress={() => setIsDoneSectionCollapsed(prev => !prev)}
-                                                >
-                                                    <View style={styles.doneSectionLeft}>
-                                                        <Text style={styles.doneSectionLabel}>
-                                                            DONE ({purchasedThisSession.length})
-                                                        </Text>
-                                                        {isDoneSectionCollapsed
-                                                            ? <ChevronDown size={14} color="#8E8E93" />
-                                                            : <ChevronUp size={14} color="#8E8E93" />
-                                                        }
-                                                    </View>
-                                                    <Pressable
-                                                        onPress={handleClearPurchased}
-                                                        hitSlop={8}
-                                                    >
-                                                        <Text style={styles.clearAllText}>Clear</Text>
-                                                    </Pressable>
-                                                </Pressable>
-
-                                                {!isDoneSectionCollapsed && (
-                                                    <View style={styles.doneListContainer}>
-                                                        {purchasedThisSession.map((item, index) => (
-                                                            <Animated.View
-                                                                key={item.id}
-                                                                entering={FadeInDown.delay(index * 30).duration(200)}
-                                                                layout={LinearTransition.springify().damping(18).stiffness(120)}
-                                                            >
-                                                                <Pressable
-                                                                    style={({ pressed }) => [
-                                                                        styles.doneItem,
-                                                                        pressed && { opacity: 0.5 },
-                                                                        index === purchasedThisSession.length - 1 && styles.doneItemLast,
-                                                                    ]}
-                                                                    onPress={() => handleUndoPurchase(item.id)}
-                                                                >
-                                                                    <View style={styles.doneIconContainer}>
-                                                                        <GroceryIcon
-                                                                            name={item.name}
-                                                                            category={item.category}
-                                                                            size={16}
-                                                                            color="#8E8E93"
-                                                                        />
-                                                                    </View>
-                                                                    <Text style={styles.doneName} numberOfLines={1}>
-                                                                        {item.name}
-                                                                    </Text>
-                                                                    <RotateCcw size={14} color="#C7C7CC" strokeWidth={2} />
-                                                                    {index < purchasedThisSession.length - 1 && (
-                                                                        <View style={styles.doneSeparator} />
-                                                                    )}
-                                                                </Pressable>
-                                                            </Animated.View>
-                                                        ))}
-                                                    </View>
-                                                )}
-                                            </View>
-                                        )}
-
-                                        {/* Done Shopping Button */}
+                                        <Text style={styles.completionTitle}>All done</Text>
+                                        <Text style={styles.completionSubtitle}>
+                                            You got everything on your list
+                                        </Text>
                                         <Pressable
                                             style={({ pressed }) => [
-                                                styles.doneButton,
-                                                pressed && { opacity: 0.8 },
+                                                styles.clearListButton,
+                                                pressed && { opacity: 0.7 },
                                             ]}
-                                            onPress={handleDoneShopping}
+                                            onPress={handleClearList}
                                         >
-                                            <Check size={20} color="#fff" strokeWidth={2.5} />
-                                            <Text style={styles.doneButtonText}>Done Shopping</Text>
+                                            <Text style={styles.clearListText}>Clear List</Text>
                                         </Pressable>
+                                    </Animated.View>
+                                ) : (
+                                    <>
+                                        {/* Flat shopping list (no category grouping) */}
+                                        <View style={styles.listSection}>
+                                            <Text style={styles.listCount}>
+                                                {shoppingList.length} item{shoppingList.length !== 1 ? 's' : ''} left
+                                            </Text>
+                                            <View style={styles.listContainer}>
+                                                {shoppingList.map((item, index) => (
+                                                    <Animated.View
+                                                        key={item.id}
+                                                        entering={FadeInDown.delay(index * 40).duration(250)}
+                                                        exiting={FadeOutRight.duration(250)}
+                                                        layout={LinearTransition.springify().damping(18).stiffness(120)}
+                                                    >
+                                                        <GroceryCard
+                                                            item={item}
+                                                            onToggleList={toggleOnList}
+                                                            onMarkPurchased={markPurchased}
+                                                            onDelete={deleteItem}
+                                                            onEdit={handleEdit}
+                                                            isShoppingMode
+                                                            isFirst={index === 0}
+                                                            isLast={index === shoppingList.length - 1}
+                                                        />
+                                                    </Animated.View>
+                                                ))}
+                                            </View>
+                                        </View>
+
+                                        {/* Inline add row */}
+                                        <View style={styles.inlineAddSection}>
+                                            <GroceryQuickAdd
+                                                onAddItem={handleQuickAdd}
+                                                suggestions={availableSuggestions}
+                                                onAddSuggestion={handleAddSuggestion}
+                                                onExpandPress={handleAddPress}
+                                            />
+                                        </View>
                                     </>
+                                )}
+
+                                {/* Checked Off section */}
+                                {purchasedThisSession.length > 0 && !isAllDone && (
+                                    <View style={styles.checkedOffSection}>
+                                        <Pressable
+                                            style={styles.checkedOffHeader}
+                                            onPress={() => setIsCheckedOffCollapsed(prev => !prev)}
+                                        >
+                                            <Text style={styles.checkedOffLabel}>
+                                                CHECKED OFF
+                                            </Text>
+                                            <View style={styles.checkedOffRight}>
+                                                <Text style={styles.checkedOffCount}>
+                                                    {purchasedThisSession.length}
+                                                </Text>
+                                                {isCheckedOffCollapsed
+                                                    ? <ChevronDown size={14} color="#8E8E93" />
+                                                    : <ChevronUp size={14} color="#8E8E93" />
+                                                }
+                                            </View>
+                                        </Pressable>
+
+                                        {!isCheckedOffCollapsed && (
+                                            <View style={styles.checkedOffList}>
+                                                {purchasedThisSession.map((item, index) => (
+                                                    <Animated.View
+                                                        key={item.id}
+                                                        entering={FadeInDown.delay(index * 30).duration(200)}
+                                                        layout={LinearTransition.springify().damping(18).stiffness(120)}
+                                                    >
+                                                        <Pressable
+                                                            style={({ pressed }) => [
+                                                                styles.checkedOffItem,
+                                                                pressed && { opacity: 0.4 },
+                                                            ]}
+                                                            onPress={() => handleUndoPurchase(item.id)}
+                                                        >
+                                                            <View style={styles.checkedCircle}>
+                                                                <Check size={12} color="#fff" strokeWidth={3} />
+                                                            </View>
+                                                            <Text style={styles.checkedOffName} numberOfLines={1}>
+                                                                {item.name}
+                                                            </Text>
+                                                            <RotateCcw size={14} color="#C7C7CC" strokeWidth={2} />
+                                                            {index < purchasedThisSession.length - 1 && (
+                                                                <View style={styles.checkedOffSeparator} />
+                                                            )}
+                                                        </Pressable>
+                                                    </Animated.View>
+                                                ))}
+                                            </View>
+                                        )}
+                                    </View>
                                 )}
                             </>
                         ) : (
-                            /* Pantry Mode */
+                            /* ======== ITEMS (PANTRY) MODE ======== */
                             <>
                                 {/* Search Bar */}
                                 <View style={styles.searchContainer}>
@@ -427,32 +378,40 @@ export default function GroceriesScreen() {
                                     )
                                 ) : (
                                     <>
-                                        {/* Suggested Restock */}
+                                        {/* Restock Suggestions (horizontal chips) */}
                                         {suggestedRestock.length > 0 && (
-                                            <View style={styles.sectionContainer}>
-                                                <Text style={[styles.sectionHeaderText, { color: '#FF9500' }]}>
-                                                    SUGGESTED RESTOCK
-                                                </Text>
-                                                <View style={styles.listContainer}>
-                                                    {suggestedRestock.map((item, index) => (
+                                            <View style={styles.restockSection}>
+                                                <View style={styles.restockHeader}>
+                                                    <Clock size={12} color="#FF9500" strokeWidth={2.5} />
+                                                    <Text style={styles.restockLabel}>RESTOCK</Text>
+                                                </View>
+                                                <ScrollView
+                                                    horizontal
+                                                    showsHorizontalScrollIndicator={false}
+                                                    contentContainerStyle={styles.restockChipsContent}
+                                                    style={styles.restockChipsRow}
+                                                >
+                                                    {suggestedRestock.map(item => (
                                                         <Animated.View
                                                             key={item.id}
-                                                            entering={FadeInDown.delay(index * 50).duration(300)}
-                                                            exiting={FadeOutRight.duration(250)}
+                                                            exiting={FadeOutRight.duration(200)}
                                                             layout={LinearTransition.springify().damping(18).stiffness(120)}
                                                         >
-                                                            <GroceryCard
-                                                                item={item}
-                                                                onToggleList={toggleOnList}
-                                                                onMarkPurchased={markPurchased}
-                                                                onDelete={deleteItem}
-                                                                onEdit={handleEdit}
-                                                                isFirst={index === 0}
-                                                                isLast={index === suggestedRestock.length - 1}
-                                                            />
+                                                            <Pressable
+                                                                style={({ pressed }) => [
+                                                                    styles.restockChip,
+                                                                    pressed && { opacity: 0.7 },
+                                                                ]}
+                                                                onPress={() => handleAddSuggestion(item)}
+                                                            >
+                                                                <Text style={styles.restockChipText} numberOfLines={1}>
+                                                                    {item.name}
+                                                                </Text>
+                                                                <Plus size={13} color="#007AFF" strokeWidth={2.5} />
+                                                            </Pressable>
                                                         </Animated.View>
                                                     ))}
-                                                </View>
+                                                </ScrollView>
                                             </View>
                                         )}
 
@@ -460,14 +419,17 @@ export default function GroceriesScreen() {
                                         {groceries.length === 0 ? (
                                             <View style={styles.emptyState}>
                                                 <View style={styles.emptyIconContainer}>
-                                                    <Package size={40} color="#C7C7CC" strokeWidth={1.5} />
+                                                    <ShoppingCart size={40} color="#C7C7CC" strokeWidth={1.5} />
                                                 </View>
-                                                <Text style={styles.emptyTitle}>Your pantry is empty</Text>
+                                                <Text style={styles.emptyTitle}>No items yet</Text>
                                                 <Text style={styles.emptySubtitle}>
-                                                    Add items you regularly buy to build your pantry
+                                                    Add items you regularly buy to build your list
                                                 </Text>
                                                 <Pressable
-                                                    style={styles.emptyAddButton}
+                                                    style={({ pressed }) => [
+                                                        styles.emptyAddButton,
+                                                        pressed && { opacity: 0.8 },
+                                                    ]}
                                                     onPress={handleAddPress}
                                                 >
                                                     <Text style={styles.emptyAddText}>Add First Item</Text>
@@ -495,7 +457,7 @@ export default function GroceriesScreen() {
                                                         {items.map((item, index) => (
                                                             <Animated.View
                                                                 key={item.id}
-                                                                entering={FadeInDown.delay(index * 50).duration(300)}
+                                                                entering={FadeInDown.delay(index * 40).duration(250)}
                                                                 exiting={FadeOutRight.duration(250)}
                                                                 layout={LinearTransition.springify().damping(18).stiffness(120)}
                                                             >
@@ -519,14 +481,6 @@ export default function GroceriesScreen() {
                             </>
                         )}
                     </ScrollView>
-
-                    {/* Quick Add Bar (replaces FAB) */}
-                    <GroceryQuickAdd
-                        onAddItem={handleQuickAdd}
-                        suggestions={frequentItems}
-                        onAddSuggestion={handleAddSuggestion}
-                        onExpandPress={handleAddPress}
-                    />
                 </KeyboardAvoidingView>
             </SafeAreaView>
             <BottomNavBar />
@@ -546,19 +500,13 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     scrollContent: {
-        paddingBottom: 200,
+        paddingBottom: 120,
     },
+    // --- Header ---
     pageHeader: {
         paddingHorizontal: 24,
         marginTop: 8,
         marginBottom: 20,
-    },
-    subTitle: {
-        fontSize: 13,
-        fontWeight: '700',
-        color: '#8E8E93',
-        marginBottom: 4,
-        letterSpacing: 0.8,
     },
     mainTitle: {
         fontSize: 34,
@@ -566,6 +514,7 @@ const styles = StyleSheet.create({
         color: '#000',
         letterSpacing: -1,
     },
+    // --- Segmented Control ---
     modeToggleContainer: {
         flexDirection: 'row',
         marginHorizontal: 20,
@@ -612,150 +561,127 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: '#fff',
     },
-    sectionContainer: {
+    // --- Shopping list ---
+    listSection: {
         paddingHorizontal: 20,
-        marginBottom: 24,
+        marginBottom: 4,
     },
-    sectionHeaderRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 5,
-        paddingLeft: 4,
-        marginBottom: 7,
-    },
-    sectionHeaderText: {
-        fontSize: 13,
-        fontWeight: '600',
-        color: '#6D6D72',
-        letterSpacing: 0.5,
-    },
-    categorySection: {
-        paddingHorizontal: 20,
-        marginBottom: 20,
-    },
-    categoryHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: 7,
-        paddingHorizontal: 4,
-    },
-    categoryCount: {
+    listCount: {
         fontSize: 13,
         fontWeight: '500',
         color: '#8E8E93',
+        marginBottom: 8,
+        paddingLeft: 4,
     },
     listContainer: {
         backgroundColor: '#fff',
-        borderRadius: 10,
+        borderRadius: 12,
         overflow: 'hidden',
     },
-    progressContainer: {
-        paddingHorizontal: 20,
-        marginBottom: 20,
-    },
-    progressBar: {
-        height: 6,
-        backgroundColor: 'rgba(118, 118, 128, 0.12)',
-        borderRadius: 3,
-        marginBottom: 8,
-        overflow: 'hidden',
-    },
-    progressFill: {
-        height: '100%',
-        backgroundColor: '#34C759',
-        borderRadius: 3,
-    },
-    progressText: {
-        fontSize: 13,
-        fontWeight: '500',
-        color: '#8E8E93',
-        textAlign: 'center',
-    },
-    // Done (purchased) section
-    doneSection: {
+    // --- Inline add ---
+    inlineAddSection: {
         paddingHorizontal: 20,
         marginTop: 8,
+        marginBottom: 8,
+    },
+    // --- Checked Off section ---
+    checkedOffSection: {
+        paddingHorizontal: 20,
+        marginTop: 12,
         marginBottom: 12,
     },
-    doneSectionHeader: {
+    checkedOffHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         marginBottom: 10,
+        paddingHorizontal: 4,
     },
-    doneSectionLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-    },
-    doneSectionLabel: {
+    checkedOffLabel: {
         fontSize: 13,
         fontWeight: '600',
-        color: '#6D6D72',
+        color: '#8E8E93',
         letterSpacing: 0.5,
     },
-    clearAllText: {
-        fontSize: 15,
-        fontWeight: '400',
-        color: '#007AFF',
+    checkedOffRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
     },
-    doneListContainer: {
+    checkedOffCount: {
+        fontSize: 13,
+        fontWeight: '500',
+        color: '#8E8E93',
+    },
+    checkedOffList: {
         backgroundColor: '#fff',
-        borderRadius: 10,
+        borderRadius: 12,
         overflow: 'hidden',
     },
-    doneItem: {
+    checkedOffItem: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: 12,
-        paddingHorizontal: 14,
-        gap: 10,
-        opacity: 0.6,
+        paddingHorizontal: 16,
+        gap: 12,
+        opacity: 0.5,
     },
-    doneItemLast: {
-        // no bottom border
-    },
-    doneIconContainer: {
-        width: 28,
-        height: 28,
-        borderRadius: 7,
-        backgroundColor: 'rgba(118, 118, 128, 0.08)',
+    checkedCircle: {
+        width: 22,
+        height: 22,
+        borderRadius: 11,
+        backgroundColor: '#34C759',
         alignItems: 'center',
         justifyContent: 'center',
     },
-    doneName: {
+    checkedOffName: {
         flex: 1,
         fontSize: 17,
         fontWeight: '400',
         color: '#8E8E93',
         textDecorationLine: 'line-through',
     },
-    doneSeparator: {
+    checkedOffSeparator: {
         position: 'absolute',
         bottom: 0,
-        left: 48,
+        left: 46,
         right: 0,
         height: StyleSheet.hairlineWidth,
         backgroundColor: 'rgba(60, 60, 67, 0.12)',
     },
-    doneButton: {
-        flexDirection: 'row',
+    // --- Completion state ---
+    completionState: {
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#34C759',
-        marginHorizontal: 20,
-        marginTop: 12,
-        paddingVertical: 14,
-        borderRadius: 12,
-        gap: 6,
+        paddingVertical: 80,
+        paddingHorizontal: 32,
     },
-    doneButtonText: {
-        fontSize: 17,
+    completionIcon: {
+        marginBottom: 16,
+    },
+    completionTitle: {
+        fontSize: 20,
         fontWeight: '600',
-        color: '#fff',
+        color: '#000',
+        marginBottom: 6,
     },
-    // Search
+    completionSubtitle: {
+        fontSize: 15,
+        color: '#8E8E93',
+        textAlign: 'center',
+        lineHeight: 22,
+        marginBottom: 24,
+    },
+    clearListButton: {
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+    },
+    clearListText: {
+        fontSize: 15,
+        fontWeight: '500',
+        color: '#007AFF',
+    },
+    // --- Search ---
     searchContainer: {
         paddingHorizontal: 20,
         marginBottom: 16,
@@ -776,6 +702,79 @@ const styles = StyleSheet.create({
         padding: 0,
         lineHeight: 22,
     },
+    // --- Restock chips ---
+    restockSection: {
+        paddingLeft: 20,
+        marginBottom: 20,
+    },
+    restockHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+        paddingLeft: 4,
+        marginBottom: 10,
+    },
+    restockLabel: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#FF9500',
+        letterSpacing: 0.5,
+    },
+    restockChipsRow: {
+        maxHeight: 40,
+    },
+    restockChipsContent: {
+        gap: 8,
+        paddingRight: 20,
+    },
+    restockChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 20,
+        gap: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 3,
+        elevation: 1,
+    },
+    restockChipText: {
+        fontSize: 15,
+        fontWeight: '500',
+        color: '#000',
+    },
+    // --- Category sections (pantry) ---
+    categorySection: {
+        paddingHorizontal: 20,
+        marginBottom: 20,
+    },
+    categoryHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 7,
+        paddingHorizontal: 4,
+    },
+    sectionHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+    },
+    sectionHeaderText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#6D6D72',
+        letterSpacing: 0.5,
+    },
+    categoryCount: {
+        fontSize: 13,
+        fontWeight: '500',
+        color: '#8E8E93',
+    },
+    // --- Empty states ---
     emptyState: {
         alignItems: 'center',
         justifyContent: 'center',
@@ -806,10 +805,10 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     emptyAddButton: {
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        backgroundColor: '#007AFF',
-        borderRadius: 8,
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        backgroundColor: '#000',
+        borderRadius: 100,
     },
     emptyAddText: {
         fontSize: 15,

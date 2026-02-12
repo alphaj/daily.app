@@ -37,7 +37,6 @@ interface TrackableCardProps {
   onPress: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
-  energyLevel?: 'low' | 'medium' | 'high';
   /** Compact mode for grid layout: smaller dimensions, no subtitle */
   compact?: boolean;
 }
@@ -66,7 +65,6 @@ export function TrackableCard({
   onPress,
   onEdit,
   onDelete,
-  energyLevel,
   compact = false,
 }: TrackableCardProps) {
   const ringSize = compact ? COMPACT_RING_SIZE : RING_SIZE;
@@ -252,14 +250,6 @@ export function TrackableCard({
             </Animated.View>
           )}
 
-          {/* Energy Indicator */}
-          {energyLevel && !compact && (
-            <View style={styles.energyIndicator}>
-              <Text style={styles.energyIndicatorText}>
-                {energyLevel === 'low' ? '🔋' : energyLevel === 'medium' ? '⚡️' : '🔥'}
-              </Text>
-            </View>
-          )}
         </View>
       </Animated.View>
 
@@ -360,26 +350,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#8E8E93',
     textAlign: 'center',
-  },
-  energyIndicator: {
-    position: 'absolute',
-    top: -10,
-    left: -10,
-    backgroundColor: '#fff',
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-    zIndex: 10,
-  },
-  energyIndicatorText: {
-    fontSize: 12,
   },
   // Compact styles for grid layout
   compactContainer: {

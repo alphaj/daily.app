@@ -12,8 +12,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft, Check } from 'lucide-react-native';
+import { ArrowLeft } from 'lucide-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useGroceries } from '@/contexts/GroceryContext';
 import { GroceryIcon } from '@/components/GroceryIcon';
@@ -105,115 +106,97 @@ export default function AddGroceryScreen() {
         }
     };
 
-    const isValid = name.trim().length > 0;
-
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
             <KeyboardAvoidingView
-                style={styles.keyboardView}
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{ flex: 1 }}
             >
-                {/* Header */}
-                <View style={styles.header}>
-                    <Pressable style={styles.closeButton} onPress={handleClose} hitSlop={10}>
-                        <ChevronLeft size={24} color="#000" strokeWidth={1.5} />
-                    </Pressable>
-                    <Text style={styles.headerTitle}>
-                        {isEditing ? 'Edit Item' : 'Add Item'}
-                    </Text>
-                    <Pressable
-                        style={[styles.saveButton, !isValid && styles.saveButtonDisabled]}
-                        onPress={handleSave}
-                        disabled={!isValid}
-                    >
-                        <Text style={[styles.saveButtonText, !isValid && styles.saveButtonTextDisabled]}>
-                            {isEditing ? 'Save' : 'Add'}
-                        </Text>
-                    </Pressable>
-                </View>
+            <View style={styles.header}>
+                <Pressable onPress={handleClose} style={styles.iconBtn}>
+                    <ArrowLeft size={24} color="#000" />
+                </Pressable>
+                <Text style={styles.headerTitle}>
+                    {isEditing ? 'Edit Item' : 'Add Item'}
+                </Text>
+                <View style={{ width: 40 }} />
+            </View>
 
-                <ScrollView
-                    style={styles.content}
-                    showsVerticalScrollIndicator={false}
-                    keyboardShouldPersistTaps="handled"
-                    keyboardDismissMode="interactive"
+            <ScrollView
+                contentContainerStyle={styles.content}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="interactive"
+                showsVerticalScrollIndicator={false}
+            >
+                {/* Hero Card */}
+                <LinearGradient
+                    colors={['#E0F2F1', '#B2DFDB']}
+                    style={styles.heroCard}
                 >
-                    {/* Preview Card */}
-                    <View style={styles.previewCard}>
-                        <View style={[styles.previewAccent, { backgroundColor: CATEGORY_CONFIG[category].color }]} />
-                        <View style={styles.previewContent}>
-                            <View style={[styles.previewIconContainer, { backgroundColor: CATEGORY_CONFIG[category].color + '15' }]}>
-                                <GroceryIcon
-                                    name={name || undefined}
-                                    category={category}
-                                    size={28}
-                                    color={CATEGORY_CONFIG[category].color}
-                                />
-                            </View>
-                            <Text style={styles.previewName} numberOfLines={1}>
-                                {name || 'Item Name'}
-                            </Text>
-                            <Text style={styles.previewMeta}>
-                                {CATEGORY_CONFIG[category].label}
-                                {quantity ? ` • ${quantity}` : ''}
-                            </Text>
-                        </View>
-                    </View>
-
-                    {/* Name Input */}
-                    <View style={styles.inputSection}>
-                        <Text style={styles.inputLabel}>Item Name</Text>
-                        <TextInput
-                            style={styles.textInput}
-                            placeholder="What do you need?"
-                            placeholderTextColor="#C7C7CC"
-                            value={name}
-                            onChangeText={setName}
-                            autoFocus
-                            maxLength={50}
+                    <View style={styles.mainEmojiContainer}>
+                        <GroceryIcon
+                            name={name || undefined}
+                            category={category}
+                            size={48}
+                            color="#004D40"
                         />
                     </View>
+                    <TextInput
+                        style={styles.heroInput}
+                        placeholder="Name..."
+                        placeholderTextColor="rgba(0,0,0,0.3)"
+                        value={name}
+                        onChangeText={setName}
+                        textAlign="center"
+                        autoFocus
+                        maxLength={50}
+                    />
+                </LinearGradient>
 
-                    {/* Category Picker */}
-                    <View style={styles.inputSection}>
-                        <Text style={styles.inputLabel}>Category</Text>
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={styles.categoryScroll}
-                        >
-                            {CATEGORIES.map(([cat, config]) => (
+                {/* Category */}
+                <View style={styles.pickerSection}>
+                    <Text style={styles.sectionTitle}>Category</Text>
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.categoryScroll}
+                    >
+                        {CATEGORIES.map(([cat, config]) => {
+                            const active = category === cat;
+                            return (
                                 <Pressable
                                     key={cat}
                                     style={[
                                         styles.categoryChip,
-                                        category === cat && styles.categoryChipSelected,
-                                        category === cat && { borderColor: config.color },
+                                        active && styles.categoryChipActive,
                                     ]}
                                     onPress={() => handleCategorySelect(cat)}
                                 >
                                     <MaterialCommunityIcons
                                         name={config.icon as any}
                                         size={16}
-                                        color={category === cat ? config.color : '#8E8E93'}
+                                        color={active ? '#fff' : '#888'}
                                     />
                                     <Text style={[
                                         styles.categoryChipText,
-                                        category === cat && styles.categoryChipTextSelected,
+                                        active && styles.categoryChipTextActive,
                                     ]}>
                                         {config.label}
                                     </Text>
                                 </Pressable>
-                            ))}
-                        </ScrollView>
-                    </View>
+                            );
+                        })}
+                    </ScrollView>
+                </View>
 
-                    {/* Quantity & Brand Row */}
-                    <View style={styles.rowInputs}>
-                        <View style={[styles.inputSection, { flex: 1 }]}>
-                            <Text style={styles.inputLabel}>Quantity</Text>
+                {/* Details */}
+                <View style={styles.pickerSection}>
+                    <Text style={styles.sectionTitle}>Details</Text>
+                    <View style={styles.detailRow}>
+                        <View style={styles.detailCard}>
+                            <Text style={styles.detailLabel}>Quantity</Text>
                             <TextInput
-                                style={styles.textInput}
+                                style={styles.detailInput}
                                 placeholder="e.g. 2 lbs"
                                 placeholderTextColor="#C7C7CC"
                                 value={quantity}
@@ -221,10 +204,10 @@ export default function AddGroceryScreen() {
                                 maxLength={20}
                             />
                         </View>
-                        <View style={[styles.inputSection, { flex: 1 }]}>
-                            <Text style={styles.inputLabel}>Brand</Text>
+                        <View style={styles.detailCard}>
+                            <Text style={styles.detailLabel}>Brand</Text>
                             <TextInput
-                                style={styles.textInput}
+                                style={styles.detailInput}
                                 placeholder="Optional"
                                 placeholderTextColor="#C7C7CC"
                                 value={brand}
@@ -233,12 +216,14 @@ export default function AddGroceryScreen() {
                             />
                         </View>
                     </View>
+                </View>
 
-                    {/* Notes */}
-                    <View style={styles.inputSection}>
-                        <Text style={styles.inputLabel}>Notes</Text>
+                {/* Notes */}
+                <View style={styles.pickerSection}>
+                    <Text style={styles.sectionTitle}>Notes</Text>
+                    <View style={styles.notesCard}>
                         <TextInput
-                            style={[styles.textInput, styles.textInputMultiline]}
+                            style={styles.notesInput}
                             placeholder="e.g. Get the organic one"
                             placeholderTextColor="#C7C7CC"
                             value={notes}
@@ -247,36 +232,36 @@ export default function AddGroceryScreen() {
                             maxLength={100}
                         />
                     </View>
+                </View>
 
-                    {/* Frequency */}
-                    <View style={styles.inputSection}>
-                        <Text style={styles.inputLabel}>How Often?</Text>
-                        <View style={styles.frequencyGrid}>
-                            {FREQUENCIES.map(([freq, config]) => (
+                {/* Frequency */}
+                <View style={styles.pickerSection}>
+                    <Text style={styles.sectionTitle}>How Often?</Text>
+                    <View style={styles.tagContainer}>
+                        {FREQUENCIES.map(([freq, config]) => {
+                            const active = frequency === freq;
+                            return (
                                 <Pressable
                                     key={freq}
                                     style={[
-                                        styles.frequencyOption,
-                                        frequency === freq && styles.frequencyOptionSelected,
+                                        styles.tag,
+                                        active && styles.tagActive,
                                     ]}
                                     onPress={() => handleFrequencySelect(freq)}
                                 >
-                                    <Text style={[
-                                        styles.frequencyText,
-                                        frequency === freq && styles.frequencyTextSelected,
-                                    ]}>
+                                    <Text style={[styles.tagText, active && styles.tagTextActive]}>
                                         {config.label}
                                     </Text>
-                                    {frequency === freq && (
-                                        <Check size={14} color="#007AFF" strokeWidth={3} />
-                                    )}
                                 </Pressable>
-                            ))}
-                        </View>
+                            );
+                        })}
                     </View>
+                </View>
 
-                    {/* Staple Toggle */}
-                    <View style={styles.toggleSection}>
+                {/* Options */}
+                <View style={styles.pickerSection}>
+                    <Text style={styles.sectionTitle}>Options</Text>
+                    <View style={styles.toggleCard}>
                         <View style={styles.toggleRow}>
                             <View>
                                 <Text style={styles.toggleLabel}>Pantry Staple</Text>
@@ -293,10 +278,8 @@ export default function AddGroceryScreen() {
                             />
                         </View>
                     </View>
-
-                    {/* Add to List Now Toggle (only for new items) */}
                     {!isEditing && (
-                        <View style={styles.toggleSection}>
+                        <View style={[styles.toggleCard, { marginTop: 10 }]}>
                             <View style={styles.toggleRow}>
                                 <View>
                                     <Text style={styles.toggleLabel}>Add to Shopping List</Text>
@@ -314,10 +297,22 @@ export default function AddGroceryScreen() {
                             </View>
                         </View>
                     )}
+                </View>
 
-                    <View style={{ height: 40 }} />
-                </ScrollView>
+                <View style={{ height: 40 }} />
+            </ScrollView>
             </KeyboardAvoidingView>
+
+            <View style={styles.footer}>
+                <Pressable
+                    style={styles.bigButton}
+                    onPress={handleSave}
+                >
+                    <Text style={styles.bigButtonText}>
+                        {isEditing ? 'Save' : 'Done'}
+                    </Text>
+                </Pressable>
+            </View>
         </SafeAreaView>
     );
 }
@@ -325,187 +320,162 @@ export default function AddGroceryScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F2F2F7',
-    },
-    keyboardView: {
-        flex: 1,
+        backgroundColor: '#FAFAFA',
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 20,
-        paddingVertical: 16,
+        height: 56,
     },
-    closeButton: {
-        padding: 4,
+    iconBtn: {
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
         backgroundColor: '#fff',
         borderRadius: 20,
-        width: 32,
-        height: 32,
-        alignItems: 'center',
-        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
     },
     headerTitle: {
-        fontSize: 17,
-        fontWeight: '600',
-        color: '#000',
-    },
-    saveButton: {
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        backgroundColor: '#000',
-        borderRadius: 100,
-    },
-    saveButtonDisabled: {
-        backgroundColor: '#E5E5EA',
-    },
-    saveButtonText: {
-        fontSize: 15,
-        fontWeight: '600',
-        color: '#fff',
-    },
-    saveButtonTextDisabled: {
-        color: '#8E8E93',
+        fontSize: 18,
+        fontWeight: '700',
     },
     content: {
-        flex: 1,
-        paddingHorizontal: 20,
-        paddingTop: 16,
+        padding: 20,
+        gap: 32,
     },
-    previewCard: {
-        backgroundColor: '#fff',
-        borderRadius: 20,
-        overflow: 'hidden',
-        marginBottom: 28,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.08,
-        shadowRadius: 16,
-        elevation: 4,
-    },
-    previewAccent: {
-        height: 4,
-    },
-    previewContent: {
-        alignItems: 'center',
-        padding: 24,
-    },
-    previewIconContainer: {
-        width: 56,
-        height: 56,
-        borderRadius: 16,
+    heroCard: {
+        borderRadius: 32,
+        padding: 32,
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: 12,
+        height: 240,
     },
-    previewName: {
-        fontSize: 20,
-        fontWeight: '600',
-        color: '#000',
-        marginBottom: 4,
+    mainEmojiContainer: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        backgroundColor: 'rgba(255,255,255,0.6)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 20,
     },
-    previewMeta: {
-        fontSize: 14,
-        color: '#8E8E93',
+    heroInput: {
+        fontSize: 28,
+        fontWeight: '800',
+        color: '#004D40',
+        width: '100%',
     },
-    inputSection: {
-        marginBottom: 24,
+    pickerSection: {
+        gap: 16,
     },
-    inputLabel: {
-        fontSize: 13,
-        fontWeight: '600',
-        color: '#8E8E93',
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
-        marginBottom: 10,
-    },
-    textInput: {
-        fontSize: 17,
-        color: '#000',
-        backgroundColor: '#fff',
-        borderRadius: 14,
-        paddingHorizontal: 16,
-        paddingVertical: 14,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.03,
-        shadowRadius: 4,
-        elevation: 1,
-    },
-    textInputMultiline: {
-        minHeight: 80,
-        textAlignVertical: 'top',
-        paddingTop: 14,
-    },
-    rowInputs: {
-        flexDirection: 'row',
-        gap: 12,
+    sectionTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#333',
+        marginLeft: 4,
     },
     categoryScroll: {
+        gap: 10,
         paddingVertical: 4,
-        gap: 8,
     },
     categoryChip: {
         flexDirection: 'row',
         alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 24,
         backgroundColor: '#fff',
-        paddingHorizontal: 14,
-        paddingVertical: 10,
-        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: '#eee',
         gap: 6,
-        borderWidth: 2,
-        borderColor: 'transparent',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.03,
-        shadowRadius: 4,
     },
-    categoryChipSelected: {
-        backgroundColor: '#fff',
+    categoryChipActive: {
+        backgroundColor: '#004D40',
+        borderColor: '#004D40',
     },
     categoryChipText: {
         fontSize: 14,
-        fontWeight: '500',
-        color: '#8E8E93',
-    },
-    categoryChipTextSelected: {
-        color: '#000',
         fontWeight: '600',
+        color: '#555',
     },
-    frequencyGrid: {
+    categoryChipTextActive: {
+        color: '#fff',
+    },
+    tagContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 10,
+    },
+    tag: {
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 24,
         backgroundColor: '#fff',
-        borderRadius: 14,
-        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: '#eee',
+    },
+    tagActive: {
+        backgroundColor: '#004D40',
+        borderColor: '#004D40',
+    },
+    tagText: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#555',
+    },
+    tagTextActive: {
+        color: '#fff',
+    },
+    detailRow: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    detailCard: {
+        flex: 1,
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        padding: 16,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.03,
         shadowRadius: 4,
     },
-    frequencyOption: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 14,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: '#E5E5EA',
+    detailLabel: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#999',
+        marginBottom: 8,
     },
-    frequencyOptionSelected: {
-        backgroundColor: '#007AFF08',
-    },
-    frequencyText: {
+    detailInput: {
         fontSize: 16,
+        fontWeight: '500',
         color: '#000',
     },
-    frequencyTextSelected: {
-        fontWeight: '600',
-        color: '#007AFF',
-    },
-    toggleSection: {
+    notesCard: {
         backgroundColor: '#fff',
-        borderRadius: 14,
-        marginBottom: 16,
+        borderRadius: 16,
+        padding: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.03,
+        shadowRadius: 4,
+    },
+    notesInput: {
+        fontSize: 16,
+        fontWeight: '500',
+        color: '#000',
+        minHeight: 80,
+        textAlignVertical: 'top',
+    },
+    toggleCard: {
+        backgroundColor: '#fff',
+        borderRadius: 16,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.03,
@@ -527,5 +497,25 @@ const styles = StyleSheet.create({
     toggleHint: {
         fontSize: 13,
         color: '#8E8E93',
+    },
+    footer: {
+        padding: 20,
+    },
+    bigButton: {
+        backgroundColor: '#FF7043',
+        height: 64,
+        borderRadius: 32,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#FF7043',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 16,
+    },
+    bigButtonText: {
+        color: '#fff',
+        fontSize: 20,
+        fontWeight: '700',
+        letterSpacing: 0.5,
     },
 });

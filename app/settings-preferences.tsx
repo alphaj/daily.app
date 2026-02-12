@@ -8,14 +8,12 @@ import {
     Pressable,
     ScrollView,
     Switch,
-    Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 
 import { AmbientBackground } from '@/components/AmbientBackground';
 import { usePreferences } from '@/contexts/PreferencesContext';
-import type { UserPreferences } from '@/types/preferences';
 
 function SelectRow({ title, selected, onPress, isLast }: {
     title: string;
@@ -36,22 +34,7 @@ function SelectRow({ title, selected, onPress, isLast }: {
 
 export default function SettingsPreferencesScreen() {
     const router = useRouter();
-    const { preferences, updatePreferences, resetPreferences } = usePreferences();
-
-    const handleReset = () => {
-        Alert.alert(
-            'Reset Preferences',
-            'This will reset all preferences to their default values.',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Reset',
-                    style: 'destructive',
-                    onPress: () => resetPreferences(),
-                },
-            ]
-        );
-    };
+    const { preferences, updatePreferences } = usePreferences();
 
     return (
         <View style={styles.container}>
@@ -66,27 +49,6 @@ export default function SettingsPreferencesScreen() {
                 </View>
 
                 <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                    <Text style={styles.sectionLabel}>APPEARANCE</Text>
-                    <View style={styles.section}>
-                        <SelectRow
-                            title="Auto"
-                            selected={preferences.theme === 'auto'}
-                            onPress={() => updatePreferences({ theme: 'auto' })}
-                        />
-                        <SelectRow
-                            title="Light"
-                            selected={preferences.theme === 'light'}
-                            onPress={() => updatePreferences({ theme: 'light' })}
-                        />
-                        <SelectRow
-                            title="Dark"
-                            selected={preferences.theme === 'dark'}
-                            onPress={() => updatePreferences({ theme: 'dark' })}
-                            isLast
-                        />
-                    </View>
-                    <Text style={styles.sectionNote}>Theme support coming soon. Your selection will be saved.</Text>
-
                     <Text style={styles.sectionLabel}>INTERACTION</Text>
                     <View style={styles.section}>
                         <View style={styles.toggleRow}>
@@ -132,16 +94,6 @@ export default function SettingsPreferencesScreen() {
                             isLast
                         />
                     </View>
-
-                    <Text style={styles.sectionLabel}>DATA</Text>
-                    <View style={styles.section}>
-                        <Pressable
-                            style={({ pressed }) => [styles.dangerRow, pressed && styles.selectRowPressed]}
-                            onPress={handleReset}
-                        >
-                            <Text style={styles.dangerText}>Reset Preferences</Text>
-                        </Pressable>
-                    </View>
                 </ScrollView>
             </SafeAreaView>
         </View>
@@ -170,10 +122,6 @@ const styles = StyleSheet.create({
     sectionLabel: {
         fontSize: 13, fontWeight: '500', color: 'rgba(60,60,67,0.6)',
         marginHorizontal: 24, marginBottom: 6, marginTop: 16, letterSpacing: 0.5,
-    },
-    sectionNote: {
-        fontSize: 13, color: 'rgba(60,60,67,0.4)',
-        marginHorizontal: 24, marginTop: 6,
     },
     section: {
         marginHorizontal: 16,
@@ -206,10 +154,4 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
     },
     toggleTitle: { fontSize: 16, fontWeight: '500', color: '#000' },
-    dangerRow: {
-        paddingVertical: 14,
-        paddingHorizontal: 16,
-        alignItems: 'center',
-    },
-    dangerText: { fontSize: 16, fontWeight: '500', color: '#FF3B30' },
 });

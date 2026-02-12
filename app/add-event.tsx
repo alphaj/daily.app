@@ -1,6 +1,6 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { X, ChevronLeft, Calendar, Clock, Palette, FileText } from 'lucide-react-native';
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { ArrowLeft, Mic, Square } from 'lucide-react-native';
+import React, { useState, useRef, useCallback } from 'react';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {
     View,
@@ -12,27 +12,24 @@ import {
     Platform,
     ActivityIndicator,
     ScrollView,
-    Switch,
     Modal,
+    Alert,
 } from 'react-native';
 import Animated, {
     useSharedValue,
     useAnimatedStyle,
     withSpring,
-    withTiming,
     withRepeat,
     withSequence,
 } from 'react-native-reanimated';
-import { BlurView } from 'expo-blur';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Audio } from 'expo-av';
 import { useCalendarEvents } from '@/contexts/CalendarEventContext';
 import { EVENT_COLORS } from '@/types/event';
-import { format, isToday, isTomorrow, parse } from 'date-fns';
+import { format, isToday, isTomorrow, parse, addDays } from 'date-fns';
 import { DatePickerModal } from '@/components/DatePickerModal';
-import { Mic, Square, ChevronRight } from 'lucide-react-native';
-import { Alert } from 'react-native';
 
 export default function AddEventScreen() {
     const router = useRouter();
@@ -43,10 +40,8 @@ export default function AddEventScreen() {
     const [selectedDate, setSelectedDate] = useState<Date>(
         params.date ? parse(params.date, 'yyyy-MM-dd', new Date()) : new Date()
     );
-    // If startTime is provided, default to non-all-day event
     const [isAllDay, setIsAllDay] = useState(!params.startTime);
     const [startTime, setStartTime] = useState(params.startTime || '09:00');
-    // Calculate end time as 1 hour after start time
     const [endTime, setEndTime] = useState(() => {
         if (params.startTime) {
             const [hours] = params.startTime.split(':').map(Number);
@@ -55,11 +50,10 @@ export default function AddEventScreen() {
         }
         return '10:00';
     });
-    const [selectedColor, setSelectedColor] = useState(EVENT_COLORS[4]); // Blue default
+    const [selectedColor, setSelectedColor] = useState(EVENT_COLORS[4]);
     const [notes, setNotes] = useState('');
 
     const [showDatePicker, setShowDatePicker] = useState(false);
-    const [showColorPicker, setShowColorPicker] = useState(false);
     const [showStartTimePicker, setShowStartTimePicker] = useState(false);
     const [showEndTimePicker, setShowEndTimePicker] = useState(false);
 
@@ -69,7 +63,7 @@ export default function AddEventScreen() {
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
 
-    // Reanimated pulse
+    // Reanimated pulse for voice recording
     const pulseScale = useSharedValue(1);
 
     const startPulse = useCallback(() => {
@@ -90,71 +84,7 @@ export default function AddEventScreen() {
         transform: [{ scale: pulseScale.value }],
     }));
 
-    // Color picker modal animation
-    const colorModalScale = useSharedValue(0.85);
-    const colorModalOpacity = useSharedValue(0);
-
-    useEffect(() => {
-        if (showColorPicker) {
-            colorModalScale.value = withSpring(1, { damping: 16, stiffness: 240 });
-            colorModalOpacity.value = withTiming(1, { duration: 200 });
-        } else {
-            colorModalScale.value = withTiming(0.85, { duration: 150 });
-            colorModalOpacity.value = withTiming(0, { duration: 150 });
-        }
-    }, [showColorPicker]);
-
-    const colorModalAnimStyle = useAnimatedStyle(() => ({
-        transform: [{ scale: colorModalScale.value }],
-        opacity: colorModalOpacity.value,
-    }));
-
-    const colorBackdropAnimStyle = useAnimatedStyle(() => ({
-        opacity: colorModalOpacity.value,
-    }));
-
-    // Time picker modal animations
-    const startTimeTranslateY = useSharedValue(300);
-    const startTimeBackdropOpacity = useSharedValue(0);
-    const endTimeTranslateY = useSharedValue(300);
-    const endTimeBackdropOpacity = useSharedValue(0);
-
-    useEffect(() => {
-        if (showStartTimePicker) {
-            startTimeTranslateY.value = withSpring(0, { damping: 20, stiffness: 240 });
-            startTimeBackdropOpacity.value = withTiming(1, { duration: 200 });
-        } else {
-            startTimeTranslateY.value = withSpring(300, { damping: 20, stiffness: 200 });
-            startTimeBackdropOpacity.value = withTiming(0, { duration: 200 });
-        }
-    }, [showStartTimePicker]);
-
-    useEffect(() => {
-        if (showEndTimePicker) {
-            endTimeTranslateY.value = withSpring(0, { damping: 20, stiffness: 240 });
-            endTimeBackdropOpacity.value = withTiming(1, { duration: 200 });
-        } else {
-            endTimeTranslateY.value = withSpring(300, { damping: 20, stiffness: 200 });
-            endTimeBackdropOpacity.value = withTiming(0, { duration: 200 });
-        }
-    }, [showEndTimePicker]);
-
-    const startTimeSlideStyle = useAnimatedStyle(() => ({
-        transform: [{ translateY: startTimeTranslateY.value }],
-    }));
-
-    const startTimeBackdropStyle = useAnimatedStyle(() => ({
-        opacity: startTimeBackdropOpacity.value,
-    }));
-
-    const endTimeSlideStyle = useAnimatedStyle(() => ({
-        transform: [{ translateY: endTimeTranslateY.value }],
-    }));
-
-    const endTimeBackdropStyle = useAnimatedStyle(() => ({
-        opacity: endTimeBackdropOpacity.value,
-    }));
-
+    // --- Voice recording ---
     const startRecording = async () => {
         try {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -266,6 +196,7 @@ export default function AddEventScreen() {
         }
     };
 
+    // --- Save ---
     const handleSave = async () => {
         if (title.trim()) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -282,27 +213,31 @@ export default function AddEventScreen() {
         }
     };
 
-    const handleCancel = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        if (router.canGoBack()) {
-            router.back();
-        } else {
-            router.replace('/');
-        }
+    // --- Date helpers ---
+    const getDateTag = (): string => {
+        if (isToday(selectedDate)) return 'Today';
+        if (isTomorrow(selectedDate)) return 'Tomorrow';
+        return 'Pick Date';
     };
 
-    const openDatePicker = () => {
-        Haptics.selectionAsync();
-        setShowDatePicker(true);
-    };
-
-    const getDateLabel = () => {
+    const getDateLabel = (): string => {
         if (isToday(selectedDate)) return 'Today';
         if (isTomorrow(selectedDate)) return 'Tomorrow';
         return format(selectedDate, 'MMM d, yyyy');
     };
 
-    // Convert time string (HH:mm) to Date object for picker
+    const handleDateTagPress = (tag: string) => {
+        Haptics.selectionAsync();
+        if (tag === 'Today') {
+            setSelectedDate(new Date());
+        } else if (tag === 'Tomorrow') {
+            setSelectedDate(addDays(new Date(), 1));
+        } else {
+            setShowDatePicker(true);
+        }
+    };
+
+    // --- Time helpers ---
     const timeStringToDate = (timeStr: string): Date => {
         const [hours, minutes] = timeStr.split(':').map(Number);
         const date = new Date();
@@ -311,7 +246,6 @@ export default function AddEventScreen() {
         return date;
     };
 
-    // Format time for display (e.g., "2:30 PM")
     const formatTimeDisplay = (timeStr: string): string => {
         const [hours, minutes] = timeStr.split(':').map(Number);
         const period = hours >= 12 ? 'PM' : 'AM';
@@ -319,7 +253,6 @@ export default function AddEventScreen() {
         return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
     };
 
-    // Handle time change from picker
     const handleStartTimeChange = (event: any, selectedDate?: Date) => {
         if (selectedDate) {
             const hours = selectedDate.getHours().toString().padStart(2, '0');
@@ -346,223 +279,202 @@ export default function AddEventScreen() {
         setShowEndTimePicker(false);
     };
 
+    // Determine which "When?" tag is active
+    const activeWhenTag = getDateTag();
+    // If the date is neither today nor tomorrow, show the formatted date as the "Pick Date" label
+    const pickDateLabel = (!isToday(selectedDate) && !isTomorrow(selectedDate))
+        ? format(selectedDate, 'MMM d, yyyy')
+        : 'Pick Date';
+
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={styles.keyboardView}
+                style={{ flex: 1 }}
             >
+                {/* Header */}
                 <View style={styles.header}>
-                    <Pressable
-                        style={({ pressed }) => [
-                            styles.cancelButton,
-                            pressed && styles.buttonPressed
-                        ]}
-                        onPress={handleCancel}
-                    >
-                        <Text style={styles.cancelButtonText}>Cancel</Text>
+                    <Pressable onPress={() => router.back()} style={styles.iconBtn}>
+                        <ArrowLeft size={24} color="#000" />
                     </Pressable>
-                    <Text style={styles.headerTitle}>New Event</Text>
-                    <Pressable
-                        style={({ pressed }) => [
-                            styles.saveButton,
-                            !title.trim() && styles.saveButtonDisabled,
-                            pressed && title.trim() && styles.buttonPressed
-                        ]}
-                        onPress={handleSave}
-                        disabled={!title.trim()}
-                    >
-                        <Text
-                            style={[
-                                styles.saveButtonText,
-                                !title.trim() && styles.saveButtonTextDisabled,
-                            ]}
-                        >
-                            Add
-                        </Text>
-                    </Pressable>
+                    <Text style={styles.headerTitle}>Add Event</Text>
+                    <View style={{ width: 40 }} />
                 </View>
 
                 <ScrollView
-                    contentContainerStyle={styles.scrollContent}
+                    contentContainerStyle={styles.content}
                     keyboardShouldPersistTaps="handled"
                     keyboardDismissMode="interactive"
                 >
-                    <View style={styles.content}>
-                        <View style={styles.section}>
-                            <Text style={styles.label}>EVENT TITLE</Text>
-                            <View style={styles.inputCard}>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="e.g. Doctor's appointment, Meeting"
-                                    placeholderTextColor="#C7C7CC"
-                                    value={title}
-                                    onChangeText={setTitle}
-                                    autoFocus
-                                    multiline
-                                    scrollEnabled={false}
-                                    onSubmitEditing={handleSave}
-                                    blurOnSubmit={true}
-                                    submitBehavior="submit"
-                                    returnKeyType="done"
-                                />
+                    {/* Hero Card */}
+                    <LinearGradient
+                        colors={['#FFF3E0', '#FFE0B2']}
+                        style={styles.heroCard}
+                    >
+                        <View style={styles.mainEmojiContainer}>
+                            <Text style={{ fontSize: 48 }}>📅</Text>
+                        </View>
+                        <TextInput
+                            style={styles.heroInput}
+                            placeholder="Event name..."
+                            placeholderTextColor="rgba(0,0,0,0.3)"
+                            value={title}
+                            onChangeText={setTitle}
+                            textAlign="center"
+                            autoFocus
+                        />
+
+                        {/* Mic button at bottom-right of hero card */}
+                        <Pressable
+                            style={[
+                                styles.voiceButton,
+                                isRecording && styles.voiceButtonRecording,
+                            ]}
+                            onPress={handleVoicePress}
+                            disabled={isTranscribing}
+                        >
+                            {isTranscribing ? (
+                                <ActivityIndicator size="small" color={isRecording ? '#fff' : '#E65100'} />
+                            ) : isRecording ? (
+                                <Animated.View style={pulseAnimStyle}>
+                                    <Square size={14} color="#fff" fill="#fff" />
+                                </Animated.View>
+                            ) : (
+                                <Mic size={20} color="#E65100" />
+                            )}
+                        </Pressable>
+                    </LinearGradient>
+
+                    {/* When? Section */}
+                    <View style={styles.pickerSection}>
+                        <Text style={styles.sectionTitle}>When?</Text>
+                        <View style={styles.tagContainer}>
+                            {['Today', 'Tomorrow', 'Pick Date'].map(tag => {
+                                const isActive = (tag === 'Pick Date')
+                                    ? activeWhenTag === 'Pick Date'
+                                    : activeWhenTag === tag;
+                                const label = tag === 'Pick Date' ? pickDateLabel : tag;
+                                return (
+                                    <Pressable
+                                        key={tag}
+                                        style={[styles.tag, isActive && styles.tagActive]}
+                                        onPress={() => handleDateTagPress(tag)}
+                                    >
+                                        <Text style={[styles.tagText, isActive && styles.tagTextActive]}>
+                                            {label}
+                                        </Text>
+                                    </Pressable>
+                                );
+                            })}
+                        </View>
+                    </View>
+
+                    {/* All Day? Section */}
+                    <View style={styles.pickerSection}>
+                        <Text style={styles.sectionTitle}>All Day?</Text>
+                        <View style={styles.tagContainer}>
+                            {['Yes', 'No'].map(opt => {
+                                const isActive = (opt === 'Yes') === isAllDay;
+                                return (
+                                    <Pressable
+                                        key={opt}
+                                        style={[styles.tag, isActive && styles.tagActive]}
+                                        onPress={() => {
+                                            Haptics.selectionAsync();
+                                            setIsAllDay(opt === 'Yes');
+                                        }}
+                                    >
+                                        <Text style={[styles.tagText, isActive && styles.tagTextActive]}>
+                                            {opt}
+                                        </Text>
+                                    </Pressable>
+                                );
+                            })}
+                        </View>
+                    </View>
+
+                    {/* Time Section (only when not all-day) */}
+                    {!isAllDay && (
+                        <View style={styles.pickerSection}>
+                            <Text style={styles.sectionTitle}>Time</Text>
+                            <View style={styles.tagContainer}>
                                 <Pressable
+                                    style={[styles.tag, styles.tagActive]}
+                                    onPress={() => {
+                                        Haptics.selectionAsync();
+                                        setShowStartTimePicker(true);
+                                    }}
+                                >
+                                    <Text style={[styles.tagText, styles.tagTextActive]}>
+                                        Starts {formatTimeDisplay(startTime)}
+                                    </Text>
+                                </Pressable>
+                                <Pressable
+                                    style={[styles.tag, styles.tagActive]}
+                                    onPress={() => {
+                                        Haptics.selectionAsync();
+                                        setShowEndTimePicker(true);
+                                    }}
+                                >
+                                    <Text style={[styles.tagText, styles.tagTextActive]}>
+                                        Ends {formatTimeDisplay(endTime)}
+                                    </Text>
+                                </Pressable>
+                            </View>
+                        </View>
+                    )}
+
+                    {/* Color Section */}
+                    <View style={styles.pickerSection}>
+                        <Text style={styles.sectionTitle}>Color</Text>
+                        <View style={styles.colorRow}>
+                            {EVENT_COLORS.map((color) => (
+                                <Pressable
+                                    key={color}
                                     style={[
-                                        styles.voiceButton,
-                                        isRecording && styles.voiceButtonRecording,
+                                        styles.colorDot,
+                                        { backgroundColor: color },
+                                        selectedColor === color && styles.colorDotSelected,
                                     ]}
-                                    onPress={handleVoicePress}
-                                    disabled={isTranscribing}
-                                >
-                                    {isTranscribing ? (
-                                        <ActivityIndicator size="small" color={isRecording ? "#fff" : "#007AFF"} />
-                                    ) : isRecording ? (
-                                        <Animated.View style={pulseAnimStyle}>
-                                            <Square size={16} color="#fff" fill="#fff" />
-                                        </Animated.View>
-                                    ) : (
-                                        <Mic size={22} color="#007AFF" />
-                                    )}
-                                </Pressable>
-                            </View>
-                        </View>
-
-                        <View style={styles.section}>
-                            <Text style={styles.label}>DETAILS</Text>
-                            <View style={styles.detailsCard}>
-                                {/* Date */}
-                                <Pressable
-                                    style={({ pressed }) => [
-                                        styles.detailRow,
-                                        pressed && styles.detailRowPressed
-                                    ]}
-                                    onPress={openDatePicker}
-                                >
-                                    <View style={styles.detailLeft}>
-                                        <View style={[styles.iconContainer, { backgroundColor: '#FF3B30' }]}>
-                                            <Calendar size={18} color="#fff" strokeWidth={2.5} />
-                                        </View>
-                                        <Text style={styles.detailLabel}>Date</Text>
-                                    </View>
-                                    <View style={styles.detailRight}>
-                                        <Text style={styles.detailValue}>{getDateLabel()}</Text>
-                                        <ChevronRight size={16} color="#C7C7CC" strokeWidth={2} />
-                                    </View>
-                                </Pressable>
-
-                                <View style={styles.separatorContainer}>
-                                    <View style={styles.separator} />
-                                </View>
-
-                                {/* All Day Toggle */}
-                                <View style={styles.detailRow}>
-                                    <View style={styles.detailLeft}>
-                                        <View style={[styles.iconContainer, { backgroundColor: '#FF9500' }]}>
-                                            <Clock size={18} color="#fff" strokeWidth={2.5} />
-                                        </View>
-                                        <Text style={styles.detailLabel}>All-day</Text>
-                                    </View>
-                                    <Switch
-                                        value={isAllDay}
-                                        onValueChange={setIsAllDay}
-                                        trackColor={{ false: '#E5E5EA', true: '#34C759' }}
-                                        thumbColor="#fff"
-                                    />
-                                </View>
-
-                                {!isAllDay && (
-                                    <>
-                                        <View style={styles.separatorContainer}>
-                                            <View style={styles.separator} />
-                                        </View>
-
-                                        {/* Start Time */}
-                                        <Pressable
-                                            style={({ pressed }) => [
-                                                styles.detailRow,
-                                                pressed && styles.detailRowPressed
-                                            ]}
-                                            onPress={() => {
-                                                Haptics.selectionAsync();
-                                                setShowStartTimePicker(true);
-                                            }}
-                                        >
-                                            <Text style={styles.timeLabel}>Starts</Text>
-                                            <View style={styles.detailRight}>
-                                                <Text style={styles.timeValue}>{formatTimeDisplay(startTime)}</Text>
-                                                <ChevronRight size={16} color="#C7C7CC" strokeWidth={2} />
-                                            </View>
-                                        </Pressable>
-
-                                        <View style={styles.separatorContainer}>
-                                            <View style={styles.separator} />
-                                        </View>
-
-                                        {/* End Time */}
-                                        <Pressable
-                                            style={({ pressed }) => [
-                                                styles.detailRow,
-                                                pressed && styles.detailRowPressed
-                                            ]}
-                                            onPress={() => {
-                                                Haptics.selectionAsync();
-                                                setShowEndTimePicker(true);
-                                            }}
-                                        >
-                                            <Text style={styles.timeLabel}>Ends</Text>
-                                            <View style={styles.detailRight}>
-                                                <Text style={styles.timeValue}>{formatTimeDisplay(endTime)}</Text>
-                                                <ChevronRight size={16} color="#C7C7CC" strokeWidth={2} />
-                                            </View>
-                                        </Pressable>
-                                    </>
-                                )}
-
-                                <View style={styles.separatorContainer}>
-                                    <View style={styles.separator} />
-                                </View>
-
-                                {/* Color */}
-                                <Pressable
-                                    style={({ pressed }) => [
-                                        styles.detailRow,
-                                        pressed && styles.detailRowPressed
-                                    ]}
-                                    onPress={() => setShowColorPicker(true)}
-                                >
-                                    <View style={styles.detailLeft}>
-                                        <View style={[styles.iconContainer, { backgroundColor: selectedColor }]}>
-                                            <Palette size={18} color="#fff" strokeWidth={2.5} />
-                                        </View>
-                                        <Text style={styles.detailLabel}>Color</Text>
-                                    </View>
-                                    <View style={styles.detailRight}>
-                                        <View style={[styles.colorPreview, { backgroundColor: selectedColor }]} />
-                                        <ChevronRight size={16} color="#C7C7CC" strokeWidth={2} />
-                                    </View>
-                                </Pressable>
-                            </View>
-                        </View>
-
-                        <View style={styles.section}>
-                            <Text style={styles.label}>NOTES</Text>
-                            <View style={styles.notesCard}>
-                                <TextInput
-                                    style={styles.notesInput}
-                                    placeholder="Add any additional details..."
-                                    placeholderTextColor="#C7C7CC"
-                                    value={notes}
-                                    onChangeText={setNotes}
-                                    multiline
-                                    numberOfLines={4}
-                                    textAlignVertical="top"
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        setSelectedColor(color);
+                                    }}
                                 />
-                            </View>
+                            ))}
+                        </View>
+                    </View>
+
+                    {/* Notes Section */}
+                    <View style={styles.pickerSection}>
+                        <Text style={styles.sectionTitle}>Notes</Text>
+                        <View style={styles.notesCard}>
+                            <TextInput
+                                style={styles.notesInput}
+                                placeholder="Add any additional details..."
+                                placeholderTextColor="rgba(0,0,0,0.3)"
+                                value={notes}
+                                onChangeText={setNotes}
+                                multiline
+                                numberOfLines={4}
+                                textAlignVertical="top"
+                            />
                         </View>
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
 
+            {/* Footer: Done button */}
+            <View style={styles.footer}>
+                <Pressable
+                    style={styles.bigButton}
+                    onPress={handleSave}
+                >
+                    <Text style={styles.bigButtonText}>Done</Text>
+                </Pressable>
+            </View>
+
+            {/* Date Picker Modal */}
             <DatePickerModal
                 visible={showDatePicker}
                 onClose={() => setShowDatePicker(false)}
@@ -570,58 +482,19 @@ export default function AddEventScreen() {
                 onSelectDate={setSelectedDate}
             />
 
-            {/* Color Picker Modal — blur + spring */}
-            <Modal
-                visible={showColorPicker}
-                transparent
-                animationType="none"
-                onRequestClose={() => setShowColorPicker(false)}
-            >
-                <Pressable
-                    style={styles.colorModalOverlay}
-                    onPress={() => setShowColorPicker(false)}
-                >
-                    <Animated.View style={[StyleSheet.absoluteFill, colorBackdropAnimStyle]}>
-                        <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
-                    </Animated.View>
-                    <Animated.View style={[styles.colorModalContent, colorModalAnimStyle]}>
-                        <Text style={styles.colorModalTitle}>Choose Color</Text>
-                        <View style={styles.colorGrid}>
-                            {EVENT_COLORS.map((color) => (
-                                <Pressable
-                                    key={color}
-                                    style={[
-                                        styles.colorOption,
-                                        { backgroundColor: color },
-                                        selectedColor === color && styles.colorOptionSelected,
-                                    ]}
-                                    onPress={() => {
-                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                        setSelectedColor(color);
-                                        setShowColorPicker(false);
-                                    }}
-                                />
-                            ))}
-                        </View>
-                    </Animated.View>
-                </Pressable>
-            </Modal>
-
-            {/* Start Time Picker — spring slide-up */}
+            {/* Start Time Picker Modal */}
             <Modal
                 visible={showStartTimePicker}
                 transparent
-                animationType="none"
+                animationType="slide"
                 onRequestClose={() => setShowStartTimePicker(false)}
             >
-                <View style={styles.timePickerOverlayContainer}>
-                    <Animated.View style={[styles.timePickerBackdrop, startTimeBackdropStyle]}>
-                        <Pressable
-                            style={StyleSheet.absoluteFill}
-                            onPress={() => setShowStartTimePicker(false)}
-                        />
-                    </Animated.View>
-                    <Animated.View style={[styles.timePickerModal, startTimeSlideStyle]}>
+                <View style={styles.timePickerOverlay}>
+                    <Pressable
+                        style={styles.timePickerBackdrop}
+                        onPress={() => setShowStartTimePicker(false)}
+                    />
+                    <View style={styles.timePickerModal}>
                         <View style={styles.timePickerHeader}>
                             <Pressable onPress={() => setShowStartTimePicker(false)}>
                                 <Text style={styles.timePickerCancel}>Cancel</Text>
@@ -640,25 +513,23 @@ export default function AddEventScreen() {
                                 themeVariant="light"
                             />
                         </View>
-                    </Animated.View>
+                    </View>
                 </View>
             </Modal>
 
-            {/* End Time Picker — spring slide-up */}
+            {/* End Time Picker Modal */}
             <Modal
                 visible={showEndTimePicker}
                 transparent
-                animationType="none"
+                animationType="slide"
                 onRequestClose={() => setShowEndTimePicker(false)}
             >
-                <View style={styles.timePickerOverlayContainer}>
-                    <Animated.View style={[styles.timePickerBackdrop, endTimeBackdropStyle]}>
-                        <Pressable
-                            style={StyleSheet.absoluteFill}
-                            onPress={() => setShowEndTimePicker(false)}
-                        />
-                    </Animated.View>
-                    <Animated.View style={[styles.timePickerModal, endTimeSlideStyle]}>
+                <View style={styles.timePickerOverlay}>
+                    <Pressable
+                        style={styles.timePickerBackdrop}
+                        onPress={() => setShowEndTimePicker(false)}
+                    />
+                    <View style={styles.timePickerModal}>
                         <View style={styles.timePickerHeader}>
                             <Pressable onPress={() => setShowEndTimePicker(false)}>
                                 <Text style={styles.timePickerCancel}>Cancel</Text>
@@ -677,7 +548,7 @@ export default function AddEventScreen() {
                                 themeVariant="light"
                             />
                         </View>
-                    </Animated.View>
+                    </View>
                 </View>
             </Modal>
         </SafeAreaView>
@@ -687,183 +558,163 @@ export default function AddEventScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F2F2F7',
-    },
-    keyboardView: {
-        flex: 1,
+        backgroundColor: '#FAFAFA',
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        backgroundColor: '#F2F2F7',
-        zIndex: 10,
+        paddingHorizontal: 20,
+        height: 56,
     },
-    cancelButton: {
-        paddingVertical: 8,
-        paddingHorizontal: 4,
-    },
-    cancelButtonText: {
-        fontSize: 17,
-        fontWeight: '400',
-        color: '#007AFF',
-    },
-    headerTitle: {
-        fontSize: 17,
-        fontWeight: '700',
-        color: '#000',
-    },
-    saveButton: {
-        height: 36,
-        paddingHorizontal: 18,
+    iconBtn: {
+        width: 40,
+        height: 40,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#007AFF',
-        borderRadius: 18,
+        backgroundColor: '#fff',
+        borderRadius: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
     },
-    saveButtonDisabled: {
-        backgroundColor: '#E5E5EA',
-    },
-    saveButtonText: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#fff',
-    },
-    saveButtonTextDisabled: {
-        color: '#8E8E93',
-    },
-    buttonPressed: {
-        opacity: 0.7,
-    },
-    scrollContent: {
-        paddingBottom: 40,
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: '700',
     },
     content: {
         padding: 20,
-        gap: 28,
+        gap: 32,
     },
-    section: {
-        gap: 8,
+    heroCard: {
+        borderRadius: 32,
+        padding: 32,
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: 240,
+        position: 'relative',
     },
-    label: {
-        fontSize: 13,
-        color: '#8E8E93',
-        fontWeight: '500',
-        marginLeft: 16,
-        marginBottom: 2,
+    mainEmojiContainer: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        backgroundColor: 'rgba(255,255,255,0.6)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 20,
     },
-    inputCard: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        backgroundColor: '#fff',
-        borderRadius: 24,
-        padding: 16,
-        minHeight: 80,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.04,
-        shadowRadius: 12,
-        elevation: 3,
-    },
-    input: {
-        flex: 1,
-        fontSize: 19,
-        color: '#000',
-        marginTop: 0,
-        marginRight: 12,
-        minHeight: 40,
-        textAlignVertical: 'top',
-        lineHeight: 24,
+    heroInput: {
+        fontSize: 28,
+        fontWeight: '800',
+        color: '#E65100',
+        width: '100%',
     },
     voiceButton: {
+        position: 'absolute',
+        bottom: 16,
+        right: 16,
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: '#F2F2F7',
+        backgroundColor: 'rgba(255,255,255,0.7)',
         justifyContent: 'center',
         alignItems: 'center',
     },
     voiceButtonRecording: {
         backgroundColor: '#FF3B30',
     },
-    detailsCard: {
+    pickerSection: {
+        gap: 16,
+    },
+    sectionTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#333',
+        marginLeft: 4,
+    },
+    tagContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 10,
+    },
+    tag: {
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 24,
         backgroundColor: '#fff',
-        borderRadius: 16,
-        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: '#eee',
+    },
+    tagActive: {
+        backgroundColor: '#E65100',
+        borderColor: '#E65100',
+    },
+    tagText: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#555',
+    },
+    tagTextActive: {
+        color: '#fff',
+    },
+    colorRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 12,
+    },
+    colorDot: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+    },
+    colorDotSelected: {
+        borderWidth: 3,
+        borderColor: '#fff',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 4,
+    },
+    notesCard: {
+        backgroundColor: '#fff',
+        borderRadius: 20,
+        padding: 16,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.04,
         shadowRadius: 8,
         elevation: 2,
     },
-    detailRow: {
-        flexDirection: 'row',
+    notesInput: {
+        fontSize: 16,
+        color: '#000',
+        minHeight: 100,
+        textAlignVertical: 'top',
+    },
+    footer: {
+        padding: 20,
+    },
+    bigButton: {
+        backgroundColor: '#FF7043',
+        height: 64,
+        borderRadius: 32,
         alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingVertical: 14,
-        paddingHorizontal: 16,
-        backgroundColor: '#fff',
-        minHeight: 56,
-    },
-    detailRowPressed: {
-        backgroundColor: '#F9F9F9',
-    },
-    detailLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 14,
-    },
-    iconContainer: {
-        width: 32,
-        height: 32,
-        borderRadius: 8,
         justifyContent: 'center',
-        alignItems: 'center',
+        shadowColor: '#FF7043',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 16,
     },
-    detailLabel: {
-        fontSize: 17,
-        color: '#000',
-        fontWeight: '500',
+    bigButtonText: {
+        color: '#fff',
+        fontSize: 20,
+        fontWeight: '700',
+        letterSpacing: 0.5,
     },
-    detailRight: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-    detailValue: {
-        fontSize: 17,
-        color: '#8E8E93',
-    },
-    separatorContainer: {
-        paddingLeft: 60,
-        backgroundColor: '#fff',
-    },
-    separator: {
-        height: StyleSheet.hairlineWidth,
-        backgroundColor: '#E5E5EA',
-    },
-    timeLabel: {
-        fontSize: 17,
-        color: '#000',
-        fontWeight: '500',
-        marginLeft: 46,
-    },
-    timeInput: {
-        fontSize: 17,
-        color: '#007AFF',
-        fontWeight: '500',
-        textAlign: 'right',
-        minWidth: 60,
-    },
-    timeValue: {
-        fontSize: 17,
-        color: '#007AFF',
-        fontWeight: '500',
-    },
-    // Time Picker Modal Styles
-    timePickerOverlayContainer: {
+    // Time picker modal styles
+    timePickerOverlay: {
         flex: 1,
         justifyContent: 'flex-end',
     },
@@ -898,72 +749,12 @@ const styles = StyleSheet.create({
     timePickerDone: {
         fontSize: 17,
         fontWeight: '600',
-        color: '#007AFF',
+        color: '#E65100',
     },
     timePickerContent: {
         alignItems: 'center',
         justifyContent: 'center',
         paddingVertical: 10,
         minHeight: 200,
-    },
-    colorPreview: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-    },
-    notesCard: {
-        backgroundColor: '#fff',
-        borderRadius: 16,
-        padding: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.04,
-        shadowRadius: 8,
-        elevation: 2,
-    },
-    notesInput: {
-        fontSize: 16,
-        color: '#000',
-        minHeight: 100,
-        textAlignVertical: 'top',
-    },
-    colorModalOverlay: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    colorModalContent: {
-        backgroundColor: '#fff',
-        borderRadius: 20,
-        padding: 24,
-        width: '80%',
-        maxWidth: 320,
-    },
-    colorModalTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#000',
-        textAlign: 'center',
-        marginBottom: 20,
-    },
-    colorGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'center',
-        gap: 16,
-    },
-    colorOption: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-    },
-    colorOptionSelected: {
-        borderWidth: 3,
-        borderColor: '#fff',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-        elevation: 4,
     },
 });

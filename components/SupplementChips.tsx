@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import type { Supplement } from '@/types/supplement';
 import { Check } from 'lucide-react-native';
+import { SupplementIcon } from '@/components/SupplementIcon';
 
 interface SupplementChipsProps {
     supplements: Supplement[];
@@ -41,7 +42,7 @@ export function SupplementChips({ supplements, onToggle, isTakenToday, onLongPre
                                 {isTaken ? (
                                     <Check size={28} color="#fff" strokeWidth={3} />
                                 ) : (
-                                    <Text style={styles.emoji}>{supplement.emoji || '💊'}</Text>
+                                    <SupplementIcon name={supplement.name} size={30} />
                                 )}
                             </View>
 
@@ -85,9 +86,6 @@ const styles = StyleSheet.create({
     circleActive: {
         backgroundColor: '#007AFF', // Health app blue/cyan
         borderColor: '#007AFF',
-    },
-    emoji: {
-        fontSize: 30,
     },
     label: {
         fontSize: 12,

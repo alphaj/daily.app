@@ -44,8 +44,6 @@ export interface Habit {
   slipDates?: string[];
   /** For breaking habits: structured slip log */
   slipLog?: SlipEntry[];
-  /** Energy cost of maintaining this habit */
-  energyLevel?: 'low' | 'medium' | 'high';
   /** Optional preferred time of day for this habit (HH:mm format). If unset, shows as all-day. */
   preferredTime?: string;
   /** Notification IDs for scheduled reminders */

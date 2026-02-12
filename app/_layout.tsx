@@ -15,10 +15,10 @@ import { PreferencesProvider } from "@/contexts/PreferencesContext";
 
 import { SupplementProvider } from "@/contexts/SupplementContext";
 import { GroceryProvider } from "@/contexts/GroceryContext";
+import { TravelProvider } from "@/contexts/TravelContext";
 import { OnboardingProvider, useOnboarding } from "@/contexts/OnboardingContext";
 import { LaterProvider } from "@/contexts/LaterContext";
 import { CalendarEventProvider } from "@/contexts/CalendarEventContext";
-import { JournalProvider } from "@/contexts/JournalContext";
 import { trpc, trpcClient } from "@/lib/trpc";
 
 SplashScreen.preventAutoHideAsync();
@@ -75,51 +75,56 @@ function RootLayoutNav() {
       <Stack.Screen name="add-event" options={{ presentation: "modal", headerShown: false }} />
       <Stack.Screen name="edit-habit" options={{ presentation: "modal", headerShown: false }} />
       <Stack.Screen name="privacy-policy" options={{ headerShown: false, animation: 'slide_from_right' }} />
-      <Stack.Screen name="journal" options={{ headerShown: false, animation: 'fade' }} />
-      <Stack.Screen name="add-journal" options={{ presentation: "modal", headerShown: false }} />
-      <Stack.Screen name="settings-account" options={{ headerShown: false, animation: 'slide_from_right' }} />
-      <Stack.Screen name="settings-membership" options={{ headerShown: false, animation: 'slide_from_right' }} />
+      <Stack.Screen name="travel" options={{ headerShown: false, animation: 'slide_from_right' }} />
+      <Stack.Screen name="add-trip" options={{ presentation: "modal", headerShown: false }} />
+      <Stack.Screen name="add-trip-v1" options={{ presentation: "modal", headerShown: false }} />
+      <Stack.Screen name="add-trip-v2" options={{ presentation: "modal", headerShown: false }} />
+      <Stack.Screen name="add-trip-v3" options={{ presentation: "modal", headerShown: false }} />
+      <Stack.Screen name="add-trip-v4" options={{ presentation: "modal", headerShown: false }} />
+      <Stack.Screen name="add-trip-v5" options={{ presentation: "modal", headerShown: false }} />
+      <Stack.Screen name="life-v1" options={{ headerShown: false, animation: 'fade' }} />
+      <Stack.Screen name="life-v2" options={{ headerShown: false, animation: 'fade' }} />
+      <Stack.Screen name="life-v3" options={{ headerShown: false, animation: 'fade' }} />
+      <Stack.Screen name="life-v4" options={{ headerShown: false, animation: 'fade' }} />
+      <Stack.Screen name="life-v5" options={{ headerShown: false, animation: 'fade' }} />
       <Stack.Screen name="settings-notifications" options={{ headerShown: false, animation: 'slide_from_right' }} />
-      <Stack.Screen name="settings-widgets" options={{ headerShown: false, animation: 'slide_from_right' }} />
-      <Stack.Screen name="settings-health" options={{ headerShown: false, animation: 'slide_from_right' }} />
       <Stack.Screen name="settings-preferences" options={{ headerShown: false, animation: 'slide_from_right' }} />
       <Stack.Screen name="settings-help" options={{ headerShown: false, animation: 'slide_from_right' }} />
-      <Stack.Screen name="redeem" options={{ presentation: "modal", headerShown: false }} />
     </Stack>
   );
 }
 
 function AppWrapper() {
   return (
-    <JournalProvider>
-      <CalendarEventProvider>
-        <GroceryProvider>
-          <SupplementProvider>
-            <LaterProvider>
-              <HabitProvider>
-                <TodoProvider>
-                  <NoteProvider>
-                    <InboxProvider>
-                      <ProjectProvider>
-                        <WorkModeProvider>
-                          <PreferencesProvider>
-                          <OnboardingProvider>
-                            <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#F2F2F7' }}>
-                              <RootLayoutNav />
-                            </GestureHandlerRootView>
-                          </OnboardingProvider>
-                          </PreferencesProvider>
-                        </WorkModeProvider>
-                      </ProjectProvider>
-                    </InboxProvider>
-                  </NoteProvider>
-                </TodoProvider>
-              </HabitProvider>
-            </LaterProvider>
-          </SupplementProvider>
-        </GroceryProvider>
-      </CalendarEventProvider>
-    </JournalProvider>
+    <CalendarEventProvider>
+      <TravelProvider>
+      <GroceryProvider>
+        <SupplementProvider>
+          <LaterProvider>
+            <HabitProvider>
+              <TodoProvider>
+                <NoteProvider>
+                  <InboxProvider>
+                    <ProjectProvider>
+                      <WorkModeProvider>
+                        <PreferencesProvider>
+                        <OnboardingProvider>
+                          <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#F2F2F7' }}>
+                            <RootLayoutNav />
+                          </GestureHandlerRootView>
+                        </OnboardingProvider>
+                        </PreferencesProvider>
+                      </WorkModeProvider>
+                    </ProjectProvider>
+                  </InboxProvider>
+                </NoteProvider>
+              </TodoProvider>
+            </HabitProvider>
+          </LaterProvider>
+        </SupplementProvider>
+      </GroceryProvider>
+      </TravelProvider>
+    </CalendarEventProvider>
   );
 }
 

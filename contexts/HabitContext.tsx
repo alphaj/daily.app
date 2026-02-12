@@ -307,7 +307,6 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
     isWork?: boolean,
     habitType: HabitType = 'building',
     triggerNotes?: string,
-    energyLevel?: 'low' | 'medium' | 'high',
     preferredTime?: string
   ) => {
     // Fix: generate ID once and use for both notification and habit
@@ -338,7 +337,6 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
       triggerNotes,
       slipDates: [],
       slipLog: [],
-      energyLevel,
       preferredTime,
       notificationIds,
     };
@@ -350,7 +348,7 @@ export const [HabitProvider, useHabits] = createContextHook(() => {
 
   const updateHabit = useCallback(async (
     id: string,
-    updates: Partial<Pick<Habit, 'name' | 'intention' | 'emoji' | 'whyStatement' | 'celebrationPhrase' | 'scheduledDays' | 'preferredTime' | 'energyLevel' | 'isWork' | 'triggerNotes'>>
+    updates: Partial<Pick<Habit, 'name' | 'intention' | 'emoji' | 'whyStatement' | 'celebrationPhrase' | 'scheduledDays' | 'preferredTime' | 'isWork' | 'triggerNotes'>>
   ) => {
     const habit = habits.find(h => h.id === id);
     let notificationIds = habit?.notificationIds;

@@ -1,5 +1,5 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft, Check, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { ChevronLeft, Check } from 'lucide-react-native';
 import React, { useState, useEffect } from 'react';
 import {
     View,
@@ -15,17 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useSupplements } from '@/contexts/SupplementContext';
 import type { Supplement } from '@/types/supplement';
-
-// Supplement-focused emojis
-const QUICK_EMOJIS = ['💊', '💉', '🩹', '🧴', '🥛', '🧪', '🌿', '⚗️'];
-
-const ALL_EMOJIS = [
-    '💊', '💉', '🩹', '🧴', '🥛', '🧪', '🌿', '⚗️',
-    '🍵', '🫖', '🧃', '🥤', '🌸', '🌻', '🍃', '🪴',
-    '🐟', '🥚', '🥜', '🫘', '🍯', '🧈', '🥕', '🥦',
-    '🏃', '💪', '🧘', '🛌', '☀️', '🌙', '⚡', '✨',
-    '❤️', '🧠', '👁️', '🦴', '🩺', '🏥', '💚', '💛',
-];
+import { SupplementIcon } from '@/components/SupplementIcon';
 
 const TIME_OPTIONS: { label: string; value: Supplement['timeOfDay'] | undefined }[] = [
     { label: 'Any time', value: undefined },
@@ -50,8 +40,6 @@ export default function EditSupplementScreen() {
     const supplement = supplements.find(s => s.id === id);
 
     const [name, setName] = useState('');
-    const [selectedEmoji, setSelectedEmoji] = useState<string>('💊');
-    const [showAllEmojis, setShowAllEmojis] = useState(false);
     const [dosage, setDosage] = useState('');
     const [frequency, setFrequency] = useState<Supplement['frequency']>('daily');
     const [timeOfDay, setTimeOfDay] = useState<Supplement['timeOfDay'] | undefined>(undefined);
@@ -61,7 +49,6 @@ export default function EditSupplementScreen() {
     useEffect(() => {
         if (supplement) {
             setName(supplement.name);
-            setSelectedEmoji(supplement.emoji || '💊');
             setDosage(supplement.dosage || '');
             setFrequency(supplement.frequency);
             setTimeOfDay(supplement.timeOfDay);
@@ -74,7 +61,7 @@ export default function EditSupplementScreen() {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             await updateSupplement(id, {
                 name: name.trim(),
-                emoji: selectedEmoji,
+                emoji: '💊',
                 dosage: dosage.trim() || undefined,
                 frequency,
                 timeOfDay,
@@ -87,16 +74,6 @@ export default function EditSupplementScreen() {
     const handleCancel = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         router.back();
-    };
-
-    const selectEmoji = (emoji: string) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        setSelectedEmoji(emoji);
-    };
-
-    const toggleEmojiPicker = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        setShowAllEmojis(!showAllEmojis);
     };
 
     const isValid = name.trim().length > 0;
@@ -129,13 +106,10 @@ export default function EditSupplementScreen() {
                     keyboardDismissMode="interactive"
                 >
                     <View style={styles.content}>
-                        {/* Emoji Display */}
-                        <Pressable
-                            style={styles.emojiDisplay}
-                            onPress={toggleEmojiPicker}
-                        >
-                            <Text style={styles.emojiDisplayText}>{selectedEmoji}</Text>
-                        </Pressable>
+                        {/* Icon Display */}
+                        <View style={styles.iconDisplay}>
+                            <SupplementIcon name={name} size={40} />
+                        </View>
 
                         {/* Name Input */}
                         <TextInput
@@ -147,52 +121,6 @@ export default function EditSupplementScreen() {
                             autoFocus={false}
                             returnKeyType="next"
                         />
-
-                        {/* Emoji Picker */}
-                        <View style={styles.emojiSection}>
-                            {!showAllEmojis ? (
-                                <View style={styles.emojiRow}>
-                                    {QUICK_EMOJIS.map((emoji) => (
-                                        <Pressable
-                                            key={emoji}
-                                            style={[
-                                                styles.emojiButton,
-                                                selectedEmoji === emoji && styles.emojiButtonSelected,
-                                            ]}
-                                            onPress={() => selectEmoji(emoji)}
-                                        >
-                                            <Text style={styles.emojiText}>{emoji}</Text>
-                                        </Pressable>
-                                    ))}
-                                </View>
-                            ) : (
-                                <View style={styles.allEmojisGrid}>
-                                    {ALL_EMOJIS.map((emoji, index) => (
-                                        <Pressable
-                                            key={`${emoji}-${index}`}
-                                            style={[
-                                                styles.emojiButtonSmall,
-                                                selectedEmoji === emoji && styles.emojiButtonSelected,
-                                            ]}
-                                            onPress={() => selectEmoji(emoji)}
-                                        >
-                                            <Text style={styles.emojiTextSmall}>{emoji}</Text>
-                                        </Pressable>
-                                    ))}
-                                </View>
-                            )}
-
-                            <Pressable style={styles.moreButton} onPress={toggleEmojiPicker}>
-                                <Text style={styles.moreButtonText}>
-                                    {showAllEmojis ? 'Show less' : 'More icons'}
-                                </Text>
-                                {showAllEmojis ? (
-                                    <ChevronUp size={16} color="#5856D6" />
-                                ) : (
-                                    <ChevronDown size={16} color="#5856D6" />
-                                )}
-                            </Pressable>
-                        </View>
 
                         {/* Dosage */}
                         <View style={styles.formSection}>
@@ -341,11 +269,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 24,
     },
-    emojiDisplay: {
+    iconDisplay: {
         width: 80,
         height: 80,
         borderRadius: 40,
-        backgroundColor: '#E8F5E9',
+        backgroundColor: '#F5F5F7',
         alignItems: 'center',
         justifyContent: 'center',
         shadowColor: '#000',
@@ -353,9 +281,6 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.06,
         shadowRadius: 8,
         elevation: 2,
-    },
-    emojiDisplayText: {
-        fontSize: 40,
     },
     input: {
         width: '100%',
@@ -365,78 +290,6 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         paddingVertical: 12,
         letterSpacing: -0.3,
-    },
-    emojiSection: {
-        width: '100%',
-        alignItems: 'center',
-        gap: 16,
-        backgroundColor: '#fff',
-        borderRadius: 20,
-        paddingVertical: 20,
-        paddingHorizontal: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.04,
-        shadowRadius: 4,
-        elevation: 1,
-    },
-    emojiRow: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        gap: 10,
-        flexWrap: 'wrap',
-    },
-    emojiButton: {
-        width: 46,
-        height: 46,
-        borderRadius: 23,
-        backgroundColor: '#F5F5F7',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    emojiButtonSmall: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: '#F5F5F7',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    emojiButtonSelected: {
-        backgroundColor: '#4CAF50',
-        transform: [{ scale: 1.08 }],
-        shadowColor: '#4CAF50',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 4,
-    },
-    emojiText: {
-        fontSize: 22,
-    },
-    emojiTextSmall: {
-        fontSize: 20,
-    },
-    moreButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        paddingVertical: 8,
-        paddingHorizontal: 16,
-        marginTop: 4,
-    },
-    moreButtonText: {
-        fontSize: 15,
-        color: '#5856D6',
-        fontWeight: '500',
-        letterSpacing: -0.2,
-    },
-    allEmojisGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'center',
-        gap: 10,
-        paddingTop: 8,
     },
     formSection: {
         width: '100%',
