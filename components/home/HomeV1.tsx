@@ -234,39 +234,45 @@ export function HomeV1(props: HomeVariantProps) {
           </Text>
         </View>
         {todosForDate.length > 0 ? (
-          <View style={styles.taskList}>
-            {todosForDate.map((todo, index) => (
-              <SwipeableRow key={todo.id} onDelete={() => onDeleteTodo(todo.id)}>
-                <TouchableOpacity
-                  style={[
-                    styles.taskRow,
-                    index === todosForDate.length - 1 && styles.taskRowLast,
-                  ]}
-                  onPress={() => handleTodoPress(todo.id)}
-                  activeOpacity={0.6}
-                >
-                  <View
+          <View>
+            <View style={styles.taskList}>
+              {todosForDate.map((todo, index) => (
+                <SwipeableRow key={todo.id} onDelete={() => onDeleteTodo(todo.id)}>
+                  <TouchableOpacity
                     style={[
-                      styles.checkbox,
-                      todo.completed && styles.checkboxChecked,
+                      styles.taskRow,
+                      index === todosForDate.length - 1 && styles.taskRowLast,
                     ]}
+                    onPress={() => handleTodoPress(todo.id)}
+                    activeOpacity={0.6}
                   >
-                    {todo.completed && (
-                      <Check size={12} color="#fff" strokeWidth={3} />
-                    )}
-                  </View>
-                  <Text
-                    style={[
-                      styles.taskTitle,
-                      todo.completed && styles.taskTitleCompleted,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {todo.title}
-                  </Text>
-                </TouchableOpacity>
-              </SwipeableRow>
-            ))}
+                    <View
+                      style={[
+                        styles.checkbox,
+                        todo.completed && styles.checkboxChecked,
+                      ]}
+                    >
+                      {todo.completed && (
+                        <Check size={12} color="#fff" strokeWidth={3} />
+                      )}
+                    </View>
+                    <Text
+                      style={[
+                        styles.taskTitle,
+                        todo.completed && styles.taskTitleCompleted,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {todo.title}
+                    </Text>
+                  </TouchableOpacity>
+                </SwipeableRow>
+              ))}
+            </View>
+            <TouchableOpacity style={styles.addTaskRow} onPress={onAddTodo}>
+              <Plus size={16} color="#5856D6" strokeWidth={2.5} />
+              <Text style={styles.addTaskRowText}>Add task</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.emptyState}>
@@ -496,5 +502,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#5856D6',
     fontWeight: '600',
+  },
+  addTaskRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginTop: 8,
+  },
+  addTaskRowText: {
+    fontSize: 15,
+    color: '#5856D6',
+    fontWeight: '500',
   },
 });

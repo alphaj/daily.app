@@ -11,9 +11,12 @@ import { useProjects } from '@/contexts/ProjectContext';
 import { useSupplements } from '@/contexts/SupplementContext';
 import { useGroceries } from '@/contexts/GroceryContext';
 import { useTravel } from '@/contexts/TravelContext';
+import { useTodos } from '@/contexts/TodoContext';
 import type { Habit, DayCompletion } from '@/types/habit';
 import type { Project } from '@/types/project';
 import type { Supplement } from '@/types/supplement';
+import type { Todo } from '@/types/todo';
+import { Plus } from 'lucide-react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const GRID_GAP = 12;
@@ -316,6 +319,92 @@ const QuickLinkTile = memo(function QuickLinkTile({
     );
 });
 
+const TasksTile = memo(function TasksTile({
+    todosToday,
+    completedCount,
+    onPress,
+    onAddPress,
+}: {
+    todosToday: Todo[];
+    completedCount: number;
+    onPress: () => void;
+    onAddPress: () => void;
+}) {
+    if (todosToday.length === 0) {
+        return (
+            <Pressable
+                style={({ pressed }) => [
+                    styles.tileFullWidth,
+                    styles.tasksTile,
+                    styles.emptyTile,
+                    pressed && styles.tilePressed,
+                ]}
+                onPress={() => {
+                    Haptics.selectionAsync();
+                    onAddPress();
+                }}
+            >
+                <Text style={styles.emptyTileTitle}>Add Tasks</Text>
+                <Text style={styles.emptyTileSubtitle}>Plan your day</Text>
+            </Pressable>
+        );
+    }
+
+    const pendingTodos = todosToday.filter(t => !t.completed).slice(0, 3);
+
+    return (
+        <Pressable
+            style={({ pressed }) => [
+                styles.tileFullWidth,
+                styles.tasksTile,
+                pressed && styles.tilePressed,
+            ]}
+            onPress={() => {
+                Haptics.selectionAsync();
+                onPress();
+            }}
+        >
+            <View style={styles.tasksTileHeader}>
+                <Text style={styles.tileLabel}>Tasks</Text>
+                <Text style={styles.tasksCount}>
+                    {completedCount}/{todosToday.length}
+                </Text>
+            </View>
+
+            <View style={styles.tasksTileBody}>
+                {pendingTodos.map((todo) => (
+                    <View key={todo.id} style={styles.taskPreviewRow}>
+                        <View style={styles.taskPreviewDot} />
+                        <Text style={styles.taskPreviewText} numberOfLines={1}>
+                            {todo.title}
+                        </Text>
+                    </View>
+                ))}
+                {todosToday.filter(t => !t.completed).length > 3 && (
+                    <Text style={styles.taskPreviewMore}>
+                        +{todosToday.filter(t => !t.completed).length - 3} more
+                    </Text>
+                )}
+            </View>
+
+            <Pressable
+                style={({ pressed }) => [
+                    styles.tasksAddButton,
+                    pressed && { opacity: 0.7 },
+                ]}
+                onPress={(e) => {
+                    e.stopPropagation();
+                    Haptics.selectionAsync();
+                    onAddPress();
+                }}
+            >
+                <Plus size={14} color="#007AFF" strokeWidth={2.5} />
+                <Text style={styles.tasksAddButtonText}>Add task</Text>
+            </Pressable>
+        </Pressable>
+    );
+});
+
 // --- Main Screen ---
 
 export default function LifeScreen() {
@@ -325,6 +414,7 @@ export default function LifeScreen() {
     const { activeSupplements, isTakenToday, toggleTaken } = useSupplements();
     const { stats: groceryStats } = useGroceries();
     const { activeTrips } = useTravel();
+    const { getTodosForDate } = useTodos();
 
     const todayInfo = useMemo(() => {
         const now = new Date();
@@ -349,6 +439,9 @@ export default function LifeScreen() {
     const displayHabits = useMemo(() => {
         return habitsToday.slice(0, 6);
     }, [habitsToday]);
+
+    const todosToday = useMemo(() => getTodosForDate(new Date()), [getTodosForDate]);
+    const todosCompletedToday = useMemo(() => todosToday.filter(t => t.completed).length, [todosToday]);
 
     const displayProjects = useMemo(() => activeProjects.slice(0, 2), [activeProjects]);
 
@@ -391,7 +484,15 @@ export default function LifeScreen() {
                             }}
                         />
 
-                        {/* Row 2: Two Project Tiles or single "No projects" tile */}
+                        {/* Row 2: Tasks Tile */}
+                        <TasksTile
+                            todosToday={todosToday}
+                            completedCount={todosCompletedToday}
+                            onPress={() => router.push('/')}
+                            onAddPress={() => router.push('/add-todo')}
+                        />
+
+                        {/* Row 3: Two Project Tiles or single "No projects" tile */}
                         {displayProjects.length === 0 ? (
                             <NoProjectsTile
                                 onPress={() => router.push('/add-project' as any)}
@@ -715,5 +816,64 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: '#8E8E93',
         marginTop: 2,
+    },
+
+    // --- Tasks Tile ---
+    tasksTile: {
+        backgroundColor: 'rgba(0,122,255,0.06)',
+        padding: 20,
+    },
+    tasksTileHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    tasksCount: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#007AFF',
+    },
+    tasksTileBody: {
+        gap: 8,
+    },
+    taskPreviewRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    taskPreviewDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: '#007AFF',
+    },
+    taskPreviewText: {
+        fontSize: 15,
+        fontWeight: '400',
+        color: '#1C1C1E',
+        flex: 1,
+    },
+    taskPreviewMore: {
+        fontSize: 13,
+        color: '#8E8E93',
+        marginTop: 2,
+        marginLeft: 18,
+    },
+    tasksAddButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginTop: 12,
+        alignSelf: 'flex-start',
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 16,
+        backgroundColor: 'rgba(0,122,255,0.08)',
+    },
+    tasksAddButtonText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#007AFF',
     },
 });
