@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { ChevronLeft, ChevronDown, ChevronUp } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   View,
@@ -153,13 +153,13 @@ export default function AddHabitScreen() {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               router.back();
             }}
-            style={styles.iconBtn}
+            style={styles.backBtn}
             hitSlop={8}
           >
-            <ArrowLeft size={24} color="#000" />
+            <ChevronLeft size={28} color="#007AFF" />
           </Pressable>
           <Text style={styles.headerTitle}>Add Habit</Text>
-          <View style={{ width: 40 }} />
+          <View style={{ width: 44 }} />
         </View>
 
         <ScrollView
@@ -508,29 +508,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    height: 56,
+    paddingHorizontal: 16,
+    height: 44,
   },
-  iconBtn: {
-    width: 40,
-    height: 40,
+  backBtn: {
+    width: 44,
+    height: 44,
     justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    alignItems: 'flex-start',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#000',
+    letterSpacing: -0.4,
   },
   content: {
-    padding: 20,
-    gap: 32,
+    paddingHorizontal: 16,
+    paddingTop: 16,
     paddingBottom: 40,
+    gap: 28,
   },
   heroCard: {
     borderRadius: 32,
@@ -601,12 +598,14 @@ const styles = StyleSheet.create({
 
   // Tag picker sections
   pickerSection: {
-    gap: 16,
+    gap: 12,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#333',
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#8E8E93',
+    textTransform: 'uppercase',
+    letterSpacing: -0.1,
     marginLeft: 4,
   },
   tagContainer: {
@@ -713,7 +712,9 @@ const styles = StyleSheet.create({
 
   // Footer
   footer: {
-    padding: 20,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 34,
   },
   bigButton: {
     backgroundColor: '#FF7043',

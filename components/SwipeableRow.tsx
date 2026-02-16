@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import { Animated, StyleSheet, View, I18nManager, Dimensions } from 'react-native';
 import { RectButton } from 'react-native-gesture-handler';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
-import { Trash2, CheckCircle2, Zap } from 'lucide-react-native';
+import { Trash2, CheckCircle2, Repeat } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -89,7 +89,7 @@ export default class SwipeableRow extends Component<SwipeableRowProps> {
                         style={[styles.leftAction, { backgroundColor: '#5856D6' }]}
                         onPress={this.handleConvertToHabit}
                     >
-                        <Zap size={22} color="#fff" strokeWidth={2} />
+                        <Repeat size={22} color="#fff" strokeWidth={2} />
                     </RectButton>
                 )}
             </Animated.View>

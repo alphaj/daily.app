@@ -50,7 +50,7 @@ export function BottomNavBar({ onFabPress }: BottomNavBarProps) {
             if (onFabPress) {
                 onFabPress();
             } else {
-                router.push('/?capture=1' as any);
+                router.push('/add-todo' as any);
             }
             return;
         }

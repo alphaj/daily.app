@@ -158,7 +158,7 @@ export function HomeV1(props: HomeVariantProps) {
                       </View>
                     )}
                   </View>
-                  <Text style={styles.circleLabel} numberOfLines={1}>
+                  <Text style={styles.circleLabel} numberOfLines={2}>
                     {habit.name}
                   </Text>
                 </TouchableOpacity>
@@ -213,7 +213,7 @@ export function HomeV1(props: HomeVariantProps) {
                       </View>
                     )}
                   </View>
-                  <Text style={styles.circleLabel} numberOfLines={1}>
+                  <Text style={styles.circleLabel} numberOfLines={2}>
                     {supplement.name}
                   </Text>
                 </TouchableOpacity>
@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
   // Circle Items (Habits & Supplements)
   circleItem: {
     alignItems: 'center',
-    width: 64,
+    width: 72,
   },
   circle: {
     width: 56,
@@ -413,8 +413,9 @@ const styles = StyleSheet.create({
   },
   circleLabel: {
     fontSize: 11,
+    lineHeight: 14,
     color: '#636366',
-    marginTop: 6,
+    marginTop: 4,
     textAlign: 'center',
     fontWeight: '500',
   },

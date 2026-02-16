@@ -17,7 +17,7 @@ import Animated, {
     interpolate,
     runOnJS,
 } from 'react-native-reanimated';
-import { CheckCircle2, Zap, Pill, X, ArrowUp } from 'lucide-react-native';
+import { CheckCircle2, Repeat, Pill, X, ArrowUp } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
@@ -35,7 +35,7 @@ interface CaptureBarProps {
 
 const MODES: { mode: CaptureMode | 'habit' | 'supplement'; icon: typeof CheckCircle2; label: string; color: string }[] = [
     { mode: 'task', icon: CheckCircle2, label: 'Task', color: '#007AFF' },
-    { mode: 'habit', icon: Zap, label: 'Habit', color: '#5AC8FA' },
+    { mode: 'habit', icon: Repeat, label: 'Habit', color: '#5AC8FA' },
     { mode: 'supplement', icon: Pill, label: 'Supplement', color: '#AF52DE' },
 ];
 

@@ -6,7 +6,7 @@ import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import {
     Droplets,
-    Zap,
+    Repeat,
     Pill,
     Sun,
     Moon,
@@ -115,7 +115,7 @@ export default function FlowScreen() {
                             key={h.id}
                             time="9:00 AM"
                             title={h.name}
-                            icon={Zap}
+                            icon={Repeat}
                             color="#FF9500"
                             isCompleted={h.completedDates.includes(new Date().toISOString().split('T')[0])}
                             onPress={() => router.push('/habits')}

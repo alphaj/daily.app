@@ -10,7 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { PenLine, Zap, X } from 'lucide-react-native';
+import { PenLine, Repeat, X } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -141,7 +141,7 @@ export function AddOptionsModal({
               }}
             >
               <View style={[styles.iconContainer, styles.habitIconBg]}>
-                <Zap size={32} color="#5AC8FA" strokeWidth={2} fill="#5AC8FA" fillOpacity={0.2} />
+                <Repeat size={32} color="#5AC8FA" strokeWidth={2} fill="#5AC8FA" fillOpacity={0.2} />
               </View>
               <View style={styles.textContainer}>
                 <Text style={styles.optionTitle}>Habit</Text>

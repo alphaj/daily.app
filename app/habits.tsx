@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import {
-    Zap,
+    Repeat,
     Check,
     Plus,
     TrendingUp,
@@ -186,7 +186,7 @@ export default function HabitsScreen() {
                 {/* Header */}
                 <View style={styles.header}>
                     <View style={styles.headerLeft}>
-                        <Zap size={24} color="#000" strokeWidth={2} />
+                        <Repeat size={24} color="#000" strokeWidth={2} />
                         <Text style={styles.headerTitle}>Habits</Text>
                     </View>
                     <View style={styles.headerButtons}>
@@ -279,7 +279,7 @@ export default function HabitsScreen() {
                     <View style={styles.habitsList}>
                         {filteredHabits.length === 0 ? (
                             <View style={styles.emptyState}>
-                                <Zap size={48} color="#C7C7CC" strokeWidth={1} />
+                                <Repeat size={48} color="#C7C7CC" strokeWidth={1} />
                                 <Text style={styles.emptyTitle}>
                                     {activeTab === 'building' ? 'No habits to build' : 'No habits to break'}
                                 </Text>

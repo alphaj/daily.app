@@ -393,7 +393,7 @@ export default function HomeScreen() {
 
   const handleAddPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setIsCaptureOpen(true);
+    router.push('/add-todo');
   };
 
   const handleAddTask = () => {
