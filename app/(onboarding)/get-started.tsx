@@ -11,10 +11,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { ChevronRight } from 'lucide-react-native';
 import LottieView from 'lottie-react-native';
-
 export default function GetStartedScreen() {
     const router = useRouter();
-
     const handleGetStarted = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         router.push('/(onboarding)/notifications');
@@ -105,7 +103,7 @@ const styles = StyleSheet.create({
         color: '#1c1c1e',
         lineHeight: 60,
         textTransform: 'lowercase',
-        marginBottom: 40,
+        marginBottom: 24,
         letterSpacing: -2,
     },
     bottomActions: {

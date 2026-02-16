@@ -2,8 +2,10 @@ import React, { useMemo, useCallback, memo } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ChevronRight, Check } from 'lucide-react-native';
+import { ChevronRight, Check, Settings, Inbox } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import { format } from 'date-fns';
+import { useInbox } from '@/contexts/InboxContext';
 import { AmbientBackground } from '@/components/AmbientBackground';
 import { BottomNavBar } from '@/components/BottomNavBar';
 import { useHabits } from '@/contexts/HabitContext';
@@ -398,7 +400,7 @@ const TasksTile = memo(function TasksTile({
                     onAddPress();
                 }}
             >
-                <Plus size={14} color="#007AFF" strokeWidth={2.5} />
+                <Plus size={14} color="#5AC8FA" strokeWidth={2.5} />
                 <Text style={styles.tasksAddButtonText}>Add task</Text>
             </Pressable>
         </Pressable>
@@ -409,6 +411,7 @@ const TasksTile = memo(function TasksTile({
 
 export default function LifeScreen() {
     const router = useRouter();
+    const { items: inboxItems } = useInbox();
     const { habits, isCompletedToday, getWeeklyProgress } = useHabits();
     const { activeProjects, getProjectProgress } = useProjects();
     const { activeSupplements, isTakenToday, toggleTaken } = useSupplements();
@@ -462,9 +465,37 @@ export default function LifeScreen() {
             <AmbientBackground />
             <SafeAreaView edges={['top']} style={styles.safeArea}>
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
-                    {/* Page Title */}
-                    <View style={styles.pageHeader}>
-                        <Text style={styles.pageTitle}>Life</Text>
+                    {/* Header */}
+                    <View style={styles.headerContainer}>
+                        <View style={styles.headerTopRow}>
+                            <Text style={styles.headerDateLabel}>
+                                {format(new Date(), 'EEEE, MMMM d').toUpperCase()}
+                            </Text>
+                            <View style={styles.headerActions}>
+                                <Pressable
+                                    style={({ pressed }) => [styles.headerIconButton, pressed && { opacity: 0.6 }]}
+                                    onPress={() => router.push('/menu')}
+                                >
+                                    <Settings size={20} color="#8E8E93" />
+                                </Pressable>
+                                <Pressable
+                                    style={({ pressed }) => [styles.headerIconButton, pressed && { opacity: 0.6 }]}
+                                    onPress={() => router.push('/inbox')}
+                                >
+                                    <Inbox size={20} color="#007AFF" />
+                                    {inboxItems.length > 0 && (
+                                        <View style={styles.headerBadge}>
+                                            <Text style={styles.headerBadgeText}>
+                                                {inboxItems.length > 9 ? '9+' : inboxItems.length}
+                                            </Text>
+                                        </View>
+                                    )}
+                                </Pressable>
+                            </View>
+                        </View>
+                        <View style={styles.headerTitleRow}>
+                            <Text style={styles.headerLargeTitle}>Life</Text>
+                        </View>
                     </View>
 
                     {/* Grid Container */}
@@ -568,17 +599,67 @@ const styles = StyleSheet.create({
         flex: 1,
     },
 
-    // Page Header
-    pageHeader: {
-        paddingHorizontal: GRID_PADDING,
-        marginTop: 8,
-        marginBottom: 20,
+    // Header
+    headerContainer: {
+        paddingTop: 10,
+        paddingBottom: 4,
+        marginBottom: 12,
     },
-    pageTitle: {
-        fontSize: 28,
+    headerTopRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        marginBottom: 4,
+        height: 32,
+    },
+    headerDateLabel: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#8E8E93',
+        letterSpacing: 0.5,
+    },
+    headerActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    headerIconButton: {
+        width: 32,
+        height: 32,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 16,
+        backgroundColor: 'rgba(242, 242, 247, 0.8)',
+    },
+    headerBadge: {
+        position: 'absolute',
+        top: -2,
+        right: -2,
+        backgroundColor: '#FF3B30',
+        minWidth: 16,
+        height: 16,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 3,
+        borderWidth: 1.5,
+        borderColor: '#fff',
+    },
+    headerBadgeText: {
+        fontSize: 9,
         fontWeight: '700',
+        color: '#fff',
+    },
+    headerTitleRow: {
+        paddingHorizontal: 20,
+        marginBottom: 4,
+    },
+    headerLargeTitle: {
+        fontSize: 34,
+        fontWeight: '800',
         color: '#000',
-        letterSpacing: -0.8,
+        letterSpacing: 0.3,
     },
 
     // Grid Layout
@@ -647,7 +728,7 @@ const styles = StyleSheet.create({
 
     // --- Habit Tile ---
     habitTile: {
-        backgroundColor: 'rgba(52,199,89,0.06)',
+        backgroundColor: 'rgba(90,200,250,0.06)',
         height: 160,
         padding: 20,
     },
@@ -657,7 +738,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     habitPercentageBadge: {
-        backgroundColor: 'rgba(52,199,89,0.12)',
+        backgroundColor: 'rgba(90,200,250,0.12)',
         paddingHorizontal: 10,
         paddingVertical: 3,
         borderRadius: 10,
@@ -665,7 +746,7 @@ const styles = StyleSheet.create({
     habitPercentageText: {
         fontSize: 13,
         fontWeight: '700',
-        color: '#34C759',
+        color: '#5AC8FA',
     },
     habitTileBody: {
         flex: 1,
@@ -674,7 +755,7 @@ const styles = StyleSheet.create({
     habitBigNumber: {
         fontSize: 40,
         fontWeight: '800',
-        color: '#34C759',
+        color: '#5AC8FA',
         letterSpacing: -1,
     },
     habitCountLabel: {
@@ -694,7 +775,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     habitEmojiCircleComplete: {
-        backgroundColor: 'rgba(52,199,89,0.15)',
+        backgroundColor: 'rgba(90,200,250,0.15)',
     },
     habitEmojiCircleIncomplete: {
         backgroundColor: 'rgba(60,60,67,0.08)',
@@ -745,7 +826,7 @@ const styles = StyleSheet.create({
 
     // --- Supplements Tile ---
     supplementsTile: {
-        backgroundColor: 'rgba(175,82,222,0.06)',
+        backgroundColor: 'rgba(90,200,250,0.06)',
         padding: 20,
     },
     supplementsTileHeader: {
@@ -757,7 +838,7 @@ const styles = StyleSheet.create({
     supplementsCount: {
         fontSize: 13,
         fontWeight: '600',
-        color: '#AF52DE',
+        color: '#5AC8FA',
     },
     supplementsRow: {
         flexDirection: 'row',
@@ -772,8 +853,8 @@ const styles = StyleSheet.create({
         borderWidth: 2,
     },
     supplementChipTaken: {
-        borderColor: '#34C759',
-        backgroundColor: 'rgba(52,199,89,0.08)',
+        borderColor: '#5AC8FA',
+        backgroundColor: 'rgba(90,200,250,0.08)',
     },
     supplementChipNotTaken: {
         borderColor: 'rgba(60,60,67,0.15)',
@@ -789,7 +870,7 @@ const styles = StyleSheet.create({
         width: 16,
         height: 16,
         borderRadius: 8,
-        backgroundColor: '#34C759',
+        backgroundColor: '#5AC8FA',
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -820,7 +901,7 @@ const styles = StyleSheet.create({
 
     // --- Tasks Tile ---
     tasksTile: {
-        backgroundColor: 'rgba(0,122,255,0.06)',
+        backgroundColor: 'rgba(90,200,250,0.06)',
         padding: 20,
     },
     tasksTileHeader: {
@@ -832,7 +913,7 @@ const styles = StyleSheet.create({
     tasksCount: {
         fontSize: 13,
         fontWeight: '600',
-        color: '#007AFF',
+        color: '#5AC8FA',
     },
     tasksTileBody: {
         gap: 8,
@@ -846,7 +927,7 @@ const styles = StyleSheet.create({
         width: 8,
         height: 8,
         borderRadius: 4,
-        backgroundColor: '#007AFF',
+        backgroundColor: '#5AC8FA',
     },
     taskPreviewText: {
         fontSize: 15,
@@ -869,11 +950,11 @@ const styles = StyleSheet.create({
         paddingVertical: 6,
         paddingHorizontal: 12,
         borderRadius: 16,
-        backgroundColor: 'rgba(0,122,255,0.08)',
+        backgroundColor: 'rgba(90,200,250,0.08)',
     },
     tasksAddButtonText: {
         fontSize: 13,
         fontWeight: '600',
-        color: '#007AFF',
+        color: '#5AC8FA',
     },
 });

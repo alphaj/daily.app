@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Sun, Moon, Check, ChevronRight, Sparkles } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { format, isToday, subDays } from 'date-fns';
+import { useOnboarding } from '@/contexts/OnboardingContext';
 
 const MORNING_PROMPT_KEY = 'last_morning_prompt';
 const EVENING_PROMPT_KEY = 'last_evening_prompt';
@@ -48,6 +49,8 @@ export function DailySummaryModal({
     pendingTasks = 0,
 }: DailySummaryModalProps) {
     const insets = useSafeAreaInsets();
+    const { state: onboardingState } = useOnboarding();
+    const userName = onboardingState.responses.name;
     const timeOfDay = getTimeOfDay();
     const fade = useSharedValue(0);
     const slide = useSharedValue(50);
@@ -105,7 +108,9 @@ export function DailySummaryModal({
                             )}
                         </View>
                         <Text style={styles.greeting}>
-                            {isMorning ? 'Good morning!' : 'Good evening!'}
+                            {isMorning
+                                ? `Good morning${userName ? `, ${userName}` : ''}!`
+                                : `Good evening${userName ? `, ${userName}` : ''}!`}
                         </Text>
                         <Text style={styles.date}>{format(new Date(), 'EEEE, MMM d')}</Text>
                     </View>

@@ -3,6 +3,7 @@ export type FallsThrough = 'later' | 'annoying' | 'no-home' | 'promises';
 export type CurrentFeeling = 'overwhelmed' | 'scattered' | 'stuck' | 'hopeful';
 
 export interface OnboardingResponses {
+    name: string;
     email: string;
     notificationsEnabled: boolean;
     losesDayAt: LosesDayAt | null;
@@ -30,6 +31,7 @@ export const ONBOARDING_STEPS = [
 export type OnboardingStep = typeof ONBOARDING_STEPS[number];
 
 export const defaultOnboardingResponses: OnboardingResponses = {
+    name: '',
     email: '',
     notificationsEnabled: false,
     losesDayAt: null,

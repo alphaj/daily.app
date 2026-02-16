@@ -31,12 +31,12 @@ export function AmbientBackground() {
     // Interpolate colors for the dynamic orbs
     const orb1Color = modeAnim.interpolate({
         inputRange: [0, 1],
-        outputRange: ['rgba(255, 180, 120, 0.15)', 'rgba(120, 180, 255, 0.12)'] // Warm Orange -> Cool Blue
+        outputRange: ['rgba(90, 200, 250, 0.15)', 'rgba(88, 86, 214, 0.12)'] // Teal -> Indigo
     });
 
     const orb2Color = modeAnim.interpolate({
         inputRange: [0, 1],
-        outputRange: ['rgba(255, 220, 180, 0.15)', 'rgba(200, 220, 255, 0.12)'] // Soft Yellow -> Soft Indigo
+        outputRange: ['rgba(90, 200, 250, 0.10)', 'rgba(88, 86, 214, 0.10)'] // Teal -> Indigo
     });
 
     return (

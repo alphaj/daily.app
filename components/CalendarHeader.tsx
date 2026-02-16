@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,9 @@ interface CalendarHeaderProps {
   headerLeft?: React.ReactNode;
 }
 
+const SEGMENT_WIDTH = 72;
+const SEGMENT_HEIGHT = 30;
+
 /**
  * CalendarHeader: Compact header with date, mode toggle, and inbox.
  */
@@ -35,19 +38,35 @@ export function CalendarHeader({
 }: CalendarHeaderProps) {
   const { currentMode, setMode } = useWorkMode();
   const isWork = currentMode === 'work';
-  const modeScale = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(isWork ? 1 : 0)).current;
 
   const today = new Date();
   const isToday = isSameDay(selectedDate, today);
 
-  const handleModeToggle = useCallback(() => {
+  useEffect(() => {
+    Animated.spring(slideAnim, {
+      toValue: isWork ? 1 : 0,
+      useNativeDriver: false,
+      tension: 120,
+      friction: 14,
+    }).start();
+  }, [isWork]);
+
+  const handleSelectMode = useCallback((mode: 'life' | 'work') => {
+    if (mode === currentMode) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Animated.sequence([
-      Animated.timing(modeScale, { toValue: 0.9, duration: 100, useNativeDriver: true }),
-      Animated.timing(modeScale, { toValue: 1, duration: 150, useNativeDriver: true })
-    ]).start();
-    setMode(isWork ? 'life' : 'work');
-  }, [isWork, setMode]);
+    setMode(mode);
+  }, [currentMode, setMode]);
+
+  const thumbLeft = slideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [2, SEGMENT_WIDTH + 2],
+  });
+
+  const thumbColor = slideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['#5AC8FA', '#5856D6'],
+  });
 
   return (
     <View style={styles.container}>
@@ -82,28 +101,43 @@ export function CalendarHeader({
         </View>
       </View>
 
-      {/* Large Title Row with capsules */}
+      {/* Large Title Row with segmented toggle */}
       <View style={styles.titleRow}>
         <Pressable onPress={onOpenCalendar}>
           <Text style={styles.largeTitle}>{isToday ? 'Today' : format(selectedDate, 'MMM d')}</Text>
         </Pressable>
 
-        <View style={styles.capsuleRow}>
-          {/* Mode Toggle */}
-          <Pressable onPress={handleModeToggle}>
-            <Animated.View style={[
-              styles.focusCapsule,
-              { transform: [{ scale: modeScale }] }
-            ]}>
-              {isWork ? (
-                <Briefcase size={12} color="#5856D6" strokeWidth={2.5} />
-              ) : (
-                <Sun size={12} color="#FF9500" strokeWidth={2.5} />
-              )}
-              <Text style={styles.focusLabel}>
-                {isWork ? 'Work' : 'Life'}
-              </Text>
-            </Animated.View>
+        {/* Segmented Control */}
+        <View style={styles.segmentedTrack}>
+          {/* Sliding thumb */}
+          <Animated.View
+            style={[
+              styles.segmentedThumb,
+              {
+                left: thumbLeft,
+                backgroundColor: thumbColor,
+              },
+            ]}
+          />
+          {/* Life option */}
+          <Pressable
+            style={styles.segmentedOption}
+            onPress={() => handleSelectMode('life')}
+          >
+            <Sun size={12} color={isWork ? '#8E8E93' : '#fff'} strokeWidth={2.5} />
+            <Text style={[styles.segmentedLabel, !isWork && styles.segmentedLabelActive]}>
+              Life
+            </Text>
+          </Pressable>
+          {/* Work option */}
+          <Pressable
+            style={styles.segmentedOption}
+            onPress={() => handleSelectMode('work')}
+          >
+            <Briefcase size={12} color={isWork ? '#fff' : '#8E8E93'} strokeWidth={2.5} />
+            <Text style={[styles.segmentedLabel, isWork && styles.segmentedLabelActive]}>
+              Work
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -177,23 +211,42 @@ const styles = StyleSheet.create({
     color: '#000',
     letterSpacing: 0.3,
   },
-  capsuleRow: {
+  // Segmented control
+  segmentedTrack: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  focusCapsule: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 32,
-    paddingHorizontal: 12,
-    borderRadius: 16,
     backgroundColor: '#F2F2F7',
-    gap: 6,
+    borderRadius: 18,
+    height: SEGMENT_HEIGHT + 4,
+    width: SEGMENT_WIDTH * 2 + 4,
+    alignItems: 'center',
+    position: 'relative',
   },
-  focusLabel: {
+  segmentedThumb: {
+    position: 'absolute',
+    width: SEGMENT_WIDTH,
+    height: SEGMENT_HEIGHT,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  segmentedOption: {
+    width: SEGMENT_WIDTH,
+    height: SEGMENT_HEIGHT + 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    zIndex: 1,
+  },
+  segmentedLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#000',
+    color: '#8E8E93',
+  },
+  segmentedLabelActive: {
+    color: '#fff',
   },
 });

@@ -17,7 +17,7 @@ export function WorkToggleRow({ isWork, onToggle }: WorkToggleRowProps) {
     return (
         <View style={styles.row}>
             <View style={styles.left}>
-                <View style={[styles.iconContainer, { backgroundColor: isWork ? '#007AFF' : '#8E8E93' }]}>
+                <View style={[styles.iconContainer, { backgroundColor: isWork ? '#5856D6' : '#8E8E93' }]}>
                     <Briefcase size={18} color="#fff" />
                 </View>
                 <Text style={styles.label}>Work Related</Text>
@@ -25,7 +25,7 @@ export function WorkToggleRow({ isWork, onToggle }: WorkToggleRowProps) {
             <Switch
                 value={isWork}
                 onValueChange={handleToggle}
-                trackColor={{ false: '#E5E5EA', true: '#007AFF' }}
+                trackColor={{ false: '#E5E5EA', true: '#5856D6' }}
                 thumbColor="#fff"
                 ios_backgroundColor="#E5E5EA"
             />

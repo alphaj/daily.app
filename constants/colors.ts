@@ -1,5 +1,5 @@
 // template
-const tintColorLight = "#2f95dc";
+const tintColorLight = "#5AC8FA";
 
 export default {
   light: {

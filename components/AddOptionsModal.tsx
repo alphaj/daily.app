@@ -141,7 +141,7 @@ export function AddOptionsModal({
               }}
             >
               <View style={[styles.iconContainer, styles.habitIconBg]}>
-                <Zap size={32} color="#FF9500" strokeWidth={2} fill="#FF9500" fillOpacity={0.2} />
+                <Zap size={32} color="#5AC8FA" strokeWidth={2} fill="#5AC8FA" fillOpacity={0.2} />
               </View>
               <View style={styles.textContainer}>
                 <Text style={styles.optionTitle}>Habit</Text>
@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E3F2FD', // Light Blue
   },
   habitIconBg: {
-    backgroundColor: '#FFF3E0', // Light Orange
+    backgroundColor: '#E0F7FA', // Light Teal
   },
   textContainer: {
     flex: 1,

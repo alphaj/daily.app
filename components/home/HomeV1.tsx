@@ -10,15 +10,18 @@ import { format } from 'date-fns';
 import * as Haptics from 'expo-haptics';
 import { Check, Plus } from 'lucide-react-native';
 import SwipeableRow from '@/components/SwipeableRow';
+import { useOnboarding } from '@/contexts/OnboardingContext';
+import { useWorkMode } from '@/contexts/WorkModeContext';
 import type { HomeVariantProps } from './types';
 import type { Habit } from '@/types/habit';
 import type { Supplement } from '@/types/supplement';
 
-function getGreeting(): string {
+function getGreeting(name?: string): string {
   const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 17) return 'Good afternoon';
-  return 'Good evening';
+  let greeting = 'Good evening';
+  if (hour < 12) greeting = 'Good morning';
+  else if (hour < 17) greeting = 'Good afternoon';
+  return name ? `${greeting}, ${name}` : greeting;
 }
 
 export function HomeV1(props: HomeVariantProps) {
@@ -43,6 +46,12 @@ export function HomeV1(props: HomeVariantProps) {
     onDeleteTodo,
     onAddTodo,
   } = props;
+
+  const { state: onboardingState } = useOnboarding();
+  const { isWorkMode } = useWorkMode();
+  const userName = onboardingState.responses.name || undefined;
+  const accent = isWorkMode ? '#5856D6' : '#5AC8FA';
+  const accentBg = isWorkMode ? '#F5F3FF' : '#E0F7FA';
 
   const totalItems = displayHabits.length + activeSupplements.length + todosForDate.length;
   const totalDone = habitsCompleted + pillsTaken + tasksCompleted;
@@ -91,11 +100,11 @@ export function HomeV1(props: HomeVariantProps) {
       contentContainerStyle={styles.contentContainer}
     >
       {/* Hero Greeting Card */}
-      <View style={styles.heroCard}>
-        <Text style={styles.greeting}>{getGreeting()}</Text>
+      <View style={[styles.heroCard, { backgroundColor: accentBg }]}>
+        <Text style={styles.greeting}>{getGreeting(userName)}</Text>
         <Text style={styles.dateLabel}>{dateLabel}</Text>
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryText}>
+          <Text style={[styles.summaryText, { color: accent }]}>
             {totalDone} of {totalItems} things done
           </Text>
         </View>
@@ -103,7 +112,7 @@ export function HomeV1(props: HomeVariantProps) {
           <View
             style={[
               styles.progressBarFill,
-              { width: `${Math.round(progress * 100)}%` },
+              { width: `${Math.round(progress * 100)}%`, backgroundColor: accent },
             ]}
           />
         </View>
@@ -115,7 +124,7 @@ export function HomeV1(props: HomeVariantProps) {
           <Text style={styles.sectionTitle}>Habits</Text>
           {hasMoreHabits && (
             <TouchableOpacity onPress={onAddHabit}>
-              <Text style={styles.seeAllText}>See all</Text>
+              <Text style={[styles.seeAllText, { color: accent }]}>See all</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -159,9 +168,9 @@ export function HomeV1(props: HomeVariantProps) {
         ) : (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>No habits yet</Text>
-            <TouchableOpacity style={styles.addButton} onPress={onAddHabit}>
-              <Plus size={16} color="#5856D6" strokeWidth={2.5} />
-              <Text style={styles.addButtonText}>Add habit</Text>
+            <TouchableOpacity style={[styles.addButton, { backgroundColor: accentBg }]} onPress={onAddHabit}>
+              <Plus size={16} color={accent} strokeWidth={2.5} />
+              <Text style={[styles.addButtonText, { color: accent }]}>Add habit</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -215,11 +224,11 @@ export function HomeV1(props: HomeVariantProps) {
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>No supplements yet</Text>
             <TouchableOpacity
-              style={styles.addButton}
+              style={[styles.addButton, { backgroundColor: accentBg }]}
               onPress={onAddSupplement}
             >
-              <Plus size={16} color="#5856D6" strokeWidth={2.5} />
-              <Text style={styles.addButtonText}>Add supplement</Text>
+              <Plus size={16} color={accent} strokeWidth={2.5} />
+              <Text style={[styles.addButtonText, { color: accent }]}>Add supplement</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -249,7 +258,7 @@ export function HomeV1(props: HomeVariantProps) {
                     <View
                       style={[
                         styles.checkbox,
-                        todo.completed && styles.checkboxChecked,
+                        todo.completed && [styles.checkboxChecked, { backgroundColor: accent, borderColor: accent }],
                       ]}
                     >
                       {todo.completed && (
@@ -270,16 +279,16 @@ export function HomeV1(props: HomeVariantProps) {
               ))}
             </View>
             <TouchableOpacity style={styles.addTaskRow} onPress={onAddTodo}>
-              <Plus size={16} color="#5856D6" strokeWidth={2.5} />
-              <Text style={styles.addTaskRowText}>Add task</Text>
+              <Plus size={16} color={accent} strokeWidth={2.5} />
+              <Text style={[styles.addTaskRowText, { color: accent }]}>Add task</Text>
             </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>No tasks for today</Text>
-            <TouchableOpacity style={styles.addButton} onPress={onAddTodo}>
-              <Plus size={16} color="#5856D6" strokeWidth={2.5} />
-              <Text style={styles.addButtonText}>Add task</Text>
+            <TouchableOpacity style={[styles.addButton, { backgroundColor: accentBg }]} onPress={onAddTodo}>
+              <Plus size={16} color={accent} strokeWidth={2.5} />
+              <Text style={[styles.addButtonText, { color: accent }]}>Add task</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -390,14 +399,14 @@ const styles = StyleSheet.create({
     borderColor: '#E5E5EA',
   },
   circleCompleted: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E0F7FA',
     borderWidth: 1.5,
-    borderColor: '#A5D6A7',
+    borderColor: '#80DEEA',
   },
   circleSupplementTaken: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: '#E0F7FA',
     borderWidth: 1.5,
-    borderColor: '#90CAF9',
+    borderColor: '#80DEEA',
   },
   circleEmoji: {
     fontSize: 24,
@@ -416,7 +425,7 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#5AC8FA',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
@@ -429,7 +438,7 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: '#2196F3',
+    backgroundColor: '#5AC8FA',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,

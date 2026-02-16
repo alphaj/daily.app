@@ -44,15 +44,15 @@ export const MODE_CONFIG: Record<WorkModeState, {
     work: {
         label: 'Work',
         emoji: '💼',
-        color: '#007AFF',
-        backgroundColor: 'rgba(0, 122, 255, 0.08)',
+        color: '#5856D6',
+        backgroundColor: 'rgba(88, 86, 214, 0.08)',
         message: 'Stay focused',
     },
     life: {
         label: 'Life',
         emoji: '🌿',
-        color: '#34C759',
-        backgroundColor: 'rgba(52, 199, 89, 0.08)',
+        color: '#5AC8FA',
+        backgroundColor: 'rgba(90, 200, 250, 0.08)',
         message: 'Enjoy your time',
     },
 };

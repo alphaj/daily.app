@@ -41,7 +41,7 @@ export function WorkModeIndicator() {
 
     const glowColor = animation.interpolate({
         inputRange: [0, 1],
-        outputRange: ['#FF9500', '#5856D6'], // Amber for Life, Indigo for Work
+        outputRange: ['#5AC8FA', '#5856D6'], // Teal for Life, Indigo for Work
     });
 
     return (

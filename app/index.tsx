@@ -300,7 +300,7 @@ function CalendarModal({
                       <Text style={styles.dateSummaryStat}>No tasks</Text>
                     )}
                     {selectedHabits.completed > 0 && (
-                      <Text style={[styles.dateSummaryStat, { color: '#34C759' }]}>
+                      <Text style={[styles.dateSummaryStat, { color: '#5AC8FA' }]}>
                         {selectedHabits.completed} ✓
                       </Text>
                     )}
@@ -338,7 +338,7 @@ export default function HomeScreen() {
     deleteHabit,
     getCelebrationPhrase,
   } = useHabits();
-  const { hasNoteForDate, getNoteForDate, updateNoteForDate, isSaving: isNoteSaving } = useNotes();
+  const { hasNoteForDate } = useNotes();
   const { items: inboxItems } = useInbox();
   const { shouldShowItem } = useWorkMode();
   const { activeSupplements, toggleTaken, isComplete, deleteSupplement } = useSupplements();
@@ -497,11 +497,6 @@ export default function HomeScreen() {
         <HomeV1 {...variantProps} />
 
         <CaptureBar
-          noteText={getNoteForDate(selectedDate)}
-          onNoteChange={(text) => updateNoteForDate(selectedDate, text)}
-          isSaving={isNoteSaving}
-          selectedDate={selectedDate}
-          isToday={isToday}
           visible={isCaptureOpen}
           onClose={() => setIsCaptureOpen(false)}
         />
@@ -690,7 +685,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#007AFF',
   },
   activityDotHabit: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#5AC8FA',
   },
   activityDotNote: {
     backgroundColor: '#AF52DE',

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Daily",
     "slug": "daily-habit-tracker-t8o4w6l",
-    "version": "7.0.3",
+    "version": "9.9.9",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "rork-app",
@@ -88,8 +88,9 @@
         "origin": "https://trydailyapp.com/"
       },
       "eas": {
-        "projectId": "2791eafe-c0d7-4657-8f8d-0e40d936566e"
+        "projectId": "197daccc-704c-4226-a812-db8a9f6d63f2"
       }
-    }
+    },
+    "owner": "jaymokashi"
   }
 }

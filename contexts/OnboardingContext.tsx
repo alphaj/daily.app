@@ -20,6 +20,7 @@ interface OnboardingContextType {
     previousStep: () => void;
     goToStep: (step: number) => void;
     // Setters
+    setName: (name: string) => void;
     setEmail: (email: string) => void;
     setNotificationsEnabled: (enabled: boolean) => void;
     setLosesDayAt: (value: LosesDayAt) => void;
@@ -110,6 +111,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     };
 
     // Setters
+    const setName = (name: string) => updateResponses({ name });
     const setEmail = (email: string) => updateResponses({ email });
     const setNotificationsEnabled = (enabled: boolean) => updateResponses({ notificationsEnabled: enabled });
     const setLosesDayAt = (value: LosesDayAt) => updateResponses({ losesDayAt: value });
@@ -144,6 +146,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
                 nextStep,
                 previousStep,
                 goToStep,
+                setName,
                 setEmail,
                 setNotificationsEnabled,
                 setLosesDayAt,

@@ -59,7 +59,7 @@ export function WorkModeToggle({ compact = false, showLabel = true }: WorkModeTo
     // Interpolated colors
     const backgroundColor = slideAnim.interpolate({
         inputRange: [0, 1],
-        outputRange: ['rgba(52, 199, 89, 0.12)', 'rgba(0, 122, 255, 0.12)'],
+        outputRange: ['rgba(90, 200, 250, 0.12)', 'rgba(88, 86, 214, 0.12)'],
     });
 
     const thumbPosition = slideAnim.interpolate({
@@ -69,7 +69,7 @@ export function WorkModeToggle({ compact = false, showLabel = true }: WorkModeTo
 
     const thumbColor = slideAnim.interpolate({
         inputRange: [0, 1],
-        outputRange: ['#34C759', '#007AFF'],
+        outputRange: ['#5AC8FA', '#5856D6'],
     });
 
     if (compact) {
@@ -105,10 +105,10 @@ export function WorkModeToggle({ compact = false, showLabel = true }: WorkModeTo
                     {/* Background icons */}
                     <View style={styles.iconRow}>
                         <View style={[styles.bgIcon, { opacity: isWorkMode ? 0.3 : 1 }]}>
-                            <Leaf size={16} color="#34C759" strokeWidth={2} />
+                            <Leaf size={16} color="#5AC8FA" strokeWidth={2} />
                         </View>
                         <View style={[styles.bgIcon, { opacity: isWorkMode ? 1 : 0.3 }]}>
-                            <Briefcase size={16} color="#007AFF" strokeWidth={2} />
+                            <Briefcase size={16} color="#5856D6" strokeWidth={2} />
                         </View>
                     </View>
 
