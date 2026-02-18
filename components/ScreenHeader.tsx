@@ -5,6 +5,7 @@ import {
     StyleSheet,
     Pressable,
 } from 'react-native';
+import { Fonts } from '@/lib/typography';
 
 interface ScreenHeaderProps {
     title: string;
@@ -83,7 +84,8 @@ const styles = StyleSheet.create({
     },
     largeTitle: {
         fontSize: 34,
-        fontWeight: '800',
+        fontFamily: Fonts.heading,
+        fontWeight: '700',
         color: '#000',
         letterSpacing: 0.3,
     },

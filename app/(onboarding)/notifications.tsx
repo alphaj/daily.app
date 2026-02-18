@@ -11,6 +11,7 @@ import { useRouter } from 'expo-router';
 import { ChevronLeft, Bell } from 'lucide-react-native';
 import * as Notifications from 'expo-notifications';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { Fonts } from '@/lib/typography';
 
 export default function NotificationsScreen() {
     const router = useRouter();
@@ -143,6 +144,7 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 32,
+        fontFamily: Fonts.heading,
         fontWeight: '700',
         color: '#000',
         lineHeight: 40,

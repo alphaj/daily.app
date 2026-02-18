@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { ChevronRight } from 'lucide-react-native';
 import LottieView from 'lottie-react-native';
+import { Fonts } from '@/lib/typography';
 export default function GetStartedScreen() {
     const router = useRouter();
     const handleGetStarted = () => {
@@ -99,7 +100,8 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 64,
-        fontWeight: '900',
+        fontFamily: Fonts.heading,
+        fontWeight: '700',
         color: '#1c1c1e',
         lineHeight: 60,
         textTransform: 'lowercase',

@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import { Animated, StyleSheet, View, I18nManager, Dimensions } from 'react-native';
 import { RectButton } from 'react-native-gesture-handler';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
-import { Trash2, CheckCircle2, Repeat } from 'lucide-react-native';
+import { Trash2, CheckCircle2 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -11,7 +11,6 @@ interface SwipeableRowProps {
     children: React.ReactNode;
     onDelete: () => void;
     onConvertToTask?: () => void;
-    onConvertToHabit?: () => void;
     rightActionColor?: string;
     rightActionIcon?: React.ReactNode;
     leftActionIcon?: React.ReactNode;
@@ -60,13 +59,13 @@ export default class SwipeableRow extends Component<SwipeableRowProps> {
         progress: Animated.AnimatedInterpolation<number>,
         _dragAnimatedValue: Animated.AnimatedInterpolation<number>
     ) => {
-        const { onConvertToTask, onConvertToHabit } = this.props;
+        const { onConvertToTask } = this.props;
 
-        if (!onConvertToTask && !onConvertToHabit) return null;
+        if (!onConvertToTask) return null;
 
         const trans = progress.interpolate({
             inputRange: [0, 1],
-            outputRange: [-128, 0],
+            outputRange: [-64, 0],
         });
 
         return (
@@ -76,22 +75,12 @@ export default class SwipeableRow extends Component<SwipeableRowProps> {
                     { transform: [{ translateX: trans }] }
                 ]}
             >
-                {onConvertToTask && (
-                    <RectButton
-                        style={[styles.leftAction, { backgroundColor: '#34C759' }]}
-                        onPress={this.handleConvertToTask}
-                    >
-                        {this.props.leftActionIcon || <CheckCircle2 size={22} color="#fff" strokeWidth={2} />}
-                    </RectButton>
-                )}
-                {onConvertToHabit && (
-                    <RectButton
-                        style={[styles.leftAction, { backgroundColor: '#5856D6' }]}
-                        onPress={this.handleConvertToHabit}
-                    >
-                        <Repeat size={22} color="#fff" strokeWidth={2} />
-                    </RectButton>
-                )}
+                <RectButton
+                    style={[styles.leftAction, { backgroundColor: '#34C759' }]}
+                    onPress={this.handleConvertToTask}
+                >
+                    {this.props.leftActionIcon || <CheckCircle2 size={22} color="#fff" strokeWidth={2} />}
+                </RectButton>
             </Animated.View>
         );
     };
@@ -111,11 +100,6 @@ export default class SwipeableRow extends Component<SwipeableRowProps> {
         this.props.onConvertToTask?.();
     };
 
-    private handleConvertToHabit = () => {
-        this.swipeableRow?.close();
-        this.props.onConvertToHabit?.();
-    };
-
     private handleSwipeableOpen = (direction: 'left' | 'right') => {
         // Only provide haptic feedback when fully swiped
         // User must tap the delete button to actually delete
@@ -125,8 +109,8 @@ export default class SwipeableRow extends Component<SwipeableRowProps> {
     };
 
     render() {
-        const { children, onConvertToTask, onConvertToHabit, style } = this.props;
-        const hasLeftActions = onConvertToTask || onConvertToHabit;
+        const { children, onConvertToTask, style } = this.props;
+        const hasLeftActions = !!onConvertToTask;
 
         return (
             <Swipeable
@@ -148,7 +132,7 @@ export default class SwipeableRow extends Component<SwipeableRowProps> {
 
 const styles = StyleSheet.create({
     leftActionsContainer: {
-        width: 128,
+        width: 64,
         flexDirection: 'row',
     },
     leftAction: {

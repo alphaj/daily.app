@@ -10,6 +10,7 @@ import { Inbox, Briefcase, Sun, Settings } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { format, isSameDay } from 'date-fns';
 import { useWorkMode } from '@/contexts/WorkModeContext';
+import { Fonts } from '@/lib/typography';
 
 interface CalendarHeaderProps {
   selectedDate: Date;
@@ -207,7 +208,8 @@ const styles = StyleSheet.create({
   },
   largeTitle: {
     fontSize: 34,
-    fontWeight: '800',
+    fontFamily: Fonts.heading,
+    fontWeight: '700',
     color: '#000',
     letterSpacing: 0.3,
   },

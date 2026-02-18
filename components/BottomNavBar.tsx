@@ -2,39 +2,23 @@ import React from 'react';
 import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LayoutGrid, Infinity, Plus } from 'lucide-react-native';
+import { CalendarRange, CircleDashed } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import { BlurView } from 'expo-blur';
 
-export type NavRoute = 'home' | 'life' | 'command';
+export type NavRoute = 'today' | 'focus';
 
 interface BottomNavBarProps {
     onFabPress?: () => void;
 }
 
 const NAV_ITEMS: { route: NavRoute; path: string; icon: any; label: string }[] = [
-    { route: 'home', path: '/', icon: LayoutGrid, label: 'Home' },
-    { route: 'command', path: '', icon: Plus, label: 'Capture' },
-    { route: 'life', path: '/life', icon: Infinity, label: 'Life' },
+    { route: 'today', path: '/history', icon: CalendarRange, label: 'Today' },
+    { route: 'focus', path: '/flow', icon: CircleDashed, label: 'Focus' },
 ];
 
 function getActiveRoute(pathname: string): NavRoute {
-    if (pathname === '/') return 'home';
-    if (pathname === '/history') return 'home';
-    if (
-        pathname === '/life' ||
-        pathname === '/projects' ||
-        pathname.startsWith('/project/') ||
-        pathname === '/habits' ||
-        pathname === '/habit-detail' ||
-        pathname === '/money' ||
-        pathname === '/add-supplement' ||
-        pathname === '/edit-supplement' ||
-        pathname === '/later' ||
-        pathname === '/travel'
-    ) return 'life';
-
-    return 'home';
+    if (pathname === '/flow') return 'focus';
+    return 'today';
 }
 
 export function BottomNavBar({ onFabPress }: BottomNavBarProps) {
@@ -45,154 +29,121 @@ export function BottomNavBar({ onFabPress }: BottomNavBarProps) {
 
     const handleNavPress = (route: NavRoute, path: string) => {
         Haptics.selectionAsync();
-
-        if (route === 'command') {
-            if (onFabPress) {
-                onFabPress();
-            } else {
-                router.push('/add-todo' as any);
-            }
-            return;
-        }
-
         if (pathname === path) return;
-
         router.replace(path as any);
     };
 
-    const ContainerComponent = Platform.OS === 'web' ? View : BlurView;
-    const containerProps = Platform.OS === 'web'
-        ? {}
-        : { intensity: 40, tint: 'light' as const }; // Reduced intensity for glass effect
-
     return (
-        <View style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-            <ContainerComponent
-                style={styles.container}
-                {...containerProps}
-            >
-                <View style={styles.navContent}>
-                    {NAV_ITEMS.map((item) => {
-                        const Icon = item.icon;
-                        const isActive = activeRoute === item.route;
-                        const isCommand = item.route === 'command';
+        <View style={[styles.outerWrapper, { bottom: Math.max(insets.bottom, 12) }]}>
+            <View style={styles.shadowContainer}>
+                <View style={styles.container}>
+                    <View style={styles.navContent}>
+                        {NAV_ITEMS.map((item) => {
+                            const Icon = item.icon;
+                            const isActive = activeRoute === item.route;
 
-                        if (isCommand) {
                             return (
                                 <Pressable
                                     key={item.route}
-                                    style={styles.commandTab}
+                                    style={[styles.tab, isActive && styles.tabActive]}
                                     onPress={() => handleNavPress(item.route, item.path)}
                                 >
-                                    <View style={styles.commandButton}>
-                                        <Icon size={24} color="#fff" strokeWidth={2.5} />
-                                    </View>
+                                    {isActive ? (
+                                        <View style={styles.activePillOuter}>
+                                            <View style={styles.activePillContent}>
+                                                <Icon
+                                                    size={20}
+                                                    color="#1C1C1E"
+                                                    strokeWidth={2.2}
+                                                />
+                                                <Text style={styles.activeLabel}>
+                                                    {item.label}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                    ) : (
+                                        <View style={styles.inactiveIcon}>
+                                            <Icon
+                                                size={22}
+                                                color="#6E6E73"
+                                                strokeWidth={1.6}
+                                            />
+                                        </View>
+                                    )}
                                 </Pressable>
-                            )
-                        }
-
-                        return (
-                            <Pressable
-                                key={item.route}
-                                style={[styles.tab, isActive && styles.tabActive]}
-                                onPress={() => handleNavPress(item.route, item.path)}
-                            >
-                                <Icon
-                                    size={24}
-                                    color={isActive ? '#000' : '#8E8E93'}
-                                    strokeWidth={isActive ? 2.5 : 2}
-                                />
-                                <Text style={[styles.label, isActive && styles.labelActive]}>
-                                    {item.label}
-                                </Text>
-                            </Pressable>
-                        );
-                    })}
+                            );
+                        })}
+                    </View>
                 </View>
-            </ContainerComponent>
+            </View>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    wrapper: {
+    outerWrapper: {
         position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        alignItems: 'center',
-        pointerEvents: 'box-none',
+        left: 20,
+        right: 20,
         zIndex: 100,
     },
+    shadowContainer: {
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.10,
+                shadowRadius: 16,
+            },
+            android: {
+                elevation: 8,
+            },
+        }),
+    },
     container: {
-        width: '90%',
-        maxWidth: 380,
-        borderRadius: 40,
+        borderRadius: 32,
         overflow: 'hidden',
-        backgroundColor: Platform.OS === 'web'
-            ? 'rgba(255,255,255,0.85)'
-            : 'rgba(255,255,255,0.7)',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.15,
-        shadowRadius: 20,
-        elevation: 10,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.3)',
+        backgroundColor: 'rgba(255, 255, 255, 0.92)',
     },
     navContent: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: 6,
-        height: 72,
+        height: 56,
+        paddingHorizontal: 8,
     },
     tab: {
         flex: 1,
-        height: '100%',
         alignItems: 'center',
         justifyContent: 'center',
-        borderRadius: 34,
-        gap: 4,
+        height: 56,
     },
     tabActive: {
-        backgroundColor: 'rgba(255,255,255,0.5)',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
+        flex: 1.6,
     },
-    commandTab: {
-        width: 60,
-        height: 60,
+    inactiveIcon: {
         alignItems: 'center',
         justifyContent: 'center',
+        width: 44,
+        height: 44,
+        borderRadius: 22,
     },
-    commandButton: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        backgroundColor: '#000',
+    activePillOuter: {
+        borderRadius: 22,
+        overflow: 'hidden',
+        backgroundColor: 'rgba(120, 120, 128, 0.08)',
+    },
+    activePillContent: {
+        flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 5,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        gap: 6,
     },
-    label: {
-        fontSize: 10,
-        fontWeight: '500',
-        color: '#8E8E93',
-        letterSpacing: -0.1,
+    activeLabel: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#1C1C1E',
+        letterSpacing: -0.2,
     },
-    labelActive: {
-        color: '#000',
-        fontWeight: '700',
-    },
-    // Leaving these for safety if referenced elsewhere, though unused in new design
-    fabWrapper: {},
-    fabSpacer: {},
-    fabInner: {}
 });

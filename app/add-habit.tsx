@@ -1,776 +1,729 @@
 import { useRouter } from 'expo-router';
-import { ChevronLeft, ChevronDown, ChevronUp } from 'lucide-react-native';
-import React, { useState } from 'react';
+import { X, Check, Sunrise, ChevronDown } from 'lucide-react-native';
+import React, { useState, useCallback, useRef } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Modal,
-  LayoutAnimation,
-  UIManager,
+    View,
+    Text,
+    StyleSheet,
+    Pressable,
+    TextInput,
+    Keyboard,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    LayoutAnimation,
+    UIManager,
 } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useHabits } from '@/contexts/HabitContext';
-import type { DayOfWeek, HabitType, ImplementationIntention } from '@/types/habit';
+import { AnimatedBottomSheet } from '@/components/AnimatedBottomSheet';
+import { LinearGradient } from 'expo-linear-gradient';
+import { suggestEmoji } from '@/utils/emojiSuggest';
+import { AmbientBackground } from '@/components/AmbientBackground';
+import type { HabitFrequency } from '@/types/habit';
 
-if (
-  Platform.OS === 'android' &&
-  UIManager.setLayoutAnimationEnabledExperimental
-) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
+if (Platform.OS === 'android') {
+    UIManager.setLayoutAnimationEnabledExperimental?.(true);
 }
 
-const EMOJIS_BUILDING = ['💪', '📚', '🧘', '💧', '🏃', '😴', '✍️', '🎯'];
-const EMOJIS_BREAKING = ['🚫', '🙅', '💪', '🧘', '🍃', '✨', '🎯', '🌟'];
-const ALL_EMOJIS = [
-  '💪', '📚', '🧘', '💧', '🏃', '😴', '✍️', '🎯',
-  '🏋️', '🚴', '🤸', '🏊', '⚽', '🎾', '💊', '🩺',
-  '🧖', '💆', '🛁', '🌅', '☀️', '🌙', '🩷', '🧊',
-  '🥗', '🍎', '🥑', '🥕', '🍵', '🍳', '🫐', '🥦',
-  '💻', '📝', '📧', '⏰', '📅', '✅', '🗂️', '💼',
-  '🎓', '📖', '🧠', '💡', '🎨', '🎵', '🎹', '🌐',
-  '🙏', '🕯️', '🌸', '🍃', '🌿', '🦋', '✨', '💫',
-  '👨‍👩‍👧', '💬', '📞', '🤝', '💌', '🎁', '🥰', '👋',
-  '💰', '💵', '📈', '🏦', '💳', '🪙', '💎', '🏠',
-  '🧹', '🧺', '🪴', '🛏️', '🧽', '🪥', '📦', '🧸',
+const EMOJI_OPTIONS = [
+    '🌅', '☀️', '🌙', '⏰', '🛏️', '🪥',
+    '🧘', '💧', '🏃', '🏋️', '🤸', '🚴', '🏊', '⚽', '🎾', '💪',
+    '🍳', '🥗', '🍎', '🥑', '🍵', '☕', '🫐', '🥦', '🥕', '🍕',
+    '📝', '💼', '💻', '📧', '📅', '✅', '🗂️', '📎', '🖊️', '📊',
+    '📖', '🎯', '💡', '🎓', '🧠', '🎨', '🎵', '🎹', '✍️', '🌐',
+    '💊', '🩺', '🧖', '💆', '🛁', '😴', '🩷', '🧊',
+    '🌸', '🍃', '🌿', '🦋', '✨', '💫', '🕯️', '🙏', '🪴', '🌈',
+    '👨‍👩‍👧', '💬', '📞', '🤝', '💌', '🎁', '🥰', '👋', '🎉', '🎂',
+    '💰', '💵', '📈', '🏦', '💳', '🏠', '🧹', '🧺', '📦', '🧸',
+    '✈️', '🚗', '🚆', '🏖️', '🗺️', '🧳', '⛰️', '🏕️',
+    '🐕', '🐈', '🐟', '🐦', '🦮',
+    '🔧', '🛒', '📸', '🎮', '📱', '🔑', '💎', '🌟', '⭐', '🚀',
 ];
 
-const DAYS: { short: string; value: DayOfWeek }[] = [
-  { short: 'S', value: 0 },
-  { short: 'M', value: 1 },
-  { short: 'T', value: 2 },
-  { short: 'W', value: 3 },
-  { short: 'T', value: 4 },
-  { short: 'F', value: 5 },
-  { short: 'S', value: 6 },
+const EMOJI_BG_COLORS = [
+    '#D4C5F0', '#C8B8E8', '#E0D4F5', '#EDE5FA', '#F5F0FF',
+    '#C5D8F0', '#D4E4F7', '#E3EDFB', '#B8D8E8', '#D0EAF0',
+    '#B8E0C8', '#C8E8D4', '#D8F0E4', '#A8D8B8', '#C0E8C8',
+    '#F0D4D8', '#F5DDE0', '#FAE8EA', '#E8C0C8', '#F0D0D8',
+    '#F0D8C0', '#F5E0CC', '#FAE8D8', '#E8C8A8', '#F0D4B8',
+    '#F0ECC0', '#F5F0CC', '#FAF5D8', '#E8E4A8', '#F0ECB8',
 ];
 
-const layoutAnim = () =>
-  LayoutAnimation.configureNext(
-    LayoutAnimation.create(200, LayoutAnimation.Types.easeInEaseOut, LayoutAnimation.Properties.opacity)
-  );
+type TimeOfDay = 'anytime' | 'morning' | 'afternoon' | 'evening';
+
+const TIME_OF_DAY_OPTIONS: { label: string; value: TimeOfDay; icon: string }[] = [
+    { label: 'Morning', value: 'morning', icon: '☀️' },
+    { label: 'Afternoon', value: 'afternoon', icon: '🌤' },
+    { label: 'Evening', value: 'evening', icon: '🌙' },
+    { label: 'Anytime', value: 'anytime', icon: '🕐' },
+];
+
+const FREQUENCY_OPTIONS: { label: string; value: HabitFrequency; icon: string }[] = [
+    { label: 'Daily', value: 'daily', icon: '🔁' },
+    { label: 'Weekdays', value: 'weekdays', icon: '📅' },
+    { label: 'Weekly', value: 'weekly', icon: '📆' },
+];
+
+const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+type ExpandableField = 'timeOfDay' | 'frequency' | null;
 
 export default function AddHabitScreen() {
-  const router = useRouter();
-  const { addHabit } = useHabits();
+    const router = useRouter();
+    const { addHabit } = useHabits();
 
-  // Core
-  const [name, setName] = useState('');
-  const [emoji, setEmoji] = useState<string | null>(null);
-  const [type, setType] = useState<HabitType>('building');
-  const [days, setDays] = useState<DayOfWeek[]>([0, 1, 2, 3, 4, 5, 6]);
-  const [hasReminder, setHasReminder] = useState(false);
-  const [reminderTime, setReminderTime] = useState('09:00');
+    const [title, setTitle] = useState('');
+    const [emoji, setEmoji] = useState<string | undefined>(undefined);
+    const [emojiColor, setEmojiColor] = useState<string | undefined>(undefined);
+    const userPickedEmoji = useRef(false);
 
-  // Optional
-  const [why, setWhy] = useState('');
-  const [celebration, setCelebration] = useState('');
-  const [cue, setCue] = useState('');
-  const [where, setWhere] = useState('');
-  const [instead, setInstead] = useState('');
-  const [trigger, setTrigger] = useState('');
+    const handleTitleChange = useCallback((text: string) => {
+        setTitle(text);
+        if (!userPickedEmoji.current) {
+            setEmoji(suggestEmoji(text));
+        }
+    }, []);
 
-  // UI
-  const [showEmojis, setShowEmojis] = useState(false);
-  const [showAllEmojis, setShowAllEmojis] = useState(false);
-  const [showMore, setShowMore] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
+    const [frequency, setFrequency] = useState<HabitFrequency>('daily');
+    const [weeklyDays, setWeeklyDays] = useState<number[]>([]);
+    const [timeOfDay, setTimeOfDay] = useState<TimeOfDay | undefined>(undefined);
 
-  const isValid = name.trim().length > 0;
-  const defaultEmoji = type === 'building' ? '🌱' : '🚫';
-  const quickEmojis = type === 'building' ? EMOJIS_BUILDING : EMOJIS_BREAKING;
+    const [expandedField, setExpandedField] = useState<ExpandableField>(null);
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
-  const isEveryDay = days.length === 7;
-  const isWeekdays =
-    days.length === 5 && [1, 2, 3, 4, 5].every((d) => days.includes(d as DayOfWeek));
+    const toggleField = useCallback((field: ExpandableField) => {
+        Haptics.selectionAsync();
+        LayoutAnimation.configureNext({
+            duration: 250,
+            update: { type: 'easeInEaseOut', property: 'opacity' },
+            create: { type: 'easeInEaseOut', property: 'opacity' },
+            delete: { type: 'easeInEaseOut', property: 'opacity' },
+        });
+        setExpandedField(prev => prev === field ? null : field);
+    }, []);
 
-  const getReminderLabel = () => {
-    if (!hasReminder) return 'None';
-    const [h, m] = reminderTime.split(':').map(Number);
-    const period = h >= 12 ? 'PM' : 'AM';
-    const displayH = h % 12 || 12;
-    return `${displayH}:${m.toString().padStart(2, '0')} ${period}`;
-  };
+    const toggleWeeklyDay = useCallback((day: number) => {
+        Haptics.selectionAsync();
+        setWeeklyDays(prev =>
+            prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
+        );
+    }, []);
 
-  const toggleDay = (day: DayOfWeek) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setDays((prev) => {
-      if (prev.includes(day)) {
-        if (prev.length === 1) return prev;
-        return prev.filter((d) => d !== day);
-      }
-      return [...prev, day].sort((a, b) => a - b);
-    });
-  };
+    const handleSave = () => {
+        if (title.trim()) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            addHabit(title.trim(), frequency, {
+                emoji,
+                emojiColor,
+                weeklyDays: frequency === 'weekly' ? weeklyDays : undefined,
+                timeOfDay,
+            });
+            router.back();
+        }
+    };
 
-  const handleSave = () => {
-    if (!isValid) return;
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    const getTimeOfDayLabel = (): string => {
+        if (!timeOfDay) return 'Not set';
+        const opt = TIME_OF_DAY_OPTIONS.find(o => o.value === timeOfDay);
+        return opt ? `${opt.icon} ${opt.label}` : 'Not set';
+    };
 
-    const scheduledDays = days.length === 7 ? undefined : days;
-    const intention: ImplementationIntention = {};
-    if (type === 'building') {
-      if (cue.trim()) intention.cue = cue.trim();
-      if (where.trim()) intention.where = where.trim();
-    } else {
-      if (instead.trim()) intention.insteadAction = instead.trim();
-    }
-    const hasIntention = Object.keys(intention).length > 0;
+    const getFrequencyLabel = (): string => {
+        const opt = FREQUENCY_OPTIONS.find(o => o.value === frequency);
+        return opt ? `${opt.icon} ${opt.label}` : 'Daily';
+    };
 
-    addHabit(
-      name.trim(),
-      hasIntention ? intention : undefined,
-      emoji || undefined,
-      why.trim() || undefined,
-      celebration.trim() || undefined,
-      scheduledDays,
-      false,
-      type,
-      type === 'breaking' ? trigger.trim() || undefined : undefined,
-      hasReminder ? reminderTime : undefined
-    );
-    router.back();
-  };
+    const canSave = title.trim().length > 0;
 
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <Pressable
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              router.back();
-            }}
-            style={styles.backBtn}
-            hitSlop={8}
-          >
-            <ChevronLeft size={28} color="#007AFF" />
-          </Pressable>
-          <Text style={styles.headerTitle}>Add Habit</Text>
-          <View style={{ width: 44 }} />
-        </View>
+    return (
+        <View style={{ flex: 1 }}>
+            <AmbientBackground />
+            <SafeAreaView style={styles.container} edges={['top']}>
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    style={{ flex: 1 }}
+                >
+                    {/* Header */}
+                    <View style={styles.headerContainer}>
+                        <View style={styles.modalHandleTop} />
+                        <View style={styles.header}>
+                            <Pressable onPress={() => router.back()} style={styles.cancelButton} hitSlop={8}>
+                                <Text style={styles.cancelText}>Cancel</Text>
+                            </Pressable>
+                            <Text style={styles.headerTitle}>New Habit</Text>
+                            <Pressable
+                                style={[styles.saveButton, canSave && styles.saveButtonActive]}
+                                onPress={handleSave}
+                                disabled={!canSave}
+                                hitSlop={8}
+                            >
+                                <Text style={[styles.saveText, canSave && styles.saveTextActive]}>Add</Text>
+                            </Pressable>
+                        </View>
+                    </View>
 
-        <ScrollView
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="interactive"
-        >
-          {/* Hero Card */}
-          <LinearGradient
-            colors={['#E8F5E9', '#C8E6C9']}
-            style={styles.heroCard}
-          >
-            <Pressable
-              style={[styles.mainEmojiContainer, showEmojis && { borderWidth: 2, borderColor: '#1B5E20' }]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                layoutAnim();
-                setShowEmojis(!showEmojis);
-                if (showEmojis) setShowAllEmojis(false);
-              }}
+                    <ScrollView
+                        contentContainerStyle={styles.scrollContent}
+                        keyboardShouldPersistTaps="handled"
+                        keyboardDismissMode="interactive"
+                        showsVerticalScrollIndicator={false}
+                    >
+                        {/* Title Card */}
+                        <View style={styles.card}>
+                            <View style={styles.titleRow}>
+                                <TextInput
+                                    style={styles.titleInput}
+                                    placeholder="Habit name"
+                                    placeholderTextColor="#B0B0B5"
+                                    value={title}
+                                    onChangeText={handleTitleChange}
+                                    autoFocus
+                                    multiline={false}
+                                />
+                                <Pressable
+                                    style={[styles.emojiButton, emojiColor ? { backgroundColor: emojiColor } : undefined]}
+                                    onPress={() => {
+                                        Keyboard.dismiss();
+                                        Haptics.selectionAsync();
+                                        setShowEmojiPicker(true);
+                                    }}
+                                >
+                                    <Text style={styles.emojiButtonText}>{emoji || '🔄'}</Text>
+                                </Pressable>
+                            </View>
+                        </View>
+
+                        {/* Fields Card */}
+                        <View style={styles.card}>
+                            {/* Frequency */}
+                            <Pressable
+                                style={styles.fieldRow}
+                                onPress={() => toggleField('frequency')}
+                            >
+                                <View style={styles.fieldLabelRow}>
+                                    <Text style={styles.fieldIconText}>🔁</Text>
+                                    <Text style={styles.fieldLabel}>Frequency</Text>
+                                </View>
+                                {expandedField !== 'frequency' && (
+                                    <View style={styles.fieldValue}>
+                                        <Text style={styles.fieldValueText}>{getFrequencyLabel()}</Text>
+                                        <ChevronDown size={14} color="#C7C7CC" />
+                                    </View>
+                                )}
+                            </Pressable>
+                            {expandedField === 'frequency' && (
+                                <View style={styles.inlineOptions}>
+                                    {FREQUENCY_OPTIONS.map(opt => {
+                                        const active = frequency === opt.value;
+                                        return (
+                                            <Pressable
+                                                key={opt.value}
+                                                style={[styles.inlineChip, active && styles.inlineChipActive]}
+                                                onPress={() => {
+                                                    Haptics.selectionAsync();
+                                                    setFrequency(opt.value);
+                                                    if (opt.value !== 'weekly') {
+                                                        toggleField(null);
+                                                    }
+                                                }}
+                                            >
+                                                <Text style={styles.inlineChipIcon}>{opt.icon}</Text>
+                                                <Text style={[styles.inlineChipText, active && styles.inlineChipTextActive]}>{opt.label}</Text>
+                                            </Pressable>
+                                        );
+                                    })}
+                                </View>
+                            )}
+
+                            {/* Weekly Days Selector */}
+                            {frequency === 'weekly' && (
+                                <View style={styles.weeklyDaysContainer}>
+                                    {DAY_LABELS.map((label, index) => {
+                                        const active = weeklyDays.includes(index);
+                                        return (
+                                            <Pressable
+                                                key={index}
+                                                style={[styles.dayChip, active && styles.dayChipActive]}
+                                                onPress={() => toggleWeeklyDay(index)}
+                                            >
+                                                <Text style={[styles.dayChipText, active && styles.dayChipTextActive]}>{label}</Text>
+                                            </Pressable>
+                                        );
+                                    })}
+                                </View>
+                            )}
+
+                            <View style={styles.fieldSeparator} />
+
+                            {/* Time of Day */}
+                            <Pressable
+                                style={styles.fieldRow}
+                                onPress={() => toggleField('timeOfDay')}
+                            >
+                                <View style={styles.fieldLabelRow}>
+                                    <Sunrise size={16} color="#8E8E93" />
+                                    <Text style={styles.fieldLabel}>Time of day</Text>
+                                </View>
+                                {expandedField !== 'timeOfDay' && (
+                                    <View style={styles.fieldValue}>
+                                        <Text style={styles.fieldValueText}>{getTimeOfDayLabel()}</Text>
+                                        <ChevronDown size={14} color="#C7C7CC" />
+                                    </View>
+                                )}
+                            </Pressable>
+                            {expandedField === 'timeOfDay' && (
+                                <View style={styles.inlineOptions}>
+                                    {TIME_OF_DAY_OPTIONS.map(opt => {
+                                        const active = timeOfDay === opt.value;
+                                        return (
+                                            <Pressable
+                                                key={opt.value}
+                                                style={[styles.inlineChip, active && styles.inlineChipActive]}
+                                                onPress={() => {
+                                                    Haptics.selectionAsync();
+                                                    setTimeOfDay(active ? undefined : opt.value);
+                                                    toggleField(null);
+                                                }}
+                                            >
+                                                <Text style={styles.inlineChipIcon}>{opt.icon}</Text>
+                                                <Text style={[styles.inlineChipText, active && styles.inlineChipTextActive]}>{opt.label}</Text>
+                                            </Pressable>
+                                        );
+                                    })}
+                                </View>
+                            )}
+                        </View>
+                    </ScrollView>
+                </KeyboardAvoidingView>
+            </SafeAreaView>
+
+            {/* Choose Visuals Bottom Sheet */}
+            <AnimatedBottomSheet
+                visible={showEmojiPicker}
+                onClose={() => setShowEmojiPicker(false)}
             >
-              <Text style={{ fontSize: 48 }}>{emoji || defaultEmoji}</Text>
-            </Pressable>
-            <TextInput
-              style={styles.heroInput}
-              placeholder={type === 'building' ? 'Habit to build...' : 'Habit to break...'}
-              placeholderTextColor="rgba(27,94,32,0.3)"
-              value={name}
-              onChangeText={setName}
-              textAlign="center"
-              autoFocus
-              returnKeyType="done"
-            />
-          </LinearGradient>
+                <View style={styles.sheetHeaderRow}>
+                    <Pressable onPress={() => setShowEmojiPicker(false)} hitSlop={8}>
+                        <X size={20} color="#1C1C1E" strokeWidth={2} />
+                    </Pressable>
+                    <Text style={styles.sheetTitle}>Choose visuals</Text>
+                    <Pressable onPress={() => setShowEmojiPicker(false)} hitSlop={8}>
+                        <Check size={20} color="#C7C7CC" strokeWidth={2} />
+                    </Pressable>
+                </View>
 
-          {/* Emoji Picker (below hero card) */}
-          {showEmojis && (
-            <View style={styles.emojiPicker}>
-              <View style={styles.emojiGrid}>
-                {(showAllEmojis ? ALL_EMOJIS : quickEmojis).map((e, i) => (
-                  <Pressable
-                    key={`${e}-${i}`}
-                    style={[styles.emojiItem, emoji === e && styles.emojiItemOn]}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setEmoji(emoji === e ? null : e);
-                    }}
-                  >
-                    <Text style={styles.emojiItemText}>{e}</Text>
-                  </Pressable>
-                ))}
-              </View>
-              <Pressable
-                style={styles.emojiToggle}
-                onPress={() => {
-                  layoutAnim();
-                  setShowAllEmojis(!showAllEmojis);
-                }}
-              >
-                <Text style={styles.emojiToggleText}>
-                  {showAllEmojis ? 'Less' : 'More'}
-                </Text>
-              </Pressable>
-            </View>
-          )}
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
+                    {/* Preview */}
+                    <View style={styles.visualsPreview}>
+                        <View style={[styles.visualsPreviewCircle, { backgroundColor: emojiColor || '#F2E8F5' }]}>
+                            <Text style={styles.visualsPreviewEmoji}>{emoji || '🔄'}</Text>
+                        </View>
+                        {(emoji || emojiColor) && (
+                            <Pressable
+                                style={styles.visualsClearBtn}
+                                onPress={() => {
+                                    Haptics.selectionAsync();
+                                    setEmoji(suggestEmoji(title));
+                                    setEmojiColor(undefined);
+                                    userPickedEmoji.current = false;
+                                }}
+                                hitSlop={8}
+                            >
+                                <X size={14} color="#8E8E93" strokeWidth={2.5} />
+                            </Pressable>
+                        )}
+                    </View>
 
-          {/* Type Section */}
-          <View style={styles.pickerSection}>
-            <Text style={styles.sectionTitle}>Type</Text>
-            <View style={styles.tagContainer}>
-              <Pressable
-                style={[styles.tag, type === 'building' && styles.tagActive]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  layoutAnim();
-                  setType('building');
-                  setEmoji(null);
-                }}
-              >
-                <Text style={[styles.tagText, type === 'building' && styles.tagTextActive]}>
-                  🌱 Build
-                </Text>
-              </Pressable>
-              <Pressable
-                style={[styles.tag, type === 'breaking' && styles.tagActive]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  layoutAnim();
-                  setType('breaking');
-                  setEmoji(null);
-                }}
-              >
-                <Text style={[styles.tagText, type === 'breaking' && styles.tagTextActive]}>
-                  🚫 Break
-                </Text>
-              </Pressable>
-            </View>
-          </View>
+                    {/* Emoji grid */}
+                    <View>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.emojiScrollContent}>
+                            <View style={styles.emojiRows}>
+                                <View style={styles.emojiRow}>
+                                    {EMOJI_OPTIONS.filter((_, i) => i % 2 === 0).map(e => {
+                                        const active = emoji === e;
+                                        return (
+                                            <Pressable
+                                                key={e}
+                                                style={[styles.emojiOption, active && styles.emojiOptionActive]}
+                                                onPress={() => {
+                                                    Haptics.selectionAsync();
+                                                    if (active) {
+                                                        setEmoji(suggestEmoji(title));
+                                                        userPickedEmoji.current = false;
+                                                    } else {
+                                                        setEmoji(e);
+                                                        userPickedEmoji.current = true;
+                                                    }
+                                                }}
+                                            >
+                                                <Text style={styles.emojiText}>{e}</Text>
+                                            </Pressable>
+                                        );
+                                    })}
+                                </View>
+                                <View style={styles.emojiRow}>
+                                    {EMOJI_OPTIONS.filter((_, i) => i % 2 === 1).map(e => {
+                                        const active = emoji === e;
+                                        return (
+                                            <Pressable
+                                                key={e}
+                                                style={[styles.emojiOption, active && styles.emojiOptionActive]}
+                                                onPress={() => {
+                                                    Haptics.selectionAsync();
+                                                    if (active) {
+                                                        setEmoji(suggestEmoji(title));
+                                                        userPickedEmoji.current = false;
+                                                    } else {
+                                                        setEmoji(e);
+                                                        userPickedEmoji.current = true;
+                                                    }
+                                                }}
+                                            >
+                                                <Text style={styles.emojiText}>{e}</Text>
+                                            </Pressable>
+                                        );
+                                    })}
+                                </View>
+                            </View>
+                        </ScrollView>
+                        <LinearGradient
+                            colors={['rgba(255,255,255,0)', 'rgba(255,255,255,1)']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.emojiScrollFade}
+                            pointerEvents="none"
+                        />
+                    </View>
 
-          {/* Schedule Section */}
-          <View style={styles.pickerSection}>
-            <Text style={styles.sectionTitle}>Schedule</Text>
-            <View style={styles.tagContainer}>
-              <Pressable
-                style={[styles.tag, isEveryDay && styles.tagActive]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setDays([0, 1, 2, 3, 4, 5, 6]);
-                }}
-              >
-                <Text style={[styles.tagText, isEveryDay && styles.tagTextActive]}>
-                  Every Day
-                </Text>
-              </Pressable>
-              <Pressable
-                style={[styles.tag, isWeekdays && styles.tagActive]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setDays([1, 2, 3, 4, 5]);
-                }}
-              >
-                <Text style={[styles.tagText, isWeekdays && styles.tagTextActive]}>
-                  Weekdays
-                </Text>
-              </Pressable>
-            </View>
-            <View style={styles.dayRow}>
-              {DAYS.map((d) => {
-                const on = days.includes(d.value);
-                return (
-                  <Pressable
-                    key={d.value}
-                    style={[styles.dayPill, on && styles.dayPillOn]}
-                    onPress={() => toggleDay(d.value)}
-                  >
-                    <Text style={[styles.dayPillText, on && styles.dayPillTextOn]}>
-                      {d.short}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-
-          {/* Reminder Section */}
-          <View style={styles.pickerSection}>
-            <Text style={styles.sectionTitle}>Reminder</Text>
-            <View style={styles.tagContainer}>
-              <Pressable
-                style={[styles.tag, !hasReminder && styles.tagActive]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setHasReminder(false);
-                }}
-              >
-                <Text style={[styles.tagText, !hasReminder && styles.tagTextActive]}>
-                  None
-                </Text>
-              </Pressable>
-              <Pressable
-                style={[styles.tag, hasReminder && styles.tagActive]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  if (!hasReminder) {
-                    setHasReminder(true);
-                  }
-                  setShowTimePicker(true);
-                }}
-              >
-                <Text style={[styles.tagText, hasReminder && styles.tagTextActive]}>
-                  {hasReminder ? getReminderLabel() : '🔔 Set Time'}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-
-          {/* Motivation & Plan (expandable) */}
-          <Pressable
-            style={styles.moreBtn}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              layoutAnim();
-              setShowMore(!showMore);
-            }}
-          >
-            <Text style={styles.moreBtnText}>Motivation & plan</Text>
-            {showMore ? (
-              <ChevronUp size={17} color="#8E8E93" />
-            ) : (
-              <ChevronDown size={17} color="#8E8E93" />
-            )}
-          </Pressable>
-
-          {showMore && (
-            <View style={styles.moreCard}>
-              <Text style={styles.fieldLabel}>Why does this matter?</Text>
-              <TextInput
-                style={styles.fieldInput}
-                placeholder="Your personal motivation..."
-                placeholderTextColor="#C7C7CC"
-                value={why}
-                onChangeText={setWhy}
-                multiline
-                maxLength={200}
-              />
-
-              {type === 'building' ? (
-                <>
-                  <Text style={styles.fieldLabel}>After I...</Text>
-                  <TextInput
-                    style={styles.fieldInput}
-                    placeholder="finish my morning coffee"
-                    placeholderTextColor="#C7C7CC"
-                    value={cue}
-                    onChangeText={setCue}
-                    maxLength={100}
-                  />
-                  <Text style={styles.fieldLabel}>
-                    I will{' '}
-                    <Text style={styles.fieldHighlight}>
-                      {name.trim() || 'this habit'}
-                    </Text>{' '}
-                    at...
-                  </Text>
-                  <TextInput
-                    style={styles.fieldInput}
-                    placeholder="my desk"
-                    placeholderTextColor="#C7C7CC"
-                    value={where}
-                    onChangeText={setWhere}
-                    maxLength={100}
-                  />
-                </>
-              ) : (
-                <>
-                  <Text style={styles.fieldLabel}>Instead, I will...</Text>
-                  <TextInput
-                    style={styles.fieldInput}
-                    placeholder="take 3 deep breaths"
-                    placeholderTextColor="#C7C7CC"
-                    value={instead}
-                    onChangeText={setInstead}
-                    maxLength={200}
-                  />
-                  <Text style={styles.fieldLabel}>My trigger is usually...</Text>
-                  <TextInput
-                    style={styles.fieldInput}
-                    placeholder="stress after work"
-                    placeholderTextColor="#C7C7CC"
-                    value={trigger}
-                    onChangeText={setTrigger}
-                    maxLength={200}
-                  />
-                </>
-              )}
-
-              <Text style={styles.fieldLabel}>Celebration phrase</Text>
-              <TextInput
-                style={styles.fieldInput}
-                placeholder="e.g. I did it!"
-                placeholderTextColor="#C7C7CC"
-                value={celebration}
-                onChangeText={setCelebration}
-                maxLength={30}
-              />
-              <Text style={styles.fieldHint}>
-                We'll show these when you need motivation most
-              </Text>
-            </View>
-          )}
-        </ScrollView>
-      </KeyboardAvoidingView>
-
-      {/* Footer - Done button */}
-      <View style={styles.footer}>
-        <Pressable
-          style={[styles.bigButton, !isValid && { opacity: 0.5 }]}
-          onPress={handleSave}
-          disabled={!isValid}
-        >
-          <Text style={styles.bigButtonText}>Done</Text>
-        </Pressable>
-      </View>
-
-      {/* Time Picker Modal */}
-      <Modal
-        visible={showTimePicker}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowTimePicker(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={() => setShowTimePicker(false)}
-          />
-          <View style={styles.modalSheet}>
-            <View style={styles.modalHeader}>
-              <Pressable
-                onPress={() => {
-                  setHasReminder(false);
-                  setShowTimePicker(false);
-                }}
-              >
-                <Text style={styles.modalRemove}>Remove</Text>
-              </Pressable>
-              <Text style={styles.modalTitle}>Reminder</Text>
-              <Pressable onPress={() => setShowTimePicker(false)}>
-                <Text style={styles.modalDone}>Done</Text>
-              </Pressable>
-            </View>
-            <View style={styles.modalBody}>
-              <DateTimePicker
-                value={(() => {
-                  const [h, m] = reminderTime.split(':').map(Number);
-                  const d = new Date();
-                  d.setHours(h);
-                  d.setMinutes(m);
-                  return d;
-                })()}
-                mode="time"
-                display="spinner"
-                onChange={(_: any, date?: Date) => {
-                  if (date) {
-                    setReminderTime(
-                      `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`
-                    );
-                  }
-                }}
-                themeVariant="light"
-              />
-            </View>
-          </View>
+                    {/* Color grid */}
+                    <View style={styles.colorGrid}>
+                        <Pressable
+                            style={[styles.colorOption, !emojiColor && styles.colorOptionActive]}
+                            onPress={() => {
+                                Haptics.selectionAsync();
+                                setEmojiColor(undefined);
+                            }}
+                        >
+                            <View style={styles.colorNoFill}>
+                                <View style={styles.colorNoFillLine} />
+                            </View>
+                        </Pressable>
+                        {EMOJI_BG_COLORS.map(c => {
+                            const active = emojiColor === c;
+                            return (
+                                <Pressable
+                                    key={c}
+                                    style={[styles.colorOption, active && styles.colorOptionActive]}
+                                    onPress={() => {
+                                        Haptics.selectionAsync();
+                                        setEmojiColor(c);
+                                    }}
+                                >
+                                    <View style={[styles.colorSwatch, { backgroundColor: c }]} />
+                                </Pressable>
+                            );
+                        })}
+                    </View>
+                </ScrollView>
+            </AnimatedBottomSheet>
         </View>
-      </Modal>
-    </SafeAreaView>
-  );
+    );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FAFAFA',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    height: 44,
-  },
-  backBtn: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#000',
-    letterSpacing: -0.4,
-  },
-  content: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 40,
-    gap: 28,
-  },
-  heroCard: {
-    borderRadius: 32,
-    padding: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 240,
-  },
-  mainEmojiContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(255,255,255,0.6)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  heroInput: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#1B5E20',
-    width: '100%',
-  },
-
-  // Emoji picker
-  emojiPicker: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 1,
-  },
-  emojiGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  emojiItem: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#F5F5F7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emojiItemOn: {
-    backgroundColor: '#1B5E20',
-    shadowColor: '#1B5E20',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  emojiItemText: { fontSize: 20 },
-  emojiToggle: {
-    alignItems: 'center',
-    paddingTop: 10,
-  },
-  emojiToggleText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#1B5E20',
-  },
-
-  // Tag picker sections
-  pickerSection: {
-    gap: 12,
-  },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#8E8E93',
-    textTransform: 'uppercase',
-    letterSpacing: -0.1,
-    marginLeft: 4,
-  },
-  tagContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  tag: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 24,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#eee',
-  },
-  tagActive: {
-    backgroundColor: '#1B5E20',
-    borderColor: '#1B5E20',
-  },
-  tagText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#555',
-  },
-  tagTextActive: {
-    color: '#fff',
-  },
-
-  // Day pills (schedule)
-  dayRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  dayPill: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#eee',
-  },
-  dayPillOn: {
-    backgroundColor: '#1B5E20',
-    borderColor: '#1B5E20',
-  },
-  dayPillText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#AEAEB2',
-  },
-  dayPillTextOn: { color: '#fff' },
-
-  // Motivation & plan expandable
-  moreBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-  },
-  moreBtnText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#8E8E93',
-  },
-  moreCard: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 1,
-  },
-  fieldLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#8E8E93',
-    marginBottom: 8,
-    marginTop: 4,
-    letterSpacing: -0.1,
-  },
-  fieldHighlight: {
-    fontWeight: '700',
-    color: '#1B5E20',
-  },
-  fieldInput: {
-    fontSize: 16,
-    color: '#1C1C1E',
-    backgroundColor: '#F5F5F7',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 14,
-  },
-  fieldHint: {
-    fontSize: 13,
-    color: '#AEAEB2',
-    textAlign: 'center',
-    marginTop: 4,
-  },
-
-  // Footer
-  footer: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 34,
-  },
-  bigButton: {
-    backgroundColor: '#FF7043',
-    height: 64,
-    borderRadius: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#FF7043',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-  },
-  bigButtonText: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-
-  // Time picker modal
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.3)',
-  },
-  modalSheet: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 34,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
-  },
-  modalTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#000',
-  },
-  modalRemove: {
-    fontSize: 17,
-    color: '#FF3B30',
-  },
-  modalDone: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#007AFF',
-  },
-  modalBody: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-  },
+    container: {
+        flex: 1,
+        backgroundColor: 'transparent',
+    },
+    headerContainer: {
+        paddingTop: 6,
+    },
+    modalHandleTop: {
+        width: 36,
+        height: 5,
+        borderRadius: 2.5,
+        backgroundColor: '#DDDDE0',
+        alignSelf: 'center',
+        marginBottom: 6,
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        height: 44,
+    },
+    cancelButton: {
+        minWidth: 60,
+    },
+    cancelText: {
+        fontSize: 17,
+        color: '#8E8E93',
+        letterSpacing: -0.2,
+    },
+    headerTitle: {
+        fontSize: 17,
+        fontWeight: '600',
+        color: '#1C1C1E',
+        letterSpacing: -0.4,
+    },
+    saveButton: {
+        minWidth: 60,
+        alignItems: 'flex-end',
+    },
+    saveButtonActive: {},
+    saveText: {
+        fontSize: 17,
+        fontWeight: '600',
+        color: '#C7C7CC',
+        letterSpacing: -0.2,
+    },
+    saveTextActive: {
+        color: '#007AFF',
+    },
+    scrollContent: {
+        paddingHorizontal: 20,
+        paddingTop: 12,
+        paddingBottom: 100,
+        gap: 16,
+    },
+    card: {
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+    },
+    titleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    titleInput: {
+        flex: 1,
+        fontSize: 18,
+        fontWeight: '500',
+        color: '#1C1C1E',
+        letterSpacing: -0.2,
+        paddingVertical: 4,
+    },
+    emojiButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: '#FFF8E7',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    emojiButtonText: {
+        fontSize: 22,
+    },
+    fieldRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 14,
+    },
+    fieldLabelRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    fieldIconText: {
+        fontSize: 16,
+    },
+    fieldLabel: {
+        fontSize: 16,
+        fontWeight: '400',
+        color: '#1C1C1E',
+    },
+    fieldValue: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: '#F2F2F7',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 20,
+    },
+    fieldValueText: {
+        fontSize: 14,
+        fontWeight: '500',
+        color: '#3C3C43',
+    },
+    fieldSeparator: {
+        height: StyleSheet.hairlineWidth,
+        backgroundColor: '#E5E5EA',
+    },
+    inlineOptions: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        paddingBottom: 8,
+    },
+    inlineChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        borderRadius: 20,
+        backgroundColor: '#F2F2F7',
+    },
+    inlineChipActive: {
+        backgroundColor: '#1C1C1E',
+    },
+    inlineChipIcon: {
+        fontSize: 15,
+    },
+    inlineChipText: {
+        fontSize: 14,
+        fontWeight: '500',
+        color: '#3C3C43',
+    },
+    inlineChipTextActive: {
+        color: '#fff',
+    },
+    // Weekly day chips
+    weeklyDaysContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingVertical: 12,
+        paddingHorizontal: 4,
+    },
+    dayChip: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#F2F2F7',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    dayChipActive: {
+        backgroundColor: '#1C1C1E',
+    },
+    dayChipText: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#3C3C43',
+    },
+    dayChipTextActive: {
+        color: '#fff',
+    },
+    // Sheet header
+    sheetHeaderRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+    },
+    sheetTitle: {
+        fontSize: 17,
+        fontWeight: '600',
+        color: '#1C1C1E',
+    },
+    // Visuals picker
+    visualsPreview: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 24,
+    },
+    visualsPreviewCircle: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    visualsPreviewEmoji: {
+        fontSize: 44,
+    },
+    visualsClearBtn: {
+        position: 'absolute',
+        top: 20,
+        right: '30%',
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: '#F2F2F7',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    colorGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 10,
+        paddingHorizontal: 20,
+        paddingTop: 4,
+        paddingBottom: 16,
+    },
+    colorOption: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 2,
+        borderColor: 'transparent',
+    },
+    colorOptionActive: {
+        borderColor: '#1C1C1E',
+    },
+    colorSwatch: {
+        width: 42,
+        height: 42,
+        borderRadius: 21,
+    },
+    colorNoFill: {
+        width: 42,
+        height: 42,
+        borderRadius: 21,
+        borderWidth: 1.5,
+        borderColor: '#C7C7CC',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+    },
+    colorNoFillLine: {
+        width: 56,
+        height: 1.5,
+        backgroundColor: '#C7C7CC',
+        transform: [{ rotate: '-45deg' }],
+    },
+    // Emoji grid
+    emojiScrollContent: {
+        paddingHorizontal: 20,
+        paddingTop: 8,
+        paddingBottom: 16,
+    },
+    emojiRows: {
+        gap: 8,
+    },
+    emojiRow: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    emojiOption: {
+        width: 52,
+        height: 52,
+        borderRadius: 26,
+        backgroundColor: '#F2F2F7',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    emojiOptionActive: {
+        backgroundColor: '#007AFF',
+    },
+    emojiText: {
+        fontSize: 24,
+    },
+    emojiScrollFade: {
+        position: 'absolute',
+        right: 0,
+        top: 0,
+        bottom: 0,
+        width: 40,
+    },
 });

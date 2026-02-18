@@ -13,6 +13,7 @@ import {
 import { useRouter } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { Fonts } from '@/lib/typography';
 
 const SUGGESTIONS = [
     'Complete one important thing',
@@ -169,6 +170,7 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 32,
+        fontFamily: Fonts.heading,
         fontWeight: '700',
         color: '#000',
         lineHeight: 40,

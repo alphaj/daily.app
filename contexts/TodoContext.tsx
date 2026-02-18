@@ -2,7 +2,7 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Todo } from '@/types/todo';
+import type { Todo, TimeOfDay, RepeatOption, Subtask } from '@/types/todo';
 
 const TODOS_STORAGE_KEY = 'daily_todos';
 
@@ -46,7 +46,8 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
     date?: Date,
     priority?: 'low' | 'medium' | 'high',
     isWork?: boolean,
-    dueTime?: string
+    dueTime?: string,
+    extras?: { emoji?: string; emojiColor?: string; estimatedMinutes?: number; timeOfDay?: TimeOfDay; repeat?: RepeatOption; subtasks?: Subtask[] }
   ) => {
     const dueDate = date ? getDateKey(date) : getToday();
 
@@ -59,6 +60,7 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
       priority,
       isWork,
       createdAt: new Date().toISOString(),
+      ...extras,
     };
 
     const newTodos = [...todos, newTodo];
@@ -143,6 +145,121 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
     });
   }, [todos]);
 
+  const updateTodo = useCallback(async (id: string, updates: Partial<Omit<Todo, 'id' | 'createdAt'>>) => {
+    const newTodos = todos.map(t =>
+      t.id === id ? { ...t, ...updates } : t
+    );
+    setTodos(newTodos);
+    await saveTodos(newTodos);
+  }, [todos, saveTodos]);
+
+  const duplicateTodo = useCallback(async (id: string) => {
+    const original = todos.find(t => t.id === id);
+    if (!original) return;
+    const copy: Todo = {
+      ...original,
+      id: generateId(),
+      completed: false,
+      completedAt: undefined,
+      createdAt: new Date().toISOString(),
+      title: original.title,
+    };
+    const newTodos = [...todos, copy];
+    setTodos(newTodos);
+    await saveTodos(newTodos);
+  }, [todos, saveTodos]);
+
+  const rescheduleTodo = useCallback(async (id: string, newDate: string) => {
+    const newTodos = todos.map(t =>
+      t.id === id ? { ...t, dueDate: newDate } : t
+    );
+    setTodos(newTodos);
+    await saveTodos(newTodos);
+  }, [todos, saveTodos]);
+
+  const addSubtask = useCallback(async (todoId: string, title: string) => {
+    const newSubtask: Subtask = {
+      id: generateId(),
+      title,
+      completed: false,
+    };
+    const newTodos = todos.map(t =>
+      t.id === todoId
+        ? { ...t, subtasks: [...(t.subtasks || []), newSubtask] }
+        : t
+    );
+    setTodos(newTodos);
+    await saveTodos(newTodos);
+  }, [todos, saveTodos]);
+
+  const toggleSubtask = useCallback(async (todoId: string, subtaskId: string) => {
+    const newTodos = todos.map(t => {
+      if (t.id !== todoId || !t.subtasks) return t;
+      return {
+        ...t,
+        subtasks: t.subtasks.map(st =>
+          st.id === subtaskId ? { ...st, completed: !st.completed } : st
+        ),
+      };
+    });
+    setTodos(newTodos);
+    await saveTodos(newTodos);
+  }, [todos, saveTodos]);
+
+  const deleteSubtask = useCallback(async (todoId: string, subtaskId: string) => {
+    const newTodos = todos.map(t => {
+      if (t.id !== todoId || !t.subtasks) return t;
+      const filtered = t.subtasks.filter(st => st.id !== subtaskId);
+      return { ...t, subtasks: filtered.length > 0 ? filtered : undefined };
+    });
+    setTodos(newTodos);
+    await saveTodos(newTodos);
+  }, [todos, saveTodos]);
+
+  const editSubtask = useCallback(async (todoId: string, subtaskId: string, newTitle: string) => {
+    const newTodos = todos.map(t => {
+      if (t.id !== todoId || !t.subtasks) return t;
+      return {
+        ...t,
+        subtasks: t.subtasks.map(st =>
+          st.id === subtaskId ? { ...st, title: newTitle } : st
+        ),
+      };
+    });
+    setTodos(newTodos);
+    await saveTodos(newTodos);
+  }, [todos, saveTodos]);
+
+  const convertSubtaskToTask = useCallback(async (todoId: string, subtaskId: string) => {
+    const parentTodo = todos.find(t => t.id === todoId);
+    if (!parentTodo?.subtasks) return;
+    const subtask = parentTodo.subtasks.find(st => st.id === subtaskId);
+    if (!subtask) return;
+
+    // Create a new standalone task from the subtask
+    const newTask: Todo = {
+      id: generateId(),
+      title: subtask.title,
+      completed: subtask.completed,
+      completedAt: subtask.completed ? new Date().toISOString() : undefined,
+      createdAt: new Date().toISOString(),
+      dueDate: parentTodo.dueDate,
+      timeOfDay: parentTodo.timeOfDay,
+      emoji: subtask.emoji,
+    };
+
+    // Remove subtask from parent and add as standalone task
+    const newTodos = todos.map(t => {
+      if (t.id !== todoId || !t.subtasks) return t;
+      const filtered = t.subtasks.filter(st => st.id !== subtaskId);
+      return { ...t, subtasks: filtered.length > 0 ? filtered : undefined };
+    });
+    newTodos.push(newTask);
+
+    setTodos(newTodos);
+    await saveTodos(newTodos);
+  }, [todos, saveTodos]);
+
   const completedCount = useMemo(() => todos.filter(t => t.completed).length, [todos]);
   const workCompletedCount = useMemo(() => todos.filter(t => t.completed && t.isWork === true).length, [todos]);
   const lifeCompletedCount = useMemo(() => todos.filter(t => t.completed && (t.isWork === false || t.isWork === undefined)).length, [todos]);
@@ -154,11 +271,19 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
     addTodo,
     deleteTodo,
     toggleTodo,
+    updateTodo,
+    duplicateTodo,
+    rescheduleTodo,
     getTodosForDate,
     getCompletedTodosForDate,
     rolloverTasks,
     clearCompletedTodos,
     reorderTodos,
+    addSubtask,
+    toggleSubtask,
+    deleteSubtask,
+    editSubtask,
+    convertSubtaskToTask,
     completedCount,
     workCompletedCount,
     lifeCompletedCount,

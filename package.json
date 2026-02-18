@@ -11,6 +11,7 @@
     "ios": "expo run:ios"
   },
   "dependencies": {
+    "@expo-google-fonts/dm-serif-display": "^0.4.2",
     "@expo/vector-icons": "^15.0.3",
     "@hono/trpc-server": "^0.4.1",
     "@lottiefiles/dotlottie-react": "^0.17.14",

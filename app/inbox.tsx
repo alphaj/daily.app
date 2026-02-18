@@ -30,11 +30,11 @@ import { formatDistanceToNow } from 'date-fns';
 import SwipeableRow from '@/components/SwipeableRow';
 import { useInbox } from '@/contexts/InboxContext';
 import { useTodos } from '@/contexts/TodoContext';
-import { useHabits } from '@/contexts/HabitContext';
 import { AmbientBackground } from '@/components/AmbientBackground';
 import { BottomNavBar } from '@/components/BottomNavBar';
 import type { InboxItem, InboxItemType } from '@/types/inbox';
 import { TYPE_CONFIG } from '@/types/inbox';
+import { Fonts } from '@/lib/typography';
 
 const ICON_MAP: Record<string, React.ComponentType<any>> = {
     MessageCircle,
@@ -89,14 +89,12 @@ function ItemRow({
     onDelete,
     onTogglePin,
     onConvertToTask,
-    onConvertToHabit,
 }: {
     item: InboxItem;
     onArchive: (id: string) => void;
     onDelete: (id: string) => void;
     onTogglePin: (id: string) => void;
     onConvertToTask: (id: string, content: string) => void;
-    onConvertToHabit: (id: string, content: string) => void;
 }) {
     const config = TYPE_CONFIG[item.type];
     const timeAgo = formatDistanceToNow(new Date(item.createdAt), { addSuffix: true });
@@ -107,14 +105,13 @@ function ItemRow({
             {
                 options: [
                     'Convert to Task',
-                    'Convert to Habit',
                     'Archive',
                     item.isPinned ? 'Unpin' : 'Pin',
                     'Delete',
                     'Cancel',
                 ],
-                destructiveButtonIndex: 4,
-                cancelButtonIndex: 5,
+                destructiveButtonIndex: 3,
+                cancelButtonIndex: 4,
             },
             (buttonIndex) => {
                 switch (buttonIndex) {
@@ -122,15 +119,12 @@ function ItemRow({
                         onConvertToTask(item.id, item.content);
                         break;
                     case 1:
-                        onConvertToHabit(item.id, item.content);
-                        break;
-                    case 2:
                         onArchive(item.id);
                         break;
-                    case 3:
+                    case 2:
                         onTogglePin(item.id);
                         break;
-                    case 4:
+                    case 3:
                         onDelete(item.id);
                         break;
                 }
@@ -142,7 +136,6 @@ function ItemRow({
         <SwipeableRow
             onDelete={() => onDelete(item.id)}
             onConvertToTask={() => onConvertToTask(item.id, item.content)}
-            onConvertToHabit={() => onConvertToHabit(item.id, item.content)}
         >
             <Pressable
                 onLongPress={handleLongPress}
@@ -183,7 +176,6 @@ export default function InboxScreen() {
         getPinnedItems,
     } = useInbox();
     const { addTodo } = useTodos();
-    const { addHabit } = useHabits();
     const [inputText, setInputText] = useState('');
     const [selectedType, setSelectedType] = useState<InboxItemType | null>(null);
     const [showCompleted, setShowCompleted] = useState(false);
@@ -209,11 +201,6 @@ export default function InboxScreen() {
         addTodo(content);
         archiveItem(id);
     }, [addTodo, archiveItem]);
-
-    const handleConvertToHabit = useCallback((id: string, content: string) => {
-        addHabit(content);
-        archiveItem(id);
-    }, [addHabit, archiveItem]);
 
     const activeItems = useMemo(
         () => items.filter((i) => !i.isArchived),
@@ -353,7 +340,6 @@ export default function InboxScreen() {
                                     onDelete={deleteItem}
                                     onTogglePin={togglePin}
                                     onConvertToTask={handleConvertToTask}
-                                    onConvertToHabit={handleConvertToHabit}
                                 />
                                 {index < filteredItems.length - 1 && (
                                     <View style={styles.separator} />
@@ -447,7 +433,8 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 34,
-        fontWeight: '800',
+        fontFamily: Fonts.heading,
+        fontWeight: '700',
         color: '#000',
         letterSpacing: -0.5,
         marginTop: 8,

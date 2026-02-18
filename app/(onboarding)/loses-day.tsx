@@ -9,6 +9,7 @@ import {
 import { useRouter } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { Fonts } from '@/lib/typography';
 import { LosesDayAt } from '@/types/onboarding';
 
 const OPTIONS: { value: LosesDayAt; label: string; emoji: string }[] = [
@@ -130,6 +131,7 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 32,
+        fontFamily: Fonts.heading,
         fontWeight: '700',
         color: '#000',
         lineHeight: 40,

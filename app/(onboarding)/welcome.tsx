@@ -10,6 +10,8 @@ import {
 import { useRouter } from 'expo-router';
 import { SuccessGraphic } from '@/components/SuccessGraphic';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { useTodos } from '@/contexts/TodoContext';
+import { Fonts } from '@/lib/typography';
 
 const PERSONALIZED_MESSAGES: Record<string, string> = {
     overwhelmed: "Let's clear that mental clutter together.",
@@ -21,6 +23,7 @@ const PERSONALIZED_MESSAGES: Record<string, string> = {
 export default function WelcomeScreen() {
     const router = useRouter();
     const { state, completeOnboarding } = useOnboarding();
+    const { addTodo } = useTodos();
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const scaleAnim = useRef(new Animated.Value(0.9)).current;
 
@@ -42,6 +45,34 @@ export default function WelcomeScreen() {
 
     const handleBegin = async () => {
         await completeOnboarding();
+
+        // Seed default tasks for new users
+        await addTodo('Morning routine', new Date(), undefined, false, undefined, {
+            emoji: '🌅',
+            emojiColor: '#FFF3E0',
+            timeOfDay: 'morning',
+            repeat: 'daily',
+            subtasks: [
+                { id: 'seed_1', title: 'Drink a glass of water', completed: false },
+                { id: 'seed_2', title: 'Go for a morning walk', completed: false },
+                { id: 'seed_3', title: 'Have a healthy breakfast', completed: false },
+                { id: 'seed_4', title: 'Plan your day ahead', completed: false },
+            ],
+        });
+
+        await addTodo('Evening wind-down', new Date(), undefined, false, undefined, {
+            emoji: '🌙',
+            emojiColor: '#E8E0F0',
+            timeOfDay: 'evening',
+            repeat: 'daily',
+            subtasks: [
+                { id: 'seed_5', title: 'Review what you accomplished today', completed: false },
+                { id: 'seed_6', title: 'Prepare tomorrow\'s priorities', completed: false },
+                { id: 'seed_7', title: 'Put your phone away', completed: false },
+                { id: 'seed_8', title: 'Read or journal before bed', completed: false },
+            ],
+        });
+
         router.replace('/');
     };
 
@@ -131,6 +162,7 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 36,
+        fontFamily: Fonts.heading,
         fontWeight: '700',
         color: '#000',
         textAlign: 'center',

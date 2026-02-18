@@ -17,10 +17,9 @@ import Animated, {
     interpolate,
     runOnJS,
 } from 'react-native-reanimated';
-import { CheckCircle2, Repeat, Pill, X, ArrowUp } from 'lucide-react-native';
+import { CheckCircle2, X, ArrowUp } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
-import { useRouter } from 'expo-router';
 import { useTodos } from '@/contexts/TodoContext';
 import { useWorkMode } from '@/contexts/WorkModeContext';
 
@@ -33,10 +32,8 @@ interface CaptureBarProps {
     onClose: () => void;
 }
 
-const MODES: { mode: CaptureMode | 'habit' | 'supplement'; icon: typeof CheckCircle2; label: string; color: string }[] = [
+const MODES: { mode: CaptureMode; icon: typeof CheckCircle2; label: string; color: string }[] = [
     { mode: 'task', icon: CheckCircle2, label: 'Task', color: '#007AFF' },
-    { mode: 'habit', icon: Repeat, label: 'Habit', color: '#5AC8FA' },
-    { mode: 'supplement', icon: Pill, label: 'Supplement', color: '#AF52DE' },
 ];
 
 const SPRING_OPEN = { damping: 28, stiffness: 340, mass: 0.7 };
@@ -51,8 +48,6 @@ export function CaptureBar({
     const [mounted, setMounted] = useState(false);
     const { addTodo } = useTodos();
     const { isWorkMode } = useWorkMode();
-    const router = useRouter();
-
     const progress = useSharedValue(0);
     const inputRef = useRef<TextInput>(null);
 
@@ -100,18 +95,8 @@ export function CaptureBar({
         ],
     }));
 
-    const handleModeSwitch = (newMode: CaptureMode | 'habit' | 'supplement') => {
+    const handleModeSwitch = (newMode: CaptureMode) => {
         Haptics.selectionAsync();
-        if (newMode === 'habit') {
-            handleClose();
-            setTimeout(() => router.push('/add-habit'), 200);
-            return;
-        }
-        if (newMode === 'supplement') {
-            handleClose();
-            setTimeout(() => router.push('/add-supplement'), 200);
-            return;
-        }
         if (newMode === mode) return;
         setMode(newMode);
         setTimeout(() => inputRef.current?.focus(), 80);

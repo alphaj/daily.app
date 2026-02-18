@@ -33,6 +33,7 @@ import * as Haptics from 'expo-haptics';
 import { useLater } from '@/contexts/LaterContext';
 import { AREA_CONFIG, type LaterArea, type LaterItem } from '@/types/later';
 import { BottomNavBar } from '@/components/BottomNavBar';
+import { Fonts } from '@/lib/typography';
 
 const PADDING = 20;
 
@@ -602,6 +603,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 34,
+    fontFamily: Fonts.heading,
     fontWeight: '700',
     color: '#000',
     letterSpacing: -0.5,
@@ -786,7 +788,8 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 20,
-    fontWeight: '700',
+    fontFamily: Fonts.heading,
+    fontWeight: '600',
     color: '#000',
     marginBottom: 8,
   },
@@ -883,7 +886,8 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 22,
-    fontWeight: '700',
+    fontFamily: Fonts.heading,
+    fontWeight: '600',
     color: '#000',
     letterSpacing: -0.5,
   },

@@ -1,6 +1,6 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { X, Check, Plus, GripVertical, Clock, Calendar, Repeat, Sunrise, ChevronDown } from 'lucide-react-native';
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import {
     View,
     Text,
@@ -18,12 +18,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useTodos } from '@/contexts/TodoContext';
-import { useWorkMode } from '@/contexts/WorkModeContext';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { DatePickerModal } from '@/components/DatePickerModal';
 import { AnimatedBottomSheet } from '@/components/AnimatedBottomSheet';
 import { LinearGradient } from 'expo-linear-gradient';
-import { suggestEmoji } from '@/utils/emojiSuggest';
 import { AmbientBackground } from '@/components/AmbientBackground';
 import type { TimeOfDay, RepeatOption, Subtask } from '@/types/todo';
 
@@ -44,15 +42,6 @@ const EMOJI_OPTIONS = [
     '✈️', '🚗', '🚆', '🏖️', '🗺️', '🧳', '⛰️', '🏕️',
     '🐕', '🐈', '🐟', '🐦', '🦮',
     '🔧', '🛒', '📸', '🎮', '📱', '🔑', '💎', '🌟', '⭐', '🚀',
-];
-
-const EMOJI_BG_COLORS = [
-    '#D4C5F0', '#C8B8E8', '#E0D4F5', '#EDE5FA', '#F5F0FF',
-    '#C5D8F0', '#D4E4F7', '#E3EDFB', '#B8D8E8', '#D0EAF0',
-    '#B8E0C8', '#C8E8D4', '#D8F0E4', '#A8D8B8', '#C0E8C8',
-    '#F0D4D8', '#F5DDE0', '#FAE8EA', '#E8C0C8', '#F0D0D8',
-    '#F0D8C0', '#F5E0CC', '#FAE8D8', '#E8C8A8', '#F0D4B8',
-    '#F0ECC0', '#F5F0CC', '#FAF5D8', '#E8E4A8', '#F0ECB8',
 ];
 
 const TIME_OF_DAY_OPTIONS: { label: string; value: TimeOfDay; icon: string }[] = [
@@ -94,36 +83,26 @@ function formatDuration(minutes: number): string {
 
 type ExpandableField = 'timeOfDay' | 'duration' | 'repeat' | null;
 
-export default function AddTodoScreen() {
+export default function EditTodoScreen() {
     const router = useRouter();
-    const { addTodo } = useTodos();
-    const { isWorkMode } = useWorkMode();
-    const { timeOfDay: initialTimeOfDay } = useLocalSearchParams<{ timeOfDay?: string }>();
+    const { id } = useLocalSearchParams<{ id: string }>();
+    const { todos, updateTodo } = useTodos();
 
-    const [title, setTitle] = useState('');
-    const [emoji, setEmoji] = useState<string | undefined>(undefined);
-    const [emojiColor, setEmojiColor] = useState<string | undefined>(undefined);
-    const userPickedEmoji = useRef(false);
+    const todo = useMemo(() => todos.find(t => t.id === id), [todos, id]);
 
-    const handleTitleChange = useCallback((text: string) => {
-        setTitle(text);
-        if (!userPickedEmoji.current) {
-            setEmoji(suggestEmoji(text));
-        }
-    }, []);
-    const [dueDate, setDueDate] = useState<Date | null>(new Date());
+    const [title, setTitle] = useState(todo?.title ?? '');
+    const [emoji, setEmoji] = useState<string | undefined>(todo?.emoji);
+    const [dueDate, setDueDate] = useState<Date | null>(
+        todo?.dueDate ? parseISO(todo.dueDate) : new Date()
+    );
     const [showDatePicker, setShowDatePicker] = useState(false);
-    const [estimatedMinutes, setEstimatedMinutes] = useState<number | undefined>(undefined);
-    const [repeat, setRepeat] = useState<RepeatOption>('none');
-    const [timeOfDay, setTimeOfDay] = useState<TimeOfDay | undefined>(() => {
-        if (initialTimeOfDay && ['anytime', 'morning', 'afternoon', 'evening'].includes(initialTimeOfDay)) {
-            return initialTimeOfDay as TimeOfDay;
-        }
-        return undefined;
-    });
-    const [subtasks, setSubtasks] = useState<{ id: string; title: string; emoji: string }[]>([]);
+    const [estimatedMinutes, setEstimatedMinutes] = useState<number | undefined>(todo?.estimatedMinutes);
+    const [repeat, setRepeat] = useState<RepeatOption>(todo?.repeat ?? 'none');
+    const [timeOfDay, setTimeOfDay] = useState<TimeOfDay | undefined>(todo?.timeOfDay);
+    const [subtasks, setSubtasks] = useState<{ id: string; title: string; emoji: string }[]>(
+        (todo?.subtasks ?? []).map(st => ({ id: st.id, title: st.title, emoji: st.emoji ?? '📋' }))
+    );
     const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
-    const subtaskInputRef = useRef<TextInput>(null);
     const scrollViewRef = useRef<ScrollViewType>(null);
 
     // Inline expanding pickers
@@ -132,7 +111,6 @@ export default function AddTodoScreen() {
     // Bottom sheets (emoji pickers only)
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [showSubtaskEmojiPicker, setShowSubtaskEmojiPicker] = useState<string | null>(null);
-    const [editingSubtask, setEditingSubtask] = useState<{ id: string; title: string; emoji: string } | null>(null);
 
     const toggleField = useCallback((field: ExpandableField) => {
         Haptics.selectionAsync();
@@ -145,18 +123,30 @@ export default function AddTodoScreen() {
         setExpandedField(prev => prev === field ? null : field);
     }, []);
 
+    if (!todo) {
+        return (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                <Text style={{ color: '#8E8E93', fontSize: 16 }}>Task not found</Text>
+            </View>
+        );
+    }
+
     const handleSave = () => {
         if (title.trim()) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            const subtaskData: Subtask[] = subtasks.map(st => ({
-                id: st.id,
-                title: st.title,
-                emoji: st.emoji,
-                completed: false,
-            }));
-            addTodo(title.trim(), dueDate || new Date(), undefined, isWorkMode, undefined, {
+            const subtaskData: Subtask[] = subtasks.map(st => {
+                const existing = todo.subtasks?.find(s => s.id === st.id);
+                return {
+                    id: st.id,
+                    title: st.title,
+                    emoji: st.emoji,
+                    completed: existing?.completed ?? false,
+                };
+            });
+            updateTodo(todo.id, {
+                title: title.trim(),
                 emoji,
-                emojiColor,
+                dueDate: dueDate ? dueDate.toISOString().split('T')[0] : todo.dueDate,
                 estimatedMinutes,
                 timeOfDay,
                 repeat: repeat !== 'none' ? repeat : undefined,
@@ -169,40 +159,23 @@ export default function AddTodoScreen() {
     const addSubtask = () => {
         if (newSubtaskTitle.trim()) {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            const trimmed = newSubtaskTitle.trim();
             setSubtasks(prev => [...prev, {
                 id: generateId(),
-                title: trimmed,
-                emoji: suggestEmoji(trimmed) || '📋',
+                title: newSubtaskTitle.trim(),
+                emoji: '📋',
             }]);
             setNewSubtaskTitle('');
         }
     };
 
-    const removeSubtask = (id: string) => {
+    const removeSubtask = (subtaskId: string) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        setSubtasks(prev => prev.filter(st => st.id !== id));
+        setSubtasks(prev => prev.filter(st => st.id !== subtaskId));
     };
 
-    const updateSubtaskEmoji = (id: string, newEmoji: string) => {
-        setSubtasks(prev => prev.map(st => st.id === id ? { ...st, emoji: newEmoji } : st));
+    const updateSubtaskEmoji = (subtaskId: string, newEmoji: string) => {
+        setSubtasks(prev => prev.map(st => st.id === subtaskId ? { ...st, emoji: newEmoji } : st));
         setShowSubtaskEmojiPicker(null);
-    };
-
-    const startEditingSubtask = (st: { id: string; title: string; emoji: string }) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        setEditingSubtask({ ...st });
-    };
-
-    const saveEditingSubtask = () => {
-        if (editingSubtask && editingSubtask.title.trim()) {
-            setSubtasks(prev => prev.map(st =>
-                st.id === editingSubtask.id
-                    ? { ...st, title: editingSubtask.title.trim(), emoji: editingSubtask.emoji }
-                    : st
-            ));
-        }
-        setEditingSubtask(null);
     };
 
     const getTimeOfDayLabel = (): string => {
@@ -238,22 +211,19 @@ export default function AddTodoScreen() {
                     style={{ flex: 1 }}
                 >
                     {/* Header */}
-                    <View style={styles.headerContainer}>
-                        <View style={styles.modalHandleTop} />
-                        <View style={styles.header}>
-                            <Pressable onPress={() => router.back()} style={styles.cancelButton} hitSlop={8}>
-                                <Text style={styles.cancelText}>Cancel</Text>
-                            </Pressable>
-                            <Text style={styles.headerTitle}>New Task</Text>
-                            <Pressable
-                                style={[styles.saveButton, canSave && styles.saveButtonActive]}
-                                onPress={handleSave}
-                                disabled={!canSave}
-                                hitSlop={8}
-                            >
-                                <Text style={[styles.saveText, canSave && styles.saveTextActive]}>Add</Text>
-                            </Pressable>
-                        </View>
+                    <View style={styles.header}>
+                        <Pressable onPress={() => router.back()} style={styles.headerButton} hitSlop={8}>
+                            <X size={22} color="#1C1C1E" strokeWidth={2} />
+                        </Pressable>
+                        <Text style={styles.headerTitle}>Edit task</Text>
+                        <Pressable
+                            style={[styles.saveButton, canSave && styles.saveButtonActive]}
+                            onPress={handleSave}
+                            disabled={!canSave}
+                            hitSlop={8}
+                        >
+                            <Check size={20} color={canSave ? '#fff' : '#C7C7CC'} strokeWidth={2.5} />
+                        </Pressable>
                     </View>
 
                     <ScrollView
@@ -271,12 +241,12 @@ export default function AddTodoScreen() {
                                     placeholder="Task name"
                                     placeholderTextColor="#B0B0B5"
                                     value={title}
-                                    onChangeText={handleTitleChange}
+                                    onChangeText={setTitle}
                                     autoFocus
                                     multiline={false}
                                 />
                                 <Pressable
-                                    style={[styles.emojiButton, emojiColor ? { backgroundColor: emojiColor } : undefined]}
+                                    style={styles.emojiButton}
                                     onPress={() => {
                                         Keyboard.dismiss();
                                         Haptics.selectionAsync();
@@ -453,11 +423,7 @@ export default function AddTodoScreen() {
                             {subtasks.map((st) => (
                                 <View key={st.id}>
                                     <View style={styles.fieldSeparator} />
-                                    <Pressable
-                                        style={styles.subtaskRow}
-                                        onLongPress={() => startEditingSubtask(st)}
-                                        delayLongPress={400}
-                                    >
+                                    <View style={styles.subtaskRow}>
                                         <Pressable
                                             style={styles.subtaskEmoji}
                                             onPress={() => {
@@ -476,7 +442,7 @@ export default function AddTodoScreen() {
                                         >
                                             <GripVertical size={18} color="#C7C7CC" />
                                         </Pressable>
-                                    </Pressable>
+                                    </View>
                                 </View>
                             ))}
                         </View>
@@ -485,8 +451,11 @@ export default function AddTodoScreen() {
                         <Pressable
                             style={styles.addNewButton}
                             onPress={() => {
-                                Haptics.selectionAsync();
-                                subtaskInputRef.current?.focus();
+                                if (newSubtaskTitle.trim()) {
+                                    addSubtask();
+                                } else {
+                                    Haptics.selectionAsync();
+                                }
                             }}
                         >
                             <Text style={styles.addNewText}>ADD NEW</Text>
@@ -496,7 +465,6 @@ export default function AddTodoScreen() {
                         {/* Inline subtask input */}
                         <View style={styles.subtaskInputCard}>
                             <TextInput
-                                ref={subtaskInputRef}
                                 style={styles.subtaskInput}
                                 placeholder="New sub-task name..."
                                 placeholderTextColor="#C7C7CC"
@@ -528,134 +496,64 @@ export default function AddTodoScreen() {
                 />
             </SafeAreaView>
 
-            {/* Choose Visuals Bottom Sheet */}
+            {/* Emoji Picker */}
             <AnimatedBottomSheet
                 visible={showEmojiPicker}
                 onClose={() => setShowEmojiPicker(false)}
             >
                 <View style={styles.sheetHeaderRow}>
-                    <Pressable onPress={() => setShowEmojiPicker(false)} hitSlop={8}>
-                        <X size={20} color="#1C1C1E" strokeWidth={2} />
-                    </Pressable>
-                    <Text style={styles.sheetTitle}>Choose visuals</Text>
-                    <Pressable onPress={() => setShowEmojiPicker(false)} hitSlop={8}>
-                        <Check size={20} color="#C7C7CC" strokeWidth={2} />
+                    <Text style={styles.sheetTitle}>Choose Icon</Text>
+                    <Pressable onPress={() => setShowEmojiPicker(false)}>
+                        <Text style={styles.sheetDone}>Done</Text>
                     </Pressable>
                 </View>
-
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
-                    {/* Preview */}
-                    <View style={styles.visualsPreview}>
-                        <View style={[styles.visualsPreviewCircle, { backgroundColor: emojiColor || '#F2E8F5' }]}>
-                            <Text style={styles.visualsPreviewEmoji}>{emoji || '🌤'}</Text>
+                <View>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.emojiScrollContent}>
+                        <View style={styles.emojiRows}>
+                            <View style={styles.emojiRow}>
+                                {EMOJI_OPTIONS.filter((_, i) => i % 2 === 0).map(e => {
+                                    const active = emoji === e;
+                                    return (
+                                        <Pressable
+                                            key={e}
+                                            style={[styles.emojiOption, active && styles.emojiOptionActive]}
+                                            onPress={() => {
+                                                Haptics.selectionAsync();
+                                                setEmoji(active ? undefined : e);
+                                            }}
+                                        >
+                                            <Text style={styles.emojiText}>{e}</Text>
+                                        </Pressable>
+                                    );
+                                })}
+                            </View>
+                            <View style={styles.emojiRow}>
+                                {EMOJI_OPTIONS.filter((_, i) => i % 2 === 1).map(e => {
+                                    const active = emoji === e;
+                                    return (
+                                        <Pressable
+                                            key={e}
+                                            style={[styles.emojiOption, active && styles.emojiOptionActive]}
+                                            onPress={() => {
+                                                Haptics.selectionAsync();
+                                                setEmoji(active ? undefined : e);
+                                            }}
+                                        >
+                                            <Text style={styles.emojiText}>{e}</Text>
+                                        </Pressable>
+                                    );
+                                })}
+                            </View>
                         </View>
-                        {(emoji || emojiColor) && (
-                            <Pressable
-                                style={styles.visualsClearBtn}
-                                onPress={() => {
-                                    Haptics.selectionAsync();
-                                    setEmoji(suggestEmoji(title));
-                                    setEmojiColor(undefined);
-                                    userPickedEmoji.current = false;
-                                }}
-                                hitSlop={8}
-                            >
-                                <X size={14} color="#8E8E93" strokeWidth={2.5} />
-                            </Pressable>
-                        )}
-                    </View>
-
-                    {/* Emoji grid */}
-                    <View>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.emojiScrollContent}>
-                            <View style={styles.emojiRows}>
-                                <View style={styles.emojiRow}>
-                                    {EMOJI_OPTIONS.filter((_, i) => i % 2 === 0).map(e => {
-                                        const active = emoji === e;
-                                        return (
-                                            <Pressable
-                                                key={e}
-                                                style={[styles.emojiOption, active && styles.emojiOptionActive]}
-                                                onPress={() => {
-                                                    Haptics.selectionAsync();
-                                                    if (active) {
-                                                        setEmoji(suggestEmoji(title));
-                                                        userPickedEmoji.current = false;
-                                                    } else {
-                                                        setEmoji(e);
-                                                        userPickedEmoji.current = true;
-                                                    }
-                                                }}
-                                            >
-                                                <Text style={styles.emojiText}>{e}</Text>
-                                            </Pressable>
-                                        );
-                                    })}
-                                </View>
-                                <View style={styles.emojiRow}>
-                                    {EMOJI_OPTIONS.filter((_, i) => i % 2 === 1).map(e => {
-                                        const active = emoji === e;
-                                        return (
-                                            <Pressable
-                                                key={e}
-                                                style={[styles.emojiOption, active && styles.emojiOptionActive]}
-                                                onPress={() => {
-                                                    Haptics.selectionAsync();
-                                                    if (active) {
-                                                        setEmoji(suggestEmoji(title));
-                                                        userPickedEmoji.current = false;
-                                                    } else {
-                                                        setEmoji(e);
-                                                        userPickedEmoji.current = true;
-                                                    }
-                                                }}
-                                            >
-                                                <Text style={styles.emojiText}>{e}</Text>
-                                            </Pressable>
-                                        );
-                                    })}
-                                </View>
-                            </View>
-                        </ScrollView>
-                        <LinearGradient
-                            colors={['rgba(255,255,255,0)', 'rgba(255,255,255,1)']}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={styles.emojiScrollFade}
-                            pointerEvents="none"
-                        />
-                    </View>
-
-                    {/* Color grid */}
-                    <View style={styles.colorGrid}>
-                        <Pressable
-                            style={[styles.colorOption, !emojiColor && styles.colorOptionActive]}
-                            onPress={() => {
-                                Haptics.selectionAsync();
-                                setEmojiColor(undefined);
-                            }}
-                        >
-                            <View style={styles.colorNoFill}>
-                                <View style={styles.colorNoFillLine} />
-                            </View>
-                        </Pressable>
-                        {EMOJI_BG_COLORS.map(c => {
-                            const active = emojiColor === c;
-                            return (
-                                <Pressable
-                                    key={c}
-                                    style={[styles.colorOption, active && styles.colorOptionActive]}
-                                    onPress={() => {
-                                        Haptics.selectionAsync();
-                                        setEmojiColor(c);
-                                    }}
-                                >
-                                    <View style={[styles.colorSwatch, { backgroundColor: c }]} />
-                                </Pressable>
-                            );
-                        })}
-                    </View>
-                </ScrollView>
+                    </ScrollView>
+                    <LinearGradient
+                        colors={['rgba(255,255,255,0)', 'rgba(255,255,255,1)']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.emojiScrollFade}
+                        pointerEvents="none"
+                    />
+                </View>
             </AnimatedBottomSheet>
 
             {/* Subtask Emoji Picker */}
@@ -715,84 +613,6 @@ export default function AddTodoScreen() {
                     />
                 </View>
             </AnimatedBottomSheet>
-
-            {/* Edit Subtask Sheet */}
-            <AnimatedBottomSheet
-                visible={editingSubtask !== null}
-                onClose={saveEditingSubtask}
-            >
-                <View style={styles.sheetHeaderRow}>
-                    <Text style={styles.sheetTitle}>Edit Sub-task</Text>
-                    <Pressable onPress={saveEditingSubtask}>
-                        <Text style={styles.sheetDone}>Done</Text>
-                    </Pressable>
-                </View>
-                {editingSubtask && (
-                    <View style={styles.editSubtaskContent}>
-                        <View style={styles.editSubtaskNameRow}>
-                            <Pressable style={styles.editSubtaskEmojiBtn}>
-                                <Text style={styles.editSubtaskEmoji}>{editingSubtask.emoji}</Text>
-                            </Pressable>
-                            <TextInput
-                                style={styles.editSubtaskInput}
-                                value={editingSubtask.title}
-                                onChangeText={(text) => setEditingSubtask(prev => prev ? { ...prev, title: text } : null)}
-                                autoFocus
-                                selectTextOnFocus
-                                returnKeyType="done"
-                                onSubmitEditing={saveEditingSubtask}
-                            />
-                        </View>
-                        <View>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.emojiScrollContent}>
-                                <View style={styles.emojiRows}>
-                                    <View style={styles.emojiRow}>
-                                        {EMOJI_OPTIONS.filter((_, i) => i % 2 === 0).map(e => {
-                                            const active = editingSubtask.emoji === e;
-                                            return (
-                                                <Pressable
-                                                    key={e}
-                                                    style={[styles.emojiOption, active && styles.emojiOptionActive]}
-                                                    onPress={() => {
-                                                        Haptics.selectionAsync();
-                                                        setEditingSubtask(prev => prev ? { ...prev, emoji: e } : null);
-                                                    }}
-                                                >
-                                                    <Text style={styles.emojiText}>{e}</Text>
-                                                </Pressable>
-                                            );
-                                        })}
-                                    </View>
-                                    <View style={styles.emojiRow}>
-                                        {EMOJI_OPTIONS.filter((_, i) => i % 2 === 1).map(e => {
-                                            const active = editingSubtask.emoji === e;
-                                            return (
-                                                <Pressable
-                                                    key={e}
-                                                    style={[styles.emojiOption, active && styles.emojiOptionActive]}
-                                                    onPress={() => {
-                                                        Haptics.selectionAsync();
-                                                        setEditingSubtask(prev => prev ? { ...prev, emoji: e } : null);
-                                                    }}
-                                                >
-                                                    <Text style={styles.emojiText}>{e}</Text>
-                                                </Pressable>
-                                            );
-                                        })}
-                                    </View>
-                                </View>
-                            </ScrollView>
-                            <LinearGradient
-                                colors={['rgba(255,255,255,0)', 'rgba(255,255,255,1)']}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 0 }}
-                                style={styles.emojiScrollFade}
-                                pointerEvents="none"
-                            />
-                        </View>
-                    </View>
-                )}
-            </AnimatedBottomSheet>
         </View>
     );
 }
@@ -802,31 +622,20 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: 'transparent',
     },
-    headerContainer: {
-        paddingTop: 6,
-    },
-    modalHandleTop: {
-        width: 36,
-        height: 5,
-        borderRadius: 2.5,
-        backgroundColor: '#DDDDE0',
-        alignSelf: 'center',
-        marginBottom: 6,
-    },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        height: 44,
+        paddingHorizontal: 20,
+        height: 56,
     },
-    cancelButton: {
-        minWidth: 60,
-    },
-    cancelText: {
-        fontSize: 17,
-        color: '#8E8E93',
-        letterSpacing: -0.2,
+    headerButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#F2F2F7',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     headerTitle: {
         fontSize: 17,
@@ -835,18 +644,15 @@ const styles = StyleSheet.create({
         letterSpacing: -0.4,
     },
     saveButton: {
-        minWidth: 60,
-        alignItems: 'flex-end',
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: '#E5E5EA',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
-    saveButtonActive: {},
-    saveText: {
-        fontSize: 17,
-        fontWeight: '600',
-        color: '#C7C7CC',
-        letterSpacing: -0.2,
-    },
-    saveTextActive: {
-        color: '#007AFF',
+    saveButtonActive: {
+        backgroundColor: '#007AFF',
     },
     scrollContent: {
         paddingHorizontal: 20,
@@ -856,7 +662,7 @@ const styles = StyleSheet.create({
     },
     card: {
         backgroundColor: '#fff',
-        borderRadius: 12,
+        borderRadius: 16,
         paddingHorizontal: 20,
         paddingVertical: 16,
     },
@@ -1036,74 +842,6 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#007AFF',
     },
-    // Visuals picker
-    visualsPreview: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 24,
-    },
-    visualsPreviewCircle: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    visualsPreviewEmoji: {
-        fontSize: 44,
-    },
-    visualsClearBtn: {
-        position: 'absolute',
-        top: 20,
-        right: '30%',
-        width: 28,
-        height: 28,
-        borderRadius: 14,
-        backgroundColor: '#F2F2F7',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    colorGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 10,
-        paddingHorizontal: 20,
-        paddingTop: 4,
-        paddingBottom: 16,
-    },
-    colorOption: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 2,
-        borderColor: 'transparent',
-    },
-    colorOptionActive: {
-        borderColor: '#1C1C1E',
-    },
-    colorSwatch: {
-        width: 42,
-        height: 42,
-        borderRadius: 21,
-    },
-    colorNoFill: {
-        width: 42,
-        height: 42,
-        borderRadius: 21,
-        borderWidth: 1.5,
-        borderColor: '#C7C7CC',
-        alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'hidden',
-    },
-    colorNoFillLine: {
-        width: 56,
-        height: 1.5,
-        backgroundColor: '#C7C7CC',
-        transform: [{ rotate: '-45deg' }],
-    },
     // Emoji grid
     emojiScrollContent: {
         paddingHorizontal: 20,
@@ -1137,36 +875,5 @@ const styles = StyleSheet.create({
         top: 0,
         bottom: 0,
         width: 40,
-    },
-    // Edit subtask
-    editSubtaskContent: {
-        paddingHorizontal: 20,
-    },
-    editSubtaskNameRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        marginBottom: 16,
-    },
-    editSubtaskEmojiBtn: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: '#F2F2F7',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    editSubtaskEmoji: {
-        fontSize: 22,
-    },
-    editSubtaskInput: {
-        flex: 1,
-        fontSize: 17,
-        fontWeight: '500',
-        color: '#1C1C1E',
-        backgroundColor: '#F2F2F7',
-        borderRadius: 12,
-        paddingHorizontal: 14,
-        paddingVertical: 12,
     },
 });

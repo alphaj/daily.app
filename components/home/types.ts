@@ -1,32 +1,11 @@
-import type { Todo } from '@/types/todo';
+import type { Todo, TimeOfDay } from '@/types/todo';
 import type { Habit } from '@/types/habit';
-import type { Supplement } from '@/types/supplement';
 
 export interface HomeVariantProps {
   // Date
   selectedDate: Date;
   isToday: boolean;
   isPastDate: boolean;
-
-  // Habits
-  habits: Habit[];
-  displayHabits: Habit[];
-  hasMoreHabits: boolean;
-  habitsCompleted: number;
-  isCompletedToday: (habit: Habit) => boolean;
-  onHabitToggle: (id: string) => void;
-  onDeleteHabit: (id: string) => void;
-  onAddHabit: () => void;
-  getWeekDots: (dates: string[]) => boolean[];
-  getCompletionRate: (dates: string[]) => number;
-
-  // Supplements
-  activeSupplements: Supplement[];
-  pillsTaken: number;
-  onToggleTaken: (id: string) => void;
-  onDeleteSupplement: (id: string) => void;
-  onEditSupplement: (supplement: Supplement) => void;
-  onAddSupplement: () => void;
 
   // Tasks
   todosForDate: Todo[];
@@ -36,4 +15,17 @@ export interface HomeVariantProps {
   onDeleteTodo: (id: string) => void;
   onReorderTodos: (todos: Todo[]) => void;
   onAddTodo: () => void;
+  onAddTodoForSection?: (timeOfDay: TimeOfDay) => void;
+  onToggleSubtask?: (todoId: string, subtaskId: string) => void;
+  onDeleteSubtask?: (todoId: string, subtaskId: string) => void;
+  onEditSubtask?: (todoId: string, subtaskId: string, newTitle: string) => void;
+  onConvertSubtaskToTask?: (todoId: string, subtaskId: string) => void;
+  onDuplicateTodo?: (id: string) => void;
+  onRescheduleTodo?: (id: string, date: string) => void;
+  onEditTodo?: (todo: Todo) => void;
+
+  // Habits
+  habitsForDate?: Habit[];
+  onToggleHabit?: (id: string) => void;
+  getHabitStreak?: (id: string) => number;
 }

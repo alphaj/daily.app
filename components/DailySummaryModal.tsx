@@ -18,6 +18,7 @@ import { Sun, Moon, Check, ChevronRight, Sparkles } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { format, isToday, subDays } from 'date-fns';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { Fonts } from '@/lib/typography';
 
 const MORNING_PROMPT_KEY = 'last_morning_prompt';
 const EVENING_PROMPT_KEY = 'last_evening_prompt';
@@ -34,8 +35,6 @@ function getTimeOfDay(): TimeOfDay {
 interface DailySummaryModalProps {
     visible: boolean;
     onDismiss: () => void;
-    habitsCompletedYesterday?: number;
-    totalHabits?: number;
     tasksCompletedYesterday?: number;
     pendingTasks?: number;
 }
@@ -43,8 +42,6 @@ interface DailySummaryModalProps {
 export function DailySummaryModal({
     visible,
     onDismiss,
-    habitsCompletedYesterday = 0,
-    totalHabits = 0,
     tasksCompletedYesterday = 0,
     pendingTasks = 0,
 }: DailySummaryModalProps) {
@@ -80,7 +77,6 @@ export function DailySummaryModal({
     };
 
     const isMorning = timeOfDay === 'morning';
-    const habitPercent = totalHabits > 0 ? Math.round((habitsCompletedYesterday / totalHabits) * 100) : 0;
 
     return (
         <Modal visible={visible} transparent animationType="none" onRequestClose={handleDismiss}>
@@ -122,11 +118,6 @@ export function DailySummaryModal({
                                 <Text style={styles.statsTitle}>Yesterday's Progress</Text>
                                 <View style={styles.statRow}>
                                     <View style={styles.statItem}>
-                                        <Text style={styles.statValue}>{habitPercent}%</Text>
-                                        <Text style={styles.statLabel}>Habits done</Text>
-                                    </View>
-                                    <View style={styles.statDivider} />
-                                    <View style={styles.statItem}>
                                         <Text style={styles.statValue}>{tasksCompletedYesterday}</Text>
                                         <Text style={styles.statLabel}>Tasks completed</Text>
                                     </View>
@@ -150,9 +141,7 @@ export function DailySummaryModal({
                         <Sparkles size={18} color="#5856D6" strokeWidth={2} />
                         <Text style={styles.message}>
                             {isMorning
-                                ? habitPercent >= 80
-                                    ? "Great momentum! Keep it going today. 💪"
-                                    : "New day, fresh start. You've got this!"
+                                ? "New day, fresh start. You've got this!"
                                 : pendingTasks === 0
                                     ? "All done! Enjoy your evening. 🌙"
                                     : "Take it easy. Tomorrow is another day."}
@@ -242,6 +231,7 @@ const styles = StyleSheet.create({
     },
     greeting: {
         fontSize: 28,
+        fontFamily: Fonts.heading,
         fontWeight: '700',
         color: '#000',
         marginBottom: 4,
