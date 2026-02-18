@@ -13,7 +13,7 @@ import { OnboardingProvider, useOnboarding } from "@/contexts/OnboardingContext"
 import { LaterProvider } from "@/contexts/LaterContext";
 import { CalendarEventProvider } from "@/contexts/CalendarEventContext";
 import { FocusProvider } from "@/contexts/FocusContext";
-import { HabitProvider } from "@/contexts/HabitContext";
+
 import { trpc, trpcClient } from "@/lib/trpc";
 
 SplashScreen.preventAutoHideAsync();
@@ -57,7 +57,7 @@ function RootLayoutNav() {
       <Stack.Screen name="history" options={{ headerShown: false, animation: 'fade' }} />
       <Stack.Screen name="add-event" options={{ presentation: "modal", headerShown: false }} />
       <Stack.Screen name="edit-todo" options={{ presentation: "modal", headerShown: false }} />
-      <Stack.Screen name="add-habit" options={{ presentation: "modal", headerShown: false }} />
+
       <Stack.Screen name="privacy-policy" options={{ headerShown: false, animation: 'slide_from_right' }} />
       <Stack.Screen name="settings-notifications" options={{ headerShown: false, animation: 'slide_from_right' }} />
       <Stack.Screen name="settings-preferences" options={{ headerShown: false, animation: 'slide_from_right' }} />
@@ -70,7 +70,6 @@ function AppWrapper() {
   return (
     <CalendarEventProvider>
       <FocusProvider>
-        <HabitProvider>
         <LaterProvider>
           <TodoProvider>
             <NoteProvider>
@@ -88,7 +87,6 @@ function AppWrapper() {
             </NoteProvider>
           </TodoProvider>
         </LaterProvider>
-        </HabitProvider>
       </FocusProvider>
     </CalendarEventProvider>
   );

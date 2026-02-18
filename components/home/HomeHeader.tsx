@@ -1,7 +1,7 @@
 import React, { memo, useMemo, useRef, useCallback, useEffect } from 'react';
 import { View, Text, Pressable, StyleSheet, FlatList, Dimensions } from 'react-native';
 import { Fonts } from '@/lib/typography';
-import { MoreHorizontal, Plus, User } from 'lucide-react-native';
+import { MoreHorizontal, Plus } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { format, addDays, addWeeks, startOfWeek, isSameDay, differenceInCalendarWeeks } from 'date-fns';
 
@@ -17,7 +17,6 @@ interface HomeHeaderProps {
   onSelectDate: (date: Date) => void;
   onMorePress: () => void;
   onAddPress: () => void;
-  onAddHabit?: () => void;
 }
 
 function generateWeeks(): Date[] {
@@ -106,7 +105,6 @@ export const HomeHeader = memo(function HomeHeader({
   onSelectDate,
   onMorePress,
   onAddPress,
-  onAddHabit,
 }: HomeHeaderProps) {
   const dayName = format(selectedDate, 'EEEE');
   const dateString = format(selectedDate, 'MMMM do, yyyy');
@@ -183,18 +181,6 @@ export const HomeHeader = memo(function HomeHeader({
           >
             <MoreHorizontal size={20} color="#1C1C1E" strokeWidth={2} />
           </Pressable>
-          {onAddHabit && (
-            <Pressable
-              style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                onAddHabit();
-              }}
-              hitSlop={8}
-            >
-              <User size={20} color="#1C1C1E" strokeWidth={2} />
-            </Pressable>
-          )}
           <Pressable
             style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
             onPress={() => {

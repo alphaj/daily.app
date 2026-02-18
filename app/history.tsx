@@ -15,7 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useTodos } from '@/contexts/TodoContext';
-import { useHabits } from '@/contexts/HabitContext';
+
 import { HomeV1 } from '@/components/home/HomeV1';
 import type { HomeVariantProps } from '@/components/home/types';
 import { useNotes } from '@/contexts/NoteContext';
@@ -294,7 +294,7 @@ export default function TodayScreen() {
   const router = useRouter();
 
   const { getTodosForDate, getCompletedTodosForDate, toggleTodo, deleteTodo, duplicateTodo, rescheduleTodo, todos: allTodos, reorderTodos, toggleSubtask } = useTodos();
-  const { getHabitsForDate, toggleHabitForDate, getStreak } = useHabits();
+
   const { hasNoteForDate } = useNotes();
   const { items: inboxItems } = useInbox();
   const { shouldShowItem } = useWorkMode();
@@ -338,15 +338,6 @@ export default function TodayScreen() {
     router.push('/add-todo');
   }, [router]);
 
-  const handleAddHabit = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push('/add-habit');
-  }, [router]);
-
-  const handleToggleHabit = useCallback((id: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    toggleHabitForDate(id, selectedDate);
-  }, [toggleHabitForDate, selectedDate]);
 
   const handleAddTodoForSection = useCallback((timeOfDay: TimeOfDay) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -388,9 +379,6 @@ export default function TodayScreen() {
     onDuplicateTodo: duplicateTodo,
     onRescheduleTodo: rescheduleTodo,
     onEditTodo: handleEditTodo,
-    habitsForDate: getHabitsForDate(selectedDate),
-    onToggleHabit: handleToggleHabit,
-    getHabitStreak: getStreak,
   };
 
   return (
@@ -403,7 +391,6 @@ export default function TodayScreen() {
           onSelectDate={handleSelectDate}
           onMorePress={() => router.push('/menu')}
           onAddPress={handleAddPress}
-          onAddHabit={handleAddHabit}
         />
 
         <HomeV1 {...variantProps} />

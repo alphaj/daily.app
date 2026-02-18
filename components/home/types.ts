@@ -1,5 +1,4 @@
 import type { Todo, TimeOfDay } from '@/types/todo';
-import type { Habit } from '@/types/habit';
 
 export interface HomeVariantProps {
   // Date
@@ -23,9 +22,4 @@ export interface HomeVariantProps {
   onDuplicateTodo?: (id: string) => void;
   onRescheduleTodo?: (id: string, date: string) => void;
   onEditTodo?: (todo: Todo) => void;
-
-  // Habits
-  habitsForDate?: Habit[];
-  onToggleHabit?: (id: string) => void;
-  getHabitStreak?: (id: string) => number;
 }
