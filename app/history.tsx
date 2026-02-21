@@ -510,6 +510,8 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     width: 36,
     height: 36,
+    borderWidth: 1.5,
+    borderColor: '#FF3B30',
   },
   calendarDayText: {
     fontSize: 17,

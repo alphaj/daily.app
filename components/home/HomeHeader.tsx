@@ -296,7 +296,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#F2F2F7',
   },
   dayCircleToday: {
-    backgroundColor: '#1C1C1E',
+    backgroundColor: '#F2F2F7',
+    borderWidth: 2,
+    borderColor: '#1C1C1E',
   },
   dayCircleSelected: {
     backgroundColor: '#1C1C1E',
@@ -310,7 +312,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   dayNumberToday: {
-    color: '#FFFFFF',
+    color: '#1C1C1E',
+    fontWeight: '700',
   },
   dayLabel: {
     fontSize: 11,

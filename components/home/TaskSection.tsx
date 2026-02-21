@@ -82,21 +82,34 @@ export const TaskSection = memo(function TaskSection({
       {/* Task Cards */}
       {!isCollapsed && (
         <View style={styles.body}>
-          {tasks.map((todo) => (
-            <TaskCard
-              key={todo.id}
-              todo={todo}
-              onToggle={onToggleTodo}
-              onDelete={onDeleteTodo}
-              onToggleSubtask={onToggleSubtask}
-              onDeleteSubtask={onDeleteSubtask}
-              onEditSubtask={onEditSubtask}
-              onConvertSubtaskToTask={onConvertSubtaskToTask}
-              onDuplicate={onDuplicateTodo}
-              onReschedule={onRescheduleTodo}
-              onEdit={onEditTodo}
-            />
-          ))}
+          {tasks.length === 0 ? (
+            <Pressable
+              style={styles.emptyPlaceholder}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onAddTodo(timeOfDay);
+              }}
+            >
+              <Plus size={14} color="#C7C7CC" strokeWidth={2.5} />
+              <Text style={styles.emptyText}>Add a task</Text>
+            </Pressable>
+          ) : (
+            tasks.map((todo) => (
+              <TaskCard
+                key={todo.id}
+                todo={todo}
+                onToggle={onToggleTodo}
+                onDelete={onDeleteTodo}
+                onToggleSubtask={onToggleSubtask}
+                onDeleteSubtask={onDeleteSubtask}
+                onEditSubtask={onEditSubtask}
+                onConvertSubtaskToTask={onConvertSubtaskToTask}
+                onDuplicate={onDuplicateTodo}
+                onReschedule={onRescheduleTodo}
+                onEdit={onEditTodo}
+              />
+            ))
+          )}
         </View>
       )}
     </View>
@@ -137,5 +150,21 @@ const styles = StyleSheet.create({
   },
   body: {
     paddingHorizontal: 20,
+  },
+  emptyPlaceholder: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+    borderStyle: 'dashed',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#C7C7CC',
+    fontWeight: '500',
   },
 });

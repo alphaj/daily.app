@@ -101,14 +101,14 @@ export default function AddTodoScreen() {
     const { timeOfDay: initialTimeOfDay } = useLocalSearchParams<{ timeOfDay?: string }>();
 
     const [title, setTitle] = useState('');
-    const [emoji, setEmoji] = useState<string | undefined>(undefined);
+    const [emoji, setEmoji] = useState<string | undefined>('🌤');
     const [emojiColor, setEmojiColor] = useState<string | undefined>(undefined);
     const userPickedEmoji = useRef(false);
 
     const handleTitleChange = useCallback((text: string) => {
         setTitle(text);
         if (!userPickedEmoji.current) {
-            setEmoji(suggestEmoji(text));
+            setEmoji(suggestEmoji(text) || '🌤');
         }
     }, []);
     const [dueDate, setDueDate] = useState<Date | null>(new Date());
