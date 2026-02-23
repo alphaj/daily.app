@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 
 import { TaskSection } from './TaskSection';
+import { usePartnerInteractions } from '@/hooks/usePartnerInteractions';
 import type { HomeVariantProps } from './types';
 import type { Todo, TimeOfDay } from '@/types/todo';
 
@@ -38,6 +39,8 @@ export function HomeV1(props: HomeVariantProps) {
     onRescheduleTodo,
     onEditTodo,
   } = props;
+
+  const { reactionsOnMyTasks } = usePartnerInteractions();
 
   const [collapsedSections, setCollapsedSections] = useState<Record<TimeOfDay, boolean>>({
     anytime: false,
@@ -89,6 +92,7 @@ export function HomeV1(props: HomeVariantProps) {
           onDuplicateTodo={onDuplicateTodo}
           onRescheduleTodo={onRescheduleTodo}
           onEditTodo={onEditTodo}
+          partnerReactions={reactionsOnMyTasks}
         />
       ))}
     </ScrollView>

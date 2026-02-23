@@ -15,7 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as StoreReview from 'expo-store-review';
 import Constants from 'expo-constants';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { AmbientBackground } from '@/components/AmbientBackground';
@@ -23,24 +23,12 @@ import { useOnboarding } from '@/contexts/OnboardingContext';
 
 const FAQ_ITEMS = [
     {
-        question: 'How do I create a new habit?',
-        answer: 'Tap the + button on the habits screen to add a new habit. You can set a name, emoji, schedule, and preferred time.',
-    },
-    {
-        question: 'How are streaks calculated?',
-        answer: 'Streaks count consecutive days where you completed a habit. If a habit is scheduled for specific days, only those days count. Missing a scheduled day breaks the streak.',
-    },
-    {
         question: 'Where is my data stored?',
-        answer: 'All your data is stored locally on your device. Nothing is sent to any server. This means your data is private but also means it won\'t transfer if you switch devices.',
-    },
-    {
-        question: 'Can I track habits on specific days?',
-        answer: 'Yes! When creating or editing a habit, you can select which days of the week it should be tracked. Leave all days unchecked to track every day.',
+        answer: 'Your data is stored locally on your device. If you enable Partner Mode, selected data is synced securely to the cloud so your partner can see it.',
     },
     {
         question: 'How do notifications work?',
-        answer: 'You can enable reminders for individual habits and supplements. Go to Settings > Notifications to manage your daily reminder and toggle habit/supplement notifications.',
+        answer: 'You can enable a daily reminder to check in. Go to Settings > Notifications to turn it on and set your preferred time.',
     },
 ];
 
@@ -107,7 +95,7 @@ export default function SettingsHelpScreen() {
     const handleClearData = () => {
         Alert.alert(
             'Clear All Data',
-            'This will permanently delete all your habits, todos, supplements, and settings. This cannot be undone.',
+            'This will permanently delete all your todos, events, and settings. This cannot be undone.',
             [
                 { text: 'Cancel', style: 'cancel' },
                 {

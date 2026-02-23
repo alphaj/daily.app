@@ -9,7 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { Copy, Calendar, Pencil, Trash2 } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 
 interface TaskContextMenuProps {
   visible: boolean;

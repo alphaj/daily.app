@@ -65,14 +65,14 @@ export default function NotificationsScreen() {
 
                 <Text style={styles.title}>Stay on track,{'\n'}not distracted</Text>
                 <Text style={styles.subtitle}>
-                    Quick pings for your habits. No noise, just momentum.
+                    Quick pings for your tasks. No noise, just momentum.
                 </Text>
 
                 {/* Benefit callout */}
                 <View style={styles.statCard}>
                     <Text style={styles.statText}>
                         <Text style={styles.statHighlight}>Gentle reminders</Text> help you stay consistent
-                        and build habits that actually stick.
+                        and on top of your day.
                     </Text>
                 </View>
             </View>

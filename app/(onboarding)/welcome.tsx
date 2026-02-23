@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     View,
     Text,
@@ -6,10 +6,12 @@ import {
     StyleSheet,
     SafeAreaView,
     Animated,
+    ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SuccessGraphic } from '@/components/SuccessGraphic';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTodos } from '@/contexts/TodoContext';
 import { Fonts } from '@/lib/typography';
 
@@ -22,10 +24,14 @@ const PERSONALIZED_MESSAGES: Record<string, string> = {
 
 export default function WelcomeScreen() {
     const router = useRouter();
+    const { password } = useLocalSearchParams<{ password: string }>();
     const { state, completeOnboarding } = useOnboarding();
+    const { signUp } = useAuth();
     const { addTodo } = useTodos();
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const scaleAnim = useRef(new Animated.Value(0.9)).current;
+    const [isCreating, setIsCreating] = useState(false);
+    const [error, setError] = useState('');
 
     useEffect(() => {
         Animated.parallel([
@@ -44,36 +50,56 @@ export default function WelcomeScreen() {
     }, []);
 
     const handleBegin = async () => {
-        await completeOnboarding();
+        if (isCreating) return;
+        setIsCreating(true);
+        setError('');
 
-        // Seed default tasks for new users
-        await addTodo('Morning routine', new Date(), undefined, false, undefined, {
-            emoji: '🌅',
-            emojiColor: '#FFF3E0',
-            timeOfDay: 'morning',
-            repeat: 'daily',
-            subtasks: [
-                { id: 'seed_1', title: 'Drink a glass of water', completed: false },
-                { id: 'seed_2', title: 'Go for a morning walk', completed: false },
-                { id: 'seed_3', title: 'Have a healthy breakfast', completed: false },
-                { id: 'seed_4', title: 'Plan your day ahead', completed: false },
-            ],
-        });
+        try {
+            // 1. Create Supabase account
+            const { name, email } = state.responses;
+            const { error: signUpError } = await signUp(email, password ?? '', name);
 
-        await addTodo('Evening wind-down', new Date(), undefined, false, undefined, {
-            emoji: '🌙',
-            emojiColor: '#E8E0F0',
-            timeOfDay: 'evening',
-            repeat: 'daily',
-            subtasks: [
-                { id: 'seed_5', title: 'Review what you accomplished today', completed: false },
-                { id: 'seed_6', title: 'Prepare tomorrow\'s priorities', completed: false },
-                { id: 'seed_7', title: 'Put your phone away', completed: false },
-                { id: 'seed_8', title: 'Read or journal before bed', completed: false },
-            ],
-        });
+            if (signUpError) {
+                setError(signUpError);
+                setIsCreating(false);
+                return;
+            }
 
-        router.replace('/');
+            // 2. Mark onboarding complete
+            await completeOnboarding();
+
+            // 3. Seed default tasks
+            await addTodo('Morning routine', new Date(), undefined, false, undefined, {
+                emoji: '🌅',
+                emojiColor: '#FFF3E0',
+                timeOfDay: 'morning',
+                repeat: 'daily',
+                subtasks: [
+                    { id: 'seed_1', title: 'Drink a glass of water', completed: false },
+                    { id: 'seed_2', title: 'Go for a morning walk', completed: false },
+                    { id: 'seed_3', title: 'Have a healthy breakfast', completed: false },
+                    { id: 'seed_4', title: 'Plan your day ahead', completed: false },
+                ],
+            });
+
+            await addTodo('Evening wind-down', new Date(), undefined, false, undefined, {
+                emoji: '🌙',
+                emojiColor: '#E8E0F0',
+                timeOfDay: 'evening',
+                repeat: 'daily',
+                subtasks: [
+                    { id: 'seed_5', title: 'Review what you accomplished today', completed: false },
+                    { id: 'seed_6', title: 'Prepare tomorrow\'s priorities', completed: false },
+                    { id: 'seed_7', title: 'Put your phone away', completed: false },
+                    { id: 'seed_8', title: 'Read or journal before bed', completed: false },
+                ],
+            });
+
+            router.replace('/');
+        } catch (err: any) {
+            setError(err.message ?? 'Something went wrong');
+            setIsCreating(false);
+        }
     };
 
     const personalizedMessage = state.responses.currentFeeling
@@ -114,16 +140,25 @@ export default function WelcomeScreen() {
                         <Text style={styles.winText}>{state.responses.todayWin}</Text>
                     </View>
                 )}
+
+                {error ? (
+                    <Text style={styles.errorText}>{error}</Text>
+                ) : null}
             </Animated.View>
 
             {/* Begin Button */}
             <View style={styles.buttonContainer}>
                 <TouchableOpacity
-                    style={styles.beginButton}
+                    style={[styles.beginButton, isCreating && styles.beginButtonLoading]}
                     onPress={handleBegin}
                     activeOpacity={0.8}
+                    disabled={isCreating}
                 >
-                    <Text style={styles.beginButtonText}>Let's begin</Text>
+                    {isCreating ? (
+                        <ActivityIndicator color="#fff" />
+                    ) : (
+                        <Text style={styles.beginButtonText}>Let's begin</Text>
+                    )}
                 </TouchableOpacity>
             </View>
         </SafeAreaView>
@@ -197,6 +232,12 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         lineHeight: 24,
     },
+    errorText: {
+        color: '#FF3B30',
+        fontSize: 14,
+        textAlign: 'center',
+        marginTop: 16,
+    },
     buttonContainer: {
         paddingHorizontal: 24,
         paddingBottom: 16,
@@ -207,6 +248,9 @@ const styles = StyleSheet.create({
         paddingVertical: 16,
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    beginButtonLoading: {
+        opacity: 0.8,
     },
     beginButtonText: {
         color: '#FFFFFF',

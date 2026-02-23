@@ -34,4 +34,10 @@ export interface Todo {
   repeat?: RepeatOption;
   /** Sub-tasks / checklist items */
   subtasks?: Subtask[];
+  /** Hide this item from partner view */
+  isPrivate?: boolean;
+  /** User ID of the partner who assigned this task */
+  assignedById?: string;
+  /** Display name of the partner who assigned this task */
+  assignedByName?: string;
 }

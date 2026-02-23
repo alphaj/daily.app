@@ -5,6 +5,7 @@ import {
     Settings,
     LifeBuoy,
     ArrowLeft,
+    Users,
 } from 'lucide-react-native';
 import React from 'react';
 import {
@@ -18,10 +19,14 @@ import {
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
+
+import { Camera } from 'lucide-react-native';
 
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { AmbientBackground } from '@/components/AmbientBackground';
+import { Avatar } from '@/components/Avatar';
 
 interface MenuItemProps {
     icon: React.ReactNode;
@@ -76,6 +81,41 @@ function MenuItem({
 export default function MenuScreen() {
     const router = useRouter();
     const { resetOnboarding } = useOnboarding();
+    const { signOut, profile, uploadAvatar, removeAvatar } = useAuth();
+
+    const handleAvatarPress = () => {
+        const options: { text: string; onPress?: () => void; style?: 'cancel' | 'destructive' }[] = [
+            {
+                text: 'Choose from Library',
+                onPress: async () => {
+                    const { error } = await uploadAvatar('gallery');
+                    if (error) Alert.alert('Error', error);
+                },
+            },
+            {
+                text: 'Take Photo',
+                onPress: async () => {
+                    const { error } = await uploadAvatar('camera');
+                    if (error) Alert.alert('Error', error);
+                },
+            },
+        ];
+
+        if (profile?.avatar_url) {
+            options.push({
+                text: 'Remove Photo',
+                style: 'destructive',
+                onPress: async () => {
+                    const { error } = await removeAvatar();
+                    if (error) Alert.alert('Error', error);
+                },
+            });
+        }
+
+        options.push({ text: 'Cancel', style: 'cancel' });
+
+        Alert.alert('Profile Photo', undefined, options);
+    };
 
     const handleSignOut = () => {
         Alert.alert(
@@ -88,9 +128,8 @@ export default function MenuScreen() {
                     style: 'destructive',
                     onPress: async () => {
                         try {
-                            await AsyncStorage.clear();
-                            await resetOnboarding();
-                            router.replace('/(onboarding)/get-started');
+                            await signOut();
+                            router.replace('/login');
                         } catch (error) {
                             console.log('Error signing out:', error);
                         }
@@ -124,6 +163,35 @@ export default function MenuScreen() {
                     contentContainerStyle={styles.scrollContent}
                     showsVerticalScrollIndicator={false}
                 >
+                    {/* Profile */}
+                    <View style={styles.profileSection}>
+                        <Pressable onPress={handleAvatarPress} style={styles.profileAvatarWrap}>
+                            <Avatar
+                                uri={profile?.avatar_url}
+                                name={profile?.name}
+                                size={68}
+                            />
+                            <View style={styles.cameraOverlay}>
+                                <Camera size={14} color="#fff" strokeWidth={2.5} />
+                            </View>
+                        </Pressable>
+                        <View style={styles.profileInfo}>
+                            <Text style={styles.profileName}>{profile?.name ?? ''}</Text>
+                            <Text style={styles.profileEmail}>{profile?.email ?? ''}</Text>
+                        </View>
+                    </View>
+
+                    {/* Partner Mode */}
+                    <View style={styles.section}>
+                        <MenuItem
+                            icon={<Users size={22} color="#007AFF" strokeWidth={2} />}
+                            title="Partner Mode"
+                            subtitle={profile?.partner_code ? `Code: ${profile.partner_code}` : undefined}
+                            onPress={() => router.push('/partner-settings')}
+                            isLast
+                        />
+                    </View>
+
                     {/* Main Settings List */}
                     <View style={styles.section}>
                         <MenuItem
@@ -281,5 +349,44 @@ const styles = StyleSheet.create({
         color: 'rgba(60,60,67,0.5)',
         marginTop: 12,
         marginBottom: 20,
+    },
+    profileSection: {
+        marginHorizontal: 16,
+        backgroundColor: 'rgba(255,255,255,0.7)',
+        borderRadius: 16,
+        padding: 20,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    profileAvatarWrap: {
+        position: 'relative',
+    },
+    cameraOverlay: {
+        position: 'absolute',
+        bottom: 0,
+        right: 0,
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: 'rgba(0,0,0,0.55)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 2,
+        borderColor: '#fff',
+    },
+    profileInfo: {
+        flex: 1,
+        marginLeft: 16,
+    },
+    profileName: {
+        fontSize: 20,
+        fontWeight: '600',
+        color: '#000',
+        letterSpacing: -0.3,
+    },
+    profileEmail: {
+        fontSize: 14,
+        color: '#8E8E93',
+        marginTop: 2,
     },
 });

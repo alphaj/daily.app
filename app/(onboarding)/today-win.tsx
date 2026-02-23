@@ -35,7 +35,7 @@ export default function TodayWinScreen() {
         if (localWin.trim()) {
             setTodayWin(localWin.trim());
             nextStep();
-            router.push('/(onboarding)/welcome');
+            router.push('/(onboarding)/create-account');
         }
     };
 

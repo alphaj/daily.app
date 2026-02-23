@@ -10,9 +10,13 @@ import { InboxProvider } from "@/contexts/InboxContext";
 import { WorkModeProvider } from "@/contexts/WorkModeContext";
 import { PreferencesProvider } from "@/contexts/PreferencesContext";
 import { OnboardingProvider, useOnboarding } from "@/contexts/OnboardingContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { PartnershipProvider } from "@/contexts/PartnershipContext";
+import { SyncProvider } from "@/contexts/SyncContext";
 import { LaterProvider } from "@/contexts/LaterContext";
 import { CalendarEventProvider } from "@/contexts/CalendarEventContext";
 import { FocusProvider } from "@/contexts/FocusContext";
+import { ToastHost } from "@/components/InAppToast";
 
 import { trpc, trpcClient } from "@/lib/trpc";
 
@@ -24,19 +28,26 @@ const queryClient = new QueryClient();
 function useProtectedRoute() {
   const segments = useSegments();
   const router = useRouter();
-  const { state, isLoading } = useOnboarding();
+  const { state, isLoading: onboardingLoading } = useOnboarding();
+  const { session, isLoading: authLoading } = useAuth();
 
   useEffect(() => {
-    if (isLoading) return;
+    if (onboardingLoading || authLoading) return;
 
     const inOnboarding = segments[0] === "(onboarding)";
+    const inLogin = segments[0] === "login";
 
     if (!state.hasCompletedOnboarding && !inOnboarding) {
+      // New user — send to onboarding
       router.replace("/(onboarding)/get-started");
-    } else if (state.hasCompletedOnboarding && inOnboarding) {
+    } else if (state.hasCompletedOnboarding && !session && !inOnboarding && !inLogin) {
+      // Completed onboarding but no session — send to login
+      router.replace("/login");
+    } else if (state.hasCompletedOnboarding && session && (inOnboarding || inLogin)) {
+      // Fully authenticated — send to home
       router.replace("/");
     }
-  }, [segments, state.hasCompletedOnboarding, isLoading, router]);
+  }, [segments, state.hasCompletedOnboarding, session, onboardingLoading, authLoading, router]);
 }
 
 function RootLayoutNav() {
@@ -50,6 +61,7 @@ function RootLayoutNav() {
       <Stack.Screen name="index" options={{ headerShown: false, animation: 'fade' }} />
       <Stack.Screen name="flow" options={{ headerShown: false, animation: 'fade' }} />
       <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
+      <Stack.Screen name="login" options={{ headerShown: false, animation: 'fade' }} />
       <Stack.Screen name="inbox" options={{ headerShown: false, animation: 'fade' }} />
       <Stack.Screen name="menu" options={{ headerShown: false, animation: 'fade' }} />
       <Stack.Screen name="add-todo" options={{ presentation: "modal", headerShown: false }} />
@@ -58,6 +70,9 @@ function RootLayoutNav() {
       <Stack.Screen name="add-event" options={{ presentation: "modal", headerShown: false }} />
       <Stack.Screen name="edit-todo" options={{ presentation: "modal", headerShown: false }} />
 
+      <Stack.Screen name="partner" options={{ headerShown: false, animation: 'fade' }} />
+      <Stack.Screen name="partner-detail" options={{ headerShown: false, animation: 'slide_from_right' }} />
+      <Stack.Screen name="partner-settings" options={{ headerShown: false, animation: 'slide_from_right' }} />
       <Stack.Screen name="privacy-policy" options={{ headerShown: false, animation: 'slide_from_right' }} />
       <Stack.Screen name="settings-notifications" options={{ headerShown: false, animation: 'slide_from_right' }} />
       <Stack.Screen name="settings-preferences" options={{ headerShown: false, animation: 'slide_from_right' }} />
@@ -68,27 +83,34 @@ function RootLayoutNav() {
 
 function AppWrapper() {
   return (
-    <CalendarEventProvider>
-      <FocusProvider>
-        <LaterProvider>
-          <TodoProvider>
-            <NoteProvider>
-              <InboxProvider>
-                <WorkModeProvider>
-                  <PreferencesProvider>
-                    <OnboardingProvider>
-                      <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#F2F2F7' }}>
-                        <RootLayoutNav />
-                      </GestureHandlerRootView>
-                    </OnboardingProvider>
-                  </PreferencesProvider>
-                </WorkModeProvider>
-              </InboxProvider>
-            </NoteProvider>
-          </TodoProvider>
-        </LaterProvider>
-      </FocusProvider>
-    </CalendarEventProvider>
+    <AuthProvider>
+      <PartnershipProvider>
+      <SyncProvider>
+      <CalendarEventProvider>
+        <FocusProvider>
+          <LaterProvider>
+            <TodoProvider>
+              <NoteProvider>
+                <InboxProvider>
+                  <WorkModeProvider>
+                    <PreferencesProvider>
+                      <OnboardingProvider>
+                        <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#F2F2F7' }}>
+                          <RootLayoutNav />
+                          <ToastHost />
+                        </GestureHandlerRootView>
+                      </OnboardingProvider>
+                    </PreferencesProvider>
+                  </WorkModeProvider>
+                </InboxProvider>
+              </NoteProvider>
+            </TodoProvider>
+          </LaterProvider>
+        </FocusProvider>
+      </CalendarEventProvider>
+    </SyncProvider>
+    </PartnershipProvider>
+    </AuthProvider>
   );
 }
 

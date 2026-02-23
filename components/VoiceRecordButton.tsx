@@ -7,7 +7,7 @@ import {
     Animated,
 } from 'react-native';
 import { Mic, Square } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 
 interface VoiceRecordButtonProps {
     isRecording: boolean;

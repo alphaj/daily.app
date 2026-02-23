@@ -1,6 +1,9 @@
 import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '@/lib/supabase';
 
 const DAILY_REMINDER_KEY = 'daily_daily_reminder_notification_id';
 
@@ -82,6 +85,30 @@ export async function cancelDailyReminder(): Promise<void> {
         }
     } catch (error) {
         console.error('Error canceling daily reminder:', error);
+    }
+}
+
+/**
+ * Register the device's Expo push token with Supabase.
+ * Fire-and-forget — safe to call multiple times, no-ops on simulator or web.
+ */
+export async function registerPushToken(): Promise<void> {
+    try {
+        if (Platform.OS === 'web') return;
+        if (!Device.isDevice) return;
+
+        const { status } = await Notifications.getPermissionsAsync();
+        if (status !== 'granted') return;
+
+        const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+        if (!projectId) return;
+
+        const { data: tokenData } = await Notifications.getExpoPushTokenAsync({ projectId });
+        if (!tokenData) return;
+
+        await supabase.rpc('update_push_token', { token: tokenData });
+    } catch (err) {
+        console.log('[notifications] Failed to register push token:', err);
     }
 }
 

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { UserPreferences } from '@/types/preferences';
 import { DEFAULT_PREFERENCES } from '@/types/preferences';
+import { setHapticsEnabled } from '@/lib/haptics';
 
 const STORAGE_KEY = 'daily_preferences';
 
@@ -28,6 +29,9 @@ export const [PreferencesProvider, usePreferences] = createContextHook(() => {
     const updatePreferences = useCallback(async (partial: Partial<UserPreferences>) => {
         const newPreferences = { ...preferences, ...partial };
         setPreferences(newPreferences);
+        if (partial.hapticsEnabled !== undefined) {
+            setHapticsEnabled(partial.hapticsEnabled);
+        }
         await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newPreferences));
         queryClient.invalidateQueries({ queryKey: ['preferences'] });
     }, [preferences, queryClient]);

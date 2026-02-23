@@ -1,9 +1,6 @@
 import { useRouter } from 'expo-router';
 import {
   Plus,
-  Home,
-  User,
-  FolderKanban,
   Clock,
   Settings,
   Archive,
@@ -12,7 +9,7 @@ import {
   X,
   GripVertical,
 } from 'lucide-react-native';
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -21,129 +18,66 @@ import {
   ScrollView,
   TextInput,
   Modal,
-  Animated,
   Alert,
   KeyboardAvoidingView,
   Platform,
-  PanResponder,
-  LayoutChangeEvent,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Haptics from 'expo-haptics';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import {
+  NestableScrollContainer,
+  NestableDraggableFlatList,
+  ScaleDecorator,
+  ShadowDecorator,
+  RenderItemParams,
+} from 'react-native-draggable-flatlist';
+import * as Haptics from '@/lib/haptics';
 import { useLater } from '@/contexts/LaterContext';
 import { AREA_CONFIG, type LaterArea, type LaterItem } from '@/types/later';
 import { BottomNavBar } from '@/components/BottomNavBar';
 import { Fonts } from '@/lib/typography';
 
 const PADDING = 20;
-
 const AREAS = Object.keys(AREA_CONFIG) as LaterArea[];
 
-function DraggableLaterCard({
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+function LaterCard({
   item,
-  index,
   onPress,
-  onDragStart,
-  onDragEnd,
-  isDragging,
-  draggedOverIndex,
-  pan,
+  drag,
+  isActive,
 }: {
   item: LaterItem;
-  index: number;
   onPress: () => void;
-  onDragStart: (index: number) => void;
-  onDragEnd: () => void;
-  isDragging: boolean;
-  draggedOverIndex: number | null;
-  pan: Animated.ValueXY;
+  drag: () => void;
+  isActive: boolean;
 }) {
   const config = AREA_CONFIG[item.area];
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const [isDraggingState, setIsDraggingState] = useState(false);
+  const scale = useSharedValue(1);
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        // Only trigger if moving vertically significantly
-        return Math.abs(gestureState.dy) > 10;
-      },
-      onPanResponderGrant: () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        setIsDraggingState(true);
-        onDragStart(index);
-        pan.setOffset({
-          x: 0,
-          y: 0,
-        });
-      },
-      onPanResponderMove: Animated.event([null, { dy: pan.y }], {
-        useNativeDriver: false,
-      }),
-      onPanResponderRelease: () => {
-        setIsDraggingState(false);
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        Animated.spring(pan, {
-          toValue: { x: 0, y: 0 },
-          useNativeDriver: true,
-          speed: 20,
-          bounciness: 8,
-        }).start();
-        pan.flattenOffset();
-        onDragEnd();
-      },
-    })
-  ).current;
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
 
   const handlePressIn = () => {
-    if (isDraggingState) return;
-    Animated.spring(scaleAnim, {
-      toValue: 0.96,
-      useNativeDriver: true,
-      speed: 20,
-    }).start();
+    if (isActive) return;
+    scale.value = withSpring(0.96, { damping: 20, mass: 0.2, stiffness: 200 });
   };
 
   const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-      speed: 20,
-    }).start();
+    scale.value = withSpring(1, { damping: 20, mass: 0.2, stiffness: 200 });
   };
 
-  const showSpacerAbove = draggedOverIndex !== null && draggedOverIndex === index && !isDraggingState;
-  const showSpacerBelow = draggedOverIndex !== null && draggedOverIndex === index + 1 && !isDraggingState;
-
   return (
-    <>
-      {showSpacerAbove && <View style={styles.dropSpacer} />}
-      <Animated.View
-        style={[
-          styles.cardWrapper,
-          {
-            transform: [
-              { scale: scaleAnim },
-              { translateY: isDraggingState ? pan.y : 0 },
-            ],
-            zIndex: isDraggingState ? 100 : 1,
-          },
-          isDraggingState && styles.cardDragging,
-        ]}
-      >
-        <Pressable
-          style={styles.card}
-          onPress={onPress}
+    <ShadowDecorator>
+      <ScaleDecorator activeScale={1.03}>
+        <AnimatedPressable
+          style={[styles.card, animatedStyle]}
+          onPress={isActive ? undefined : onPress}
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
-          // Enable long press to drag
-          onLongPress={() => {
-            // This is handled by PanResponder on the wrapper or handle
-            // But if we want whole card draggable:
-            // For now, let's use a specific handle or just the card itself
-          }}
-          delayLongPress={200}
+          disabled={isActive}
         >
           <View style={styles.cardContent}>
             <View style={styles.cardHeader}>
@@ -152,24 +86,23 @@ function DraggableLaterCard({
                 <Text style={[styles.areaLabel, { color: config.color }]}>{config.label}</Text>
               </View>
             </View>
-            
+
             <Text style={styles.cardTitle}>{item.title}</Text>
-            
+
             {item.note && (
               <Text style={styles.cardNote} numberOfLines={2}>
                 {item.note}
               </Text>
             )}
           </View>
-          
+
           {/* Drag Handle */}
-          <View style={styles.dragHandle} {...panResponder.panHandlers}>
+          <Pressable onLongPress={drag} delayLongPress={150} style={styles.dragHandle}>
             <GripVertical size={20} color="#E5E5EA" />
-          </View>
-        </Pressable>
-      </Animated.View>
-      {showSpacerBelow && <View style={styles.dropSpacer} />}
-    </>
+          </Pressable>
+        </AnimatedPressable>
+      </ScaleDecorator>
+    </ShadowDecorator>
   );
 }
 
@@ -226,13 +159,6 @@ export default function LaterScreen() {
   const [showArchive, setShowArchive] = useState(false);
   const [editingItem, setEditingItem] = useState<LaterItem | null>(null);
 
-  // Drag and Drop State
-  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
-  const [draggedOverIndex, setDraggedOverIndex] = useState<number | null>(null);
-  const taskLayoutsRef = useRef<{ y: number; height: number }[]>([]);
-  const pan = useRef(new Animated.ValueXY()).current;
-  const scrollViewRef = useRef<ScrollView>(null);
-
   // Form State
   const [title, setTitle] = useState('');
   const [note, setNote] = useState('');
@@ -247,19 +173,18 @@ export default function LaterScreen() {
     setShowAddModal(true);
   };
 
-  const handleEditPress = (item: LaterItem) => {
-    if (draggingIndex !== null) return;
+  const handleEditPress = useCallback((item: LaterItem) => {
     Haptics.selectionAsync();
     setTitle(item.title);
     setNote(item.note || '');
     setSelectedArea(item.area);
     setEditingItem(item);
     setShowAddModal(true);
-  };
+  }, []);
 
   const handleSave = () => {
     if (!title.trim()) return;
-    
+
     if (editingItem) {
       updateItem(editingItem.id, {
         title: title.trim(),
@@ -297,112 +222,49 @@ export default function LaterScreen() {
     }
   };
 
-  // Drag and Drop Logic
-  const handleDragStart = useCallback((index: number) => {
-    setDraggingIndex(index);
+  const renderItem = useCallback(({ item, drag, isActive }: RenderItemParams<LaterItem>) => (
+    <LaterCard
+      item={item}
+      onPress={() => handleEditPress(item)}
+      drag={drag}
+      isActive={isActive}
+    />
+  ), [handleEditPress]);
+
+  const keyExtractor = useCallback((item: LaterItem) => item.id, []);
+
+  const handleDragBegin = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   }, []);
 
-  const handleDragRelease = useCallback(() => {
-    setDraggingIndex(null);
+  const handlePlaceholderIndexChange = useCallback(() => {
+    Haptics.selectionAsync();
   }, []);
 
-  const handleTaskLayout = useCallback((index: number, event: LayoutChangeEvent) => {
-    const { y, height } = event.nativeEvent.layout;
-    taskLayoutsRef.current[index] = { y, height };
-  }, []);
-
-  const handleDragEnd = useCallback(() => {
-    if (draggingIndex === null || draggedOverIndex === null) {
-      setDraggingIndex(null);
-      setDraggedOverIndex(null);
-      return;
-    }
-
-    if (draggingIndex !== draggedOverIndex && draggedOverIndex !== draggingIndex + 1) {
-      const newItems = [...activeItems];
-      const [movedItem] = newItems.splice(draggingIndex, 1);
-      // Adjust index if we moved from top to bottom
-      const insertIndex = draggedOverIndex > draggingIndex ? draggedOverIndex - 1 : draggedOverIndex;
-      newItems.splice(insertIndex, 0, movedItem);
-      
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      reorderItems(newItems.map(t => t.id));
-    }
-
-    setDraggingIndex(null);
-    setDraggedOverIndex(null);
-  }, [draggingIndex, draggedOverIndex, activeItems, reorderItems]);
-
-  React.useEffect(() => {
-    if (draggingIndex === null) {
-      setDraggedOverIndex(null);
-    }
-  }, [draggingIndex]);
-
-  const updateDraggedOverIndex = useCallback((dragY: number) => {
-    if (draggingIndex === null) return;
-
-    const draggedTaskY = taskLayoutsRef.current[draggingIndex]?.y || 0;
-    const absoluteDragY = draggedTaskY + dragY;
-
-    let newIndex = draggingIndex;
-    for (let i = 0; i < activeItems.length; i++) {
-      const layout = taskLayoutsRef.current[i];
-      if (!layout) continue;
-
-      const taskMiddle = layout.y + layout.height / 2;
-      if (absoluteDragY < taskMiddle) {
-        newIndex = i;
-        break;
-      }
-      newIndex = i + 1;
-    }
-
-    if (newIndex !== draggedOverIndex) {
-      setDraggedOverIndex(newIndex);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-  }, [draggingIndex, activeItems.length, draggedOverIndex]);
-
-  React.useEffect(() => {
-    if (draggingIndex !== null) {
-      const listener = pan.y.addListener(({ value }) => {
-        updateDraggedOverIndex(value);
-      });
-      return () => {
-        pan.y.removeListener(listener);
-      };
-    }
-  }, [draggingIndex, updateDraggedOverIndex, pan.y]);
-
-  React.useEffect(() => {
-    if (draggingIndex === null && draggedOverIndex !== null) {
-      handleDragEnd();
-    }
-  }, [draggingIndex, draggedOverIndex, handleDragEnd]);
-
+  const handleDragEnd = useCallback(({ data }: { data: LaterItem[] }) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    reorderItems(data.map(i => i.id));
+  }, [reorderItems]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Later</Text>
-        <Pressable 
-          style={styles.headerButton} 
+        <Pressable
+          style={styles.headerButton}
           onPress={() => router.push('/menu')}
         >
           <Settings size={22} color="#000" strokeWidth={1.5} />
         </Pressable>
       </View>
 
-      <ScrollView
-        ref={scrollViewRef}
-        style={styles.content}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 120 }}
-        scrollEnabled={draggingIndex === null}
-      >
-        {activeItems.length === 0 && !showArchive ? (
+      {activeItems.length === 0 && !showArchive ? (
+        <NestableScrollContainer
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 120 }}
+        >
           <View style={styles.emptyState}>
             <View style={styles.emptyIconContainer}>
               <Clock size={48} color="#C7C7CC" strokeWidth={1} />
@@ -416,29 +278,24 @@ export default function LaterScreen() {
               <Text style={styles.createButtonText}>Add Idea</Text>
             </Pressable>
           </View>
-        ) : (
+        </NestableScrollContainer>
+      ) : (
+        <NestableScrollContainer
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 120 }}
+        >
           <View style={styles.scrollContent}>
             {/* Draggable List */}
-            <View style={styles.listContainer}>
-              {activeItems.map((item, index) => (
-                <View 
-                    key={item.id} 
-                    onLayout={(e) => handleTaskLayout(index, e)}
-                    style={{ zIndex: draggingIndex === index ? 100 : 1 }}
-                >
-                  <DraggableLaterCard
-                    item={item}
-                    index={index}
-                    onPress={() => handleEditPress(item)}
-                    onDragStart={handleDragStart}
-                    onDragEnd={handleDragRelease}
-                    isDragging={draggingIndex === index}
-                    draggedOverIndex={draggedOverIndex}
-                    pan={pan}
-                  />
-                </View>
-              ))}
-            </View>
+            <NestableDraggableFlatList
+              data={activeItems}
+              renderItem={renderItem}
+              keyExtractor={keyExtractor}
+              onDragBegin={handleDragBegin}
+              onPlaceholderIndexChange={handlePlaceholderIndexChange}
+              onDragEnd={handleDragEnd}
+              animationConfig={{ damping: 20, mass: 0.2, stiffness: 120 }}
+            />
 
             {/* Archive Section */}
             {archivedItems.length > 0 && (
@@ -471,8 +328,8 @@ export default function LaterScreen() {
               </View>
             )}
           </View>
-        )}
-      </ScrollView>
+        </NestableScrollContainer>
+      )}
 
       {/* FAB for adding items */}
       <Pressable style={[styles.floatingFab, { bottom: Math.max(insets.bottom, 20) + 90 }]} onPress={handleAddPress}>
@@ -566,10 +423,10 @@ export default function LaterScreen() {
                         <Archive size={20} color="#FF3B30" strokeWidth={2} />
                     </Pressable>
                 )}
-                
+
                 <Pressable
                 style={[
-                    styles.saveButton, 
+                    styles.saveButton,
                     !title.trim() && styles.saveButtonDisabled,
                     editingItem ? { flex: 1 } : { width: '100%' }
                 ]}
@@ -626,16 +483,11 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: PADDING,
   },
-  listContainer: {
-    gap: 12,
-  },
-  cardWrapper: {
-    marginBottom: 0,
-  },
   card: {
     backgroundColor: '#fff',
     borderRadius: 20,
     padding: 16,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.03,
@@ -644,23 +496,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  cardDragging: {
-    zIndex: 1000,
-    elevation: 8,
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    transform: [{ scale: 1.02 }],
-  },
-  dropSpacer: {
-    height: 80, // Approx card height
-    borderRadius: 20,
-    backgroundColor: '#E5E5EA',
-    borderWidth: 2,
-    borderColor: '#C7C7CC',
-    borderStyle: 'dashed',
-    marginBottom: 12,
   },
   cardContent: {
     flex: 1,
@@ -835,32 +670,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
     zIndex: 100,
-  },
-  // Bottom Bar (legacy - kept for reference)
-  bottomBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 32,
-    paddingTop: 16,
-    backgroundColor: '#fff',
-    borderTopWidth: 0.5,
-    borderTopColor: '#E5E5EA',
-  },
-  bottomTab: {
-    padding: 8,
-  },
-  bottomTabActive: {
-    opacity: 1,
-  },
-  fab: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#F2F2F7',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: -16,
   },
   // Modal
   modalContainer: {

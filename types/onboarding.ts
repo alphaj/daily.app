@@ -25,6 +25,7 @@ export const ONBOARDING_STEPS = [
     'falls-through',
     'feeling',
     'today-win',
+    'create-account',
     'welcome'
 ] as const;
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { AmbientBackground } from '@/components/AmbientBackground';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import { Pause, Play, RotateCcw, Timer } from 'lucide-react-native';
 import { format } from 'date-fns';
 import Animated, {

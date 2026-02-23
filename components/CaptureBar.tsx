@@ -18,7 +18,7 @@ import Animated, {
     runOnJS,
 } from 'react-native-reanimated';
 import { CheckCircle2, X, ArrowUp } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import { BlurView } from 'expo-blur';
 import { useTodos } from '@/contexts/TodoContext';
 import { useWorkMode } from '@/contexts/WorkModeContext';

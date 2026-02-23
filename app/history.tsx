@@ -13,7 +13,7 @@ import {
   Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import { useTodos } from '@/contexts/TodoContext';
 
 import { HomeV1 } from '@/components/home/HomeV1';

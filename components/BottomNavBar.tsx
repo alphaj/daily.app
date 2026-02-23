@@ -2,22 +2,20 @@ import React from 'react';
 import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CalendarRange, CircleDashed } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
+import { CalendarRange, CircleDashed, Heart } from 'lucide-react-native';
+import * as Haptics from '@/lib/haptics';
+import { usePartnership } from '@/contexts/PartnershipContext';
+import { usePartnerInteractions } from '@/hooks/usePartnerInteractions';
 
-export type NavRoute = 'today' | 'focus';
+export type NavRoute = 'today' | 'focus' | 'partner';
 
 interface BottomNavBarProps {
     onFabPress?: () => void;
 }
 
-const NAV_ITEMS: { route: NavRoute; path: string; icon: any; label: string }[] = [
-    { route: 'today', path: '/history', icon: CalendarRange, label: 'Today' },
-    { route: 'focus', path: '/flow', icon: CircleDashed, label: 'Focus' },
-];
-
 function getActiveRoute(pathname: string): NavRoute {
     if (pathname === '/flow') return 'focus';
+    if (pathname === '/partner' || pathname.startsWith('/partner-detail')) return 'partner';
     return 'today';
 }
 
@@ -25,6 +23,8 @@ export function BottomNavBar({ onFabPress }: BottomNavBarProps) {
     const router = useRouter();
     const pathname = usePathname();
     const insets = useSafeAreaInsets();
+    const { activePartners, hasActivePartnership } = usePartnership();
+    const { unreadCount } = usePartnerInteractions();
     const activeRoute = getActiveRoute(pathname);
 
     const handleNavPress = (route: NavRoute, path: string) => {
@@ -33,12 +33,32 @@ export function BottomNavBar({ onFabPress }: BottomNavBarProps) {
         router.replace(path as any);
     };
 
+    // Determine partner tab label
+    const partnerLabel = activePartners.length === 1
+        ? activePartners[0].partner_name?.split(' ')[0] ?? 'Partner'
+        : 'Partners';
+
+    const navItems: { route: NavRoute; path: string; icon: any; label: string }[] = [
+        { route: 'today', path: '/history', icon: CalendarRange, label: 'Today' },
+        { route: 'focus', path: '/flow', icon: CircleDashed, label: 'Focus' },
+    ];
+
+    // Show partner tab when any partnership is active
+    if (hasActivePartnership) {
+        navItems.push({
+            route: 'partner',
+            path: '/partner',
+            icon: Heart,
+            label: partnerLabel,
+        });
+    }
+
     return (
         <View style={[styles.outerWrapper, { bottom: Math.max(insets.bottom, 12) }]}>
             <View style={styles.shadowContainer}>
                 <View style={styles.container}>
                     <View style={styles.navContent}>
-                        {NAV_ITEMS.map((item) => {
+                        {navItems.map((item) => {
                             const Icon = item.icon;
                             const isActive = activeRoute === item.route;
 
@@ -68,6 +88,9 @@ export function BottomNavBar({ onFabPress }: BottomNavBarProps) {
                                                 color="#6E6E73"
                                                 strokeWidth={1.6}
                                             />
+                                            {item.route === 'partner' && unreadCount > 0 && (
+                                                <View style={styles.unreadBadge} />
+                                            )}
                                         </View>
                                     )}
                                 </Pressable>
@@ -145,5 +168,16 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#1C1C1E',
         letterSpacing: -0.2,
+    },
+    unreadBadge: {
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: '#FF3B30',
+        borderWidth: 2,
+        borderColor: 'rgba(255, 255, 255, 0.92)',
     },
 });

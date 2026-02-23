@@ -8,7 +8,7 @@ import {
     Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import { ChevronRight } from 'lucide-react-native';
 import LottieView from 'lottie-react-native';
 import { Fonts } from '@/lib/typography';

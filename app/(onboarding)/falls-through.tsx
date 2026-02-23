@@ -15,7 +15,7 @@ import { FallsThrough } from '@/types/onboarding';
 const OPTIONS: { value: FallsThrough; label: string; icon: string }[] = [
     { value: 'later', label: 'Things I said I\'d do "later"', icon: '⏰' },
     { value: 'annoying', label: 'Small tasks that feel annoying', icon: '😤' },
-    { value: 'no-home', label: 'Habits that don\'t have a home', icon: '🏠' },
+    { value: 'no-home', label: 'Routines I can\'t stick to', icon: '🏠' },
     { value: 'promises', label: 'Promises to other people', icon: '🤝' },
 ];
 

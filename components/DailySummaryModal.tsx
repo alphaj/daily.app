@@ -15,7 +15,7 @@ import Animated, {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Sun, Moon, Check, ChevronRight, Sparkles } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import { format, isToday, subDays } from 'date-fns';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { Fonts } from '@/lib/typography';

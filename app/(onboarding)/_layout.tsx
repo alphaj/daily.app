@@ -16,6 +16,7 @@ export default function OnboardingLayout() {
             <Stack.Screen name="falls-through" />
             <Stack.Screen name="feeling" />
             <Stack.Screen name="today-win" />
+            <Stack.Screen name="create-account" />
             <Stack.Screen name="welcome" />
             <Stack.Screen
                 name="privacy-policy"

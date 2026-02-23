@@ -3,7 +3,7 @@ import { Animated, StyleSheet, View, I18nManager, Dimensions } from 'react-nativ
 import { RectButton } from 'react-native-gesture-handler';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { Trash2, CheckCircle2 } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 

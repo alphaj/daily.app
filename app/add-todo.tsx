@@ -1,5 +1,5 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { X, Check, Plus, GripVertical, Clock, Calendar, Repeat, Sunrise, ChevronDown } from 'lucide-react-native';
+import { X, Check, Plus, GripVertical, Clock, Calendar, Repeat, Sunrise, ChevronDown, Lock, LockOpen, UserPlus } from 'lucide-react-native';
 import React, { useState, useCallback, useRef } from 'react';
 import {
     View,
@@ -13,18 +13,31 @@ import {
     ScrollView,
     LayoutAnimation,
     UIManager,
+    Alert,
     type ScrollView as ScrollViewType,
 } from 'react-native';
+import Animated, {
+    useSharedValue,
+    useAnimatedStyle,
+    withSpring,
+    withTiming,
+    withDelay,
+    runOnJS,
+    interpolateColor,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import { useTodos } from '@/contexts/TodoContext';
 import { useWorkMode } from '@/contexts/WorkModeContext';
+import { usePartnership } from '@/contexts/PartnershipContext';
 import { format } from 'date-fns';
 import { DatePickerModal } from '@/components/DatePickerModal';
 import { AnimatedBottomSheet } from '@/components/AnimatedBottomSheet';
 import { LinearGradient } from 'expo-linear-gradient';
 import { suggestEmoji } from '@/utils/emojiSuggest';
 import { AmbientBackground } from '@/components/AmbientBackground';
+import { assignTaskToPartner } from '@/lib/sync';
+import { useSync } from '@/contexts/SyncContext';
 import type { TimeOfDay, RepeatOption, Subtask } from '@/types/todo';
 
 if (Platform.OS === 'android') {
@@ -98,7 +111,13 @@ export default function AddTodoScreen() {
     const router = useRouter();
     const { addTodo } = useTodos();
     const { isWorkMode } = useWorkMode();
-    const { timeOfDay: initialTimeOfDay } = useLocalSearchParams<{ timeOfDay?: string }>();
+    const { activePartners, hasActivePartnership, getPartnership } = usePartnership();
+    const { syncNow } = useSync();
+    const { timeOfDay: initialTimeOfDay, forPartnerId } = useLocalSearchParams<{ timeOfDay?: string; forPartnerId?: string }>();
+    const hasPartner = hasActivePartnership;
+    const [assignToPartnerId, setAssignToPartnerId] = useState<string | null>(forPartnerId ?? null);
+    const assignToPartner = !!assignToPartnerId;
+    const assignedPartnership = assignToPartnerId ? getPartnership(assignToPartnerId) : (activePartners.length === 1 ? activePartners[0] : null);
 
     const [title, setTitle] = useState('');
     const [emoji, setEmoji] = useState<string | undefined>('🌤');
@@ -121,10 +140,40 @@ export default function AddTodoScreen() {
         }
         return undefined;
     });
+    const [isPrivate, setIsPrivate] = useState(false);
     const [subtasks, setSubtasks] = useState<{ id: string; title: string; emoji: string }[]>([]);
     const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
     const subtaskInputRef = useRef<TextInput>(null);
     const scrollViewRef = useRef<ScrollViewType>(null);
+
+    // Save animation
+    const [saving, setSaving] = useState(false);
+    const saveTextOpacity = useSharedValue(1);
+    const checkScale = useSharedValue(0);
+    const checkOpacity = useSharedValue(0);
+    const buttonColorProgress = useSharedValue(0);
+    const contentScale = useSharedValue(1);
+    const contentOpacity = useSharedValue(1);
+
+    const saveTextStyle = useAnimatedStyle(() => ({
+        opacity: saveTextOpacity.value,
+    }));
+    const checkStyle = useAnimatedStyle(() => ({
+        opacity: checkOpacity.value,
+        transform: [{ scale: checkScale.value }],
+    }));
+    const buttonBgStyle = useAnimatedStyle(() => ({
+        backgroundColor: interpolateColor(
+            buttonColorProgress.value,
+            [0, 1],
+            ['transparent', '#007AFF'],
+        ),
+        borderRadius: 8,
+    }));
+    const contentAnimStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: contentScale.value }],
+        opacity: contentOpacity.value,
+    }));
 
     // Inline expanding pickers
     const [expandedField, setExpandedField] = useState<ExpandableField>(null);
@@ -145,8 +194,13 @@ export default function AddTodoScreen() {
         setExpandedField(prev => prev === field ? null : field);
     }, []);
 
-    const handleSave = () => {
-        if (title.trim()) {
+    const dismiss = useCallback(() => {
+        router.back();
+    }, [router]);
+
+    const handleSave = async () => {
+        if (title.trim() && !saving) {
+            setSaving(true);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             const subtaskData: Subtask[] = subtasks.map(st => ({
                 id: st.id,
@@ -154,15 +208,56 @@ export default function AddTodoScreen() {
                 emoji: st.emoji,
                 completed: false,
             }));
-            addTodo(title.trim(), dueDate || new Date(), undefined, isWorkMode, undefined, {
-                emoji,
-                emojiColor,
-                estimatedMinutes,
-                timeOfDay,
-                repeat: repeat !== 'none' ? repeat : undefined,
-                subtasks: subtaskData.length > 0 ? subtaskData : undefined,
-            });
-            router.back();
+
+            if (assignToPartner && hasPartner) {
+                const targetPartnerId = assignToPartnerId ?? assignedPartnership?.partner_id ?? undefined;
+                const result = await assignTaskToPartner({
+                    id: generateId(),
+                    title: title.trim(),
+                    createdAt: new Date().toISOString(),
+                    dueDate: (dueDate || new Date()).toISOString().split('T')[0],
+                    dueTime: undefined,
+                    priority: undefined,
+                    isWork: isWorkMode,
+                    emoji,
+                    emojiColor,
+                    estimatedMinutes,
+                    timeOfDay,
+                    repeat: repeat !== 'none' ? repeat : undefined,
+                    subtasks: subtaskData.length > 0 ? subtaskData : undefined,
+                }, targetPartnerId);
+
+                if (result.error) {
+                    setSaving(false);
+                    Alert.alert('Could not assign task', result.error);
+                    return;
+                }
+
+                // Push local data so partner view stays current
+                syncNow();
+            } else {
+                addTodo(title.trim(), dueDate || new Date(), undefined, isWorkMode, undefined, {
+                    emoji,
+                    emojiColor,
+                    estimatedMinutes,
+                    timeOfDay,
+                    repeat: repeat !== 'none' ? repeat : undefined,
+                    subtasks: subtaskData.length > 0 ? subtaskData : undefined,
+                    isPrivate: isPrivate || undefined,
+                });
+            }
+
+            // Button morph: fade out text, spring in checkmark, flash blue
+            saveTextOpacity.value = withTiming(0, { duration: 150 });
+            checkOpacity.value = withTiming(1, { duration: 150 });
+            checkScale.value = withSpring(1, { damping: 12, stiffness: 200 });
+            buttonColorProgress.value = withTiming(1, { duration: 200 });
+
+            // Content settle + dismiss after animation completes
+            contentScale.value = withTiming(0.97, { duration: 250 });
+            contentOpacity.value = withDelay(150, withTiming(0.4, { duration: 250 }, () => {
+                runOnJS(dismiss)();
+            }));
         }
     };
 
@@ -244,15 +339,24 @@ export default function AddTodoScreen() {
                             <Pressable onPress={() => router.back()} style={styles.cancelButton} hitSlop={8}>
                                 <Text style={styles.cancelText}>Cancel</Text>
                             </Pressable>
-                            <Text style={styles.headerTitle}>New Task</Text>
-                            <Pressable
-                                style={[styles.saveButton, canSave && styles.saveButtonActive]}
-                                onPress={handleSave}
-                                disabled={!canSave}
-                                hitSlop={8}
-                            >
-                                <Text style={[styles.saveText, canSave && styles.saveTextActive]}>Add</Text>
-                            </Pressable>
+                            <Text style={styles.headerTitle}>
+                                {assignToPartner && hasPartner && assignedPartnership
+                                    ? `For ${assignedPartnership.partner_name?.split(' ')[0] ?? 'Partner'}`
+                                    : 'New Task'}
+                            </Text>
+                            <Animated.View style={[styles.saveButton, buttonBgStyle]}>
+                                <Pressable
+                                    onPress={handleSave}
+                                    disabled={!canSave || saving}
+                                    hitSlop={8}
+                                    style={styles.saveButtonInner}
+                                >
+                                    <Animated.Text style={[styles.saveText, canSave && styles.saveTextActive, saveTextStyle]}>Add</Animated.Text>
+                                    <Animated.View style={[styles.checkOverlay, checkStyle]}>
+                                        <Check size={18} color="#fff" strokeWidth={3} />
+                                    </Animated.View>
+                                </Pressable>
+                            </Animated.View>
                         </View>
                     </View>
 
@@ -263,6 +367,7 @@ export default function AddTodoScreen() {
                         keyboardDismissMode="interactive"
                         showsVerticalScrollIndicator={false}
                     >
+                      <Animated.View style={contentAnimStyle}>
                         {/* Title Card */}
                         <View style={styles.card}>
                             <View style={styles.titleRow}>
@@ -444,6 +549,102 @@ export default function AddTodoScreen() {
                                     })}
                                 </View>
                             )}
+
+                            {hasPartner && (
+                                <>
+                                    <View style={styles.fieldSeparator} />
+                                    {activePartners.length === 1 ? (
+                                        /* Single partner: simple toggle */
+                                        <Pressable
+                                            style={styles.fieldRow}
+                                            onPress={() => {
+                                                Haptics.selectionAsync();
+                                                if (assignToPartnerId) {
+                                                    setAssignToPartnerId(null);
+                                                } else {
+                                                    setAssignToPartnerId(activePartners[0].partner_id!);
+                                                    setIsPrivate(false);
+                                                }
+                                            }}
+                                        >
+                                            <View style={styles.fieldLabelRow}>
+                                                <UserPlus size={16} color={assignToPartner ? '#007AFF' : '#8E8E93'} />
+                                                <Text style={styles.fieldLabel}>
+                                                    For {activePartners[0].partner_name?.split(' ')[0] ?? 'Partner'}
+                                                </Text>
+                                            </View>
+                                            <View style={[styles.fieldValue, assignToPartner && styles.fieldValueAssign]}>
+                                                <Text style={[styles.fieldValueText, assignToPartner && styles.fieldValueTextAssign]}>
+                                                    {assignToPartner ? 'Assigned' : 'Off'}
+                                                </Text>
+                                            </View>
+                                        </Pressable>
+                                    ) : (
+                                        /* Multiple partners: show each partner as an option */
+                                        <>
+                                            {activePartners.map((p) => {
+                                                const isSelected = assignToPartnerId === p.partner_id;
+                                                return (
+                                                    <React.Fragment key={p.partner_id}>
+                                                        <Pressable
+                                                            style={styles.fieldRow}
+                                                            onPress={() => {
+                                                                Haptics.selectionAsync();
+                                                                if (isSelected) {
+                                                                    setAssignToPartnerId(null);
+                                                                } else {
+                                                                    setAssignToPartnerId(p.partner_id!);
+                                                                    setIsPrivate(false);
+                                                                }
+                                                            }}
+                                                        >
+                                                            <View style={styles.fieldLabelRow}>
+                                                                <UserPlus size={16} color={isSelected ? '#007AFF' : '#8E8E93'} />
+                                                                <Text style={styles.fieldLabel}>
+                                                                    For {p.partner_name?.split(' ')[0] ?? 'Partner'}
+                                                                </Text>
+                                                            </View>
+                                                            <View style={[styles.fieldValue, isSelected && styles.fieldValueAssign]}>
+                                                                <Text style={[styles.fieldValueText, isSelected && styles.fieldValueTextAssign]}>
+                                                                    {isSelected ? 'Assigned' : 'Off'}
+                                                                </Text>
+                                                            </View>
+                                                        </Pressable>
+                                                        <View style={styles.fieldSeparator} />
+                                                    </React.Fragment>
+                                                );
+                                            })}
+                                        </>
+                                    )}
+
+                                    {!assignToPartner && (
+                                        <>
+                                            <View style={styles.fieldSeparator} />
+                                            <Pressable
+                                                style={styles.fieldRow}
+                                                onPress={() => {
+                                                    Haptics.selectionAsync();
+                                                    setIsPrivate(!isPrivate);
+                                                }}
+                                            >
+                                                <View style={styles.fieldLabelRow}>
+                                                    {isPrivate ? (
+                                                        <Lock size={16} color="#FF9500" />
+                                                    ) : (
+                                                        <LockOpen size={16} color="#8E8E93" />
+                                                    )}
+                                                    <Text style={styles.fieldLabel}>Private</Text>
+                                                </View>
+                                                <View style={[styles.fieldValue, isPrivate && styles.fieldValuePrivate]}>
+                                                    <Text style={[styles.fieldValueText, isPrivate && styles.fieldValueTextPrivate]}>
+                                                        {isPrivate ? 'Hidden from partners' : 'Shared'}
+                                                    </Text>
+                                                </View>
+                                            </Pressable>
+                                        </>
+                                    )}
+                                </>
+                            )}
                         </View>
 
                         {/* Sub-tasks Card */}
@@ -516,6 +717,7 @@ export default function AddTodoScreen() {
                                 </Pressable>
                             )}
                         </View>
+                      </Animated.View>
                     </ScrollView>
                 </KeyboardAvoidingView>
 
@@ -837,8 +1039,17 @@ const styles = StyleSheet.create({
     saveButton: {
         minWidth: 60,
         alignItems: 'flex-end',
+        justifyContent: 'center',
     },
-    saveButtonActive: {},
+    saveButtonInner: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 4,
+        paddingVertical: 2,
+    },
+    checkOverlay: {
+        position: 'absolute',
+    },
     saveText: {
         fontSize: 17,
         fontWeight: '600',
@@ -914,6 +1125,18 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '500',
         color: '#3C3C43',
+    },
+    fieldValuePrivate: {
+        backgroundColor: '#FFF3E0',
+    },
+    fieldValueTextPrivate: {
+        color: '#FF9500',
+    },
+    fieldValueAssign: {
+        backgroundColor: '#E8F0FE',
+    },
+    fieldValueTextAssign: {
+        color: '#007AFF',
     },
     fieldSeparator: {
         height: StyleSheet.hairlineWidth,

@@ -14,11 +14,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 
 import { AmbientBackground } from '@/components/AmbientBackground';
 import { usePreferences } from '@/contexts/PreferencesContext';
-import { scheduleDailyReminder, cancelDailyReminder } from '@/lib/notifications';
+import { scheduleDailyReminder, cancelDailyReminder, registerPushToken } from '@/lib/notifications';
 
 export default function SettingsNotificationsScreen() {
     const router = useRouter();
@@ -57,6 +57,7 @@ export default function SettingsNotificationsScreen() {
                 const { status } = await Notifications.requestPermissionsAsync();
                 setPermissionStatus(status as 'granted' | 'denied' | 'undetermined');
                 if (status !== 'granted') return;
+                registerPushToken().catch(() => {});
             }
             const notifId = await scheduleDailyReminder(preferences.dailyReminderTime);
             await updatePreferences({ dailyReminderEnabled: true });
@@ -139,39 +140,6 @@ export default function SettingsNotificationsScreen() {
                         />
                     )}
 
-                    <Text style={styles.sectionLabel}>REMINDERS</Text>
-                    <View style={styles.section}>
-                        <View style={styles.toggleRow}>
-                            <View style={styles.toggleContent}>
-                                <Text style={styles.toggleTitle}>Habit Reminders</Text>
-                                <Text style={styles.toggleSubtitle}>Reminders for individual habits</Text>
-                            </View>
-                            <Switch
-                                value={preferences.habitRemindersEnabled}
-                                onValueChange={(v) => {
-                                    Haptics.selectionAsync();
-                                    updatePreferences({ habitRemindersEnabled: v });
-                                }}
-                                trackColor={{ false: '#E5E5EA', true: '#000' }}
-                                thumbColor="#fff"
-                            />
-                        </View>
-                        <View style={[styles.toggleRow, styles.toggleRowBorder]}>
-                            <View style={styles.toggleContent}>
-                                <Text style={styles.toggleTitle}>Supplement Reminders</Text>
-                                <Text style={styles.toggleSubtitle}>Reminders for supplements</Text>
-                            </View>
-                            <Switch
-                                value={preferences.supplementRemindersEnabled}
-                                onValueChange={(v) => {
-                                    Haptics.selectionAsync();
-                                    updatePreferences({ supplementRemindersEnabled: v });
-                                }}
-                                trackColor={{ false: '#E5E5EA', true: '#000' }}
-                                thumbColor="#fff"
-                            />
-                        </View>
-                    </View>
                 </ScrollView>
             </SafeAreaView>
         </View>

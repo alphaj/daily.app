@@ -7,7 +7,7 @@ import {
   Animated,
 } from 'react-native';
 import { Inbox, Briefcase, Sun, Settings } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import { format, isSameDay } from 'date-fns';
 import { useWorkMode } from '@/contexts/WorkModeContext';
 import { Fonts } from '@/lib/typography';

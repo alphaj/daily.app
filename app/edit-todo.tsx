@@ -1,5 +1,5 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { X, Check, Plus, GripVertical, Clock, Calendar, Repeat, Sunrise, ChevronDown } from 'lucide-react-native';
+import { X, Check, Plus, GripVertical, Clock, Calendar, Repeat, Sunrise, ChevronDown, Lock, LockOpen } from 'lucide-react-native';
 import React, { useState, useMemo, useRef, useCallback } from 'react';
 import {
     View,
@@ -16,8 +16,9 @@ import {
     type ScrollView as ScrollViewType,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import { useTodos } from '@/contexts/TodoContext';
+import { usePartnership } from '@/contexts/PartnershipContext';
 import { format, parseISO } from 'date-fns';
 import { DatePickerModal } from '@/components/DatePickerModal';
 import { AnimatedBottomSheet } from '@/components/AnimatedBottomSheet';
@@ -87,6 +88,8 @@ export default function EditTodoScreen() {
     const router = useRouter();
     const { id } = useLocalSearchParams<{ id: string }>();
     const { todos, updateTodo } = useTodos();
+    const { hasActivePartnership } = usePartnership();
+    const hasPartner = hasActivePartnership;
 
     const todo = useMemo(() => todos.find(t => t.id === id), [todos, id]);
 
@@ -99,6 +102,7 @@ export default function EditTodoScreen() {
     const [estimatedMinutes, setEstimatedMinutes] = useState<number | undefined>(todo?.estimatedMinutes);
     const [repeat, setRepeat] = useState<RepeatOption>(todo?.repeat ?? 'none');
     const [timeOfDay, setTimeOfDay] = useState<TimeOfDay | undefined>(todo?.timeOfDay);
+    const [isPrivate, setIsPrivate] = useState(todo?.isPrivate ?? false);
     const [subtasks, setSubtasks] = useState<{ id: string; title: string; emoji: string }[]>(
         (todo?.subtasks ?? []).map(st => ({ id: st.id, title: st.title, emoji: st.emoji ?? '📋' }))
     );
@@ -151,6 +155,7 @@ export default function EditTodoScreen() {
                 timeOfDay,
                 repeat: repeat !== 'none' ? repeat : undefined,
                 subtasks: subtaskData.length > 0 ? subtaskData : undefined,
+                isPrivate: isPrivate || undefined,
             });
             router.back();
         }
@@ -413,6 +418,33 @@ export default function EditTodoScreen() {
                                         );
                                     })}
                                 </View>
+                            )}
+
+                            {hasPartner && (
+                                <>
+                                    <View style={styles.fieldSeparator} />
+                                    <Pressable
+                                        style={styles.fieldRow}
+                                        onPress={() => {
+                                            Haptics.selectionAsync();
+                                            setIsPrivate(!isPrivate);
+                                        }}
+                                    >
+                                        <View style={styles.fieldLabelRow}>
+                                            {isPrivate ? (
+                                                <Lock size={16} color="#FF9500" />
+                                            ) : (
+                                                <LockOpen size={16} color="#8E8E93" />
+                                            )}
+                                            <Text style={styles.fieldLabel}>Private</Text>
+                                        </View>
+                                        <View style={[styles.fieldValue, isPrivate && styles.fieldValuePrivate]}>
+                                            <Text style={[styles.fieldValueText, isPrivate && styles.fieldValueTextPrivate]}>
+                                                {isPrivate ? 'Hidden from partner' : 'Shared'}
+                                            </Text>
+                                        </View>
+                                    </Pressable>
+                                </>
                             )}
                         </View>
 
@@ -720,6 +752,12 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '500',
         color: '#3C3C43',
+    },
+    fieldValuePrivate: {
+        backgroundColor: '#FFF3E0',
+    },
+    fieldValueTextPrivate: {
+        color: '#FF9500',
     },
     fieldSeparator: {
         height: StyleSheet.hairlineWidth,

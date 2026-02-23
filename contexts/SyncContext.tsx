@@ -1,0 +1,222 @@
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/AuthContext';
+import { usePartnership } from '@/contexts/PartnershipContext';
+import { pushAllData, pullPartnerData, pullAssignedTasks, markAssignedTasksDelivered, pullInteractions, markInteractionsDelivered, PartnerData } from '@/lib/sync';
+import { supabase } from '@/lib/supabase';
+import type { Todo } from '@/types/todo';
+
+interface SyncContextType {
+  /** Trigger a manual push of local data to cloud */
+  syncNow: () => Promise<void>;
+  /** Pull partner's data for a given date */
+  fetchPartnerData: (partnerId: string, date?: string) => Promise<PartnerData | null>;
+  /** Whether a sync is currently in progress */
+  isSyncing: boolean;
+  /** Last successful sync timestamp */
+  lastSyncAt: Date | null;
+}
+
+const SyncContext = createContext<SyncContextType | undefined>(undefined);
+
+const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+
+const TODOS_STORAGE_KEY = 'daily_todos';
+
+export function SyncProvider({ children }: { children: ReactNode }) {
+  const { session } = useAuth();
+  const { hasActivePartnership } = usePartnership();
+  const queryClient = useQueryClient();
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
+  const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const shouldSync = session && hasActivePartnership;
+
+  const syncNow = useCallback(async () => {
+    if (!session?.user?.id || !shouldSync) return;
+    if (isSyncing) return;
+
+    setIsSyncing(true);
+    try {
+      await pushAllData(session.user.id);
+
+      // Pull assigned tasks from partner
+      const assigned = await pullAssignedTasks(session.user.id);
+      if (assigned.length > 0) {
+        const raw = await AsyncStorage.getItem(TODOS_STORAGE_KEY);
+        const localTodos: Todo[] = raw ? JSON.parse(raw) : [];
+        const localIds = new Set(localTodos.map((t) => t.id));
+
+        const newTodos: Todo[] = assigned
+          .filter((a) => !localIds.has(a.id))
+          .map((a) => ({
+            id: a.id,
+            title: a.title,
+            completed: false,
+            createdAt: a.created_at,
+            dueDate: a.due_date,
+            dueTime: a.due_time ?? undefined,
+            priority: (a.priority as Todo['priority']) ?? undefined,
+            isWork: a.is_work,
+            emoji: a.emoji ?? undefined,
+            emojiColor: a.emoji_color ?? undefined,
+            estimatedMinutes: a.estimated_minutes ?? undefined,
+            timeOfDay: (a.time_of_day as Todo['timeOfDay']) ?? undefined,
+            repeat: (a.repeat as Todo['repeat']) ?? undefined,
+            subtasks: a.subtasks
+              ? typeof a.subtasks === 'string'
+                ? JSON.parse(a.subtasks)
+                : a.subtasks
+              : undefined,
+            assignedById: a.assigner_id,
+            assignedByName: a.assigner_name,
+          }));
+
+        if (newTodos.length > 0) {
+          const merged = [...localTodos, ...newTodos];
+          await AsyncStorage.setItem(TODOS_STORAGE_KEY, JSON.stringify(merged));
+          queryClient.invalidateQueries({ queryKey: ['todos'] });
+        }
+
+        await markAssignedTasksDelivered(assigned.map((a) => a.id));
+      }
+
+      // Pull pending interactions and mark delivered
+      const pending = await pullInteractions(session.user.id);
+      if (pending.length > 0) {
+        const pendingIds = pending.filter((i) => i.status === 'pending').map((i) => i.id);
+        if (pendingIds.length > 0) {
+          await markInteractionsDelivered(pendingIds);
+        }
+        queryClient.invalidateQueries({ queryKey: ['partner-interactions'] });
+        queryClient.invalidateQueries({ queryKey: ['my-task-reactions'] });
+      }
+
+      setLastSyncAt(new Date());
+    } catch (err) {
+      console.error('[sync] Push failed:', err);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [session?.user?.id, shouldSync, isSyncing, queryClient]);
+
+  const fetchPartnerData = useCallback(async (partnerId: string, date?: string): Promise<PartnerData | null> => {
+    try {
+      return await pullPartnerData(partnerId, date);
+    } catch (err) {
+      console.error('[sync] Pull failed:', err);
+      return null;
+    }
+  }, []);
+
+  // Sync when app comes to foreground
+  useEffect(() => {
+    if (!shouldSync) return;
+
+    const handleAppState = (state: AppStateStatus) => {
+      if (state === 'active') {
+        syncNow();
+        // Always update last_active on foreground, even if syncNow skips due to isSyncing guard
+        supabase.rpc('update_last_active').then(() => {});
+      }
+    };
+
+    const sub = AppState.addEventListener('change', handleAppState);
+    return () => sub.remove();
+  }, [shouldSync, syncNow]);
+
+  // Realtime: sync immediately when a task is assigned to us
+  useEffect(() => {
+    if (!session?.user?.id || !shouldSync) return;
+
+    const channel = supabase
+      .channel('assigned-tasks-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'assigned_tasks',
+          filter: `assignee_id=eq.${session.user.id}`,
+        },
+        () => {
+          console.log('[sync] New assigned task detected via realtime');
+          syncNow();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session?.user?.id, shouldSync, syncNow]);
+
+  // Realtime: sync immediately when an interaction is sent to us
+  useEffect(() => {
+    if (!session?.user?.id || !shouldSync) return;
+
+    const channel = supabase
+      .channel('partner-interactions-sync')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'partner_interactions',
+          filter: `receiver_id=eq.${session.user.id}`,
+        },
+        () => {
+          console.log('[sync] New partner interaction detected via realtime');
+          queryClient.invalidateQueries({ queryKey: ['partner-interactions'] });
+          queryClient.invalidateQueries({ queryKey: ['my-task-reactions'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session?.user?.id, shouldSync, queryClient]);
+
+  // Sync on partnership becoming active
+  useEffect(() => {
+    if (shouldSync) {
+      syncNow();
+    }
+  }, [shouldSync]);
+
+  // Periodic sync
+  useEffect(() => {
+    if (!shouldSync) {
+      if (syncIntervalRef.current) {
+        clearInterval(syncIntervalRef.current);
+        syncIntervalRef.current = null;
+      }
+      return;
+    }
+
+    syncIntervalRef.current = setInterval(syncNow, SYNC_INTERVAL_MS);
+    return () => {
+      if (syncIntervalRef.current) {
+        clearInterval(syncIntervalRef.current);
+      }
+    };
+  }, [shouldSync, syncNow]);
+
+  return (
+    <SyncContext.Provider value={{ syncNow, fetchPartnerData, isSyncing, lastSyncAt }}>
+      {children}
+    </SyncContext.Provider>
+  );
+}
+
+export function useSync() {
+  const context = useContext(SyncContext);
+  if (context === undefined) {
+    throw new Error('useSync must be used within a SyncProvider');
+  }
+  return context;
+}

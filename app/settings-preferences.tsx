@@ -10,7 +10,7 @@ import {
     Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 
 import { AmbientBackground } from '@/components/AmbientBackground';
 import { usePreferences } from '@/contexts/PreferencesContext';

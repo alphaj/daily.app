@@ -38,26 +38,25 @@ export default function PrivacyPolicyScreen() {
                     <Text style={styles.lastUpdated}>Last Updated: January 10, 2026</Text>
 
                     <Text style={styles.intro}>
-                        Daily Habit Tracker is committed to protecting your privacy. This policy explains how we handle your information.
+                        Daily is committed to protecting your privacy. This policy explains how we handle your information.
                     </Text>
 
                     <View style={styles.highlight}>
                         <Text style={styles.highlightText}>
                             <Text style={styles.bold}>Summary: </Text>
-                            We store all your data locally on your device. We do not collect, transmit, or share your personal information with any third parties.
+                            Your data is stored locally on your device by default. If you enable Partner Mode, selected data is synced securely to the cloud so your partner can view it.
                         </Text>
                     </View>
 
                     <Text style={styles.sectionTitle}>1. Information We Collect</Text>
                     <Text style={styles.paragraph}>
-                        Daily Habit Tracker stores the following information locally on your device only:
+                        Daily stores the following information on your device:
                     </Text>
                     <View style={styles.bulletList}>
                         <Text style={styles.bullet}>• Account information (email and encrypted password)</Text>
-                        <Text style={styles.bullet}>• Habits, completion records, and streaks</Text>
-                        <Text style={styles.bullet}>• Tasks and their completion status</Text>
-                        <Text style={styles.bullet}>• Projects and daily notes</Text>
-                        <Text style={styles.bullet}>• Inbox items and brain dump thoughts</Text>
+                        <Text style={styles.bullet}>• Tasks, events, and their completion status</Text>
+                        <Text style={styles.bullet}>• Focus session records</Text>
+                        <Text style={styles.bullet}>• Inbox items and notes</Text>
                     </View>
 
                     <Text style={styles.sectionTitle}>2. Device Permissions</Text>
@@ -65,17 +64,17 @@ export default function PrivacyPolicyScreen() {
                     <View style={styles.bulletList}>
                         <Text style={styles.bullet}>• <Text style={styles.bold}>Face ID:</Text> For secure app access. Biometric data is processed by your device and never accessed by our app.</Text>
                         <Text style={styles.bullet}>• <Text style={styles.bold}>Microphone:</Text> For voice-to-text input when adding tasks or notes. Audio is processed locally and not recorded.</Text>
-                        <Text style={styles.bullet}>• <Text style={styles.bold}>Notifications:</Text> For habit reminders you configure.</Text>
+                        <Text style={styles.bullet}>• <Text style={styles.bold}>Notifications:</Text> For daily reminders you configure.</Text>
                     </View>
 
                     <Text style={styles.sectionTitle}>3. Data Storage</Text>
                     <Text style={styles.paragraph}>
-                        All your data is stored locally on your device using secure storage mechanisms. Sensitive data like authentication tokens is stored in iOS Keychain. We do not have access to your data, and it is never transmitted to external servers.
+                        Your data is stored locally on your device by default. Sensitive data like authentication tokens is stored in iOS Keychain. If you enable Partner Mode, data you choose to share is synced to our secure cloud infrastructure (Supabase) so your partner can view it. You control exactly what is shared through your sharing preferences.
                     </Text>
 
                     <Text style={styles.sectionTitle}>4. Data Sharing</Text>
                     <Text style={styles.paragraph}>
-                        We do not share, sell, or transfer your personal information to any third parties. Since all data is stored locally, we have no access to it.
+                        We do not sell or transfer your personal information to third parties. If you enable Partner Mode, selected data is shared only with your linked partner through our secure cloud service. You can dissolve the partnership at any time to stop sharing.
                     </Text>
 
                     <Text style={styles.sectionTitle}>5. Data Security</Text>
@@ -97,7 +96,7 @@ export default function PrivacyPolicyScreen() {
 
                     <Text style={styles.sectionTitle}>8. Third-Party Services</Text>
                     <Text style={styles.paragraph}>
-                        Daily Habit Tracker does not integrate with any third-party analytics, advertising, or tracking services.
+                        Daily uses Supabase for optional cloud sync and authentication when Partner Mode is enabled. We do not integrate with any analytics, advertising, or tracking services.
                     </Text>
 
                     <Text style={styles.sectionTitle}>9. Changes to This Policy</Text>
@@ -107,7 +106,7 @@ export default function PrivacyPolicyScreen() {
 
                     <Text style={styles.sectionTitle}>10. Your Rights</Text>
                     <Text style={styles.paragraph}>
-                        Since all data is stored locally, you have complete control. You can access, modify, or delete your data at any time within the app.
+                        You have complete control over your data. You can access, modify, or delete your data at any time within the app. If you use Partner Mode, dissolving the partnership removes your shared data from the cloud.
                     </Text>
 
                     <View style={styles.contact}>

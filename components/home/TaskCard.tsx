@@ -2,7 +2,7 @@ import React, { memo, useState, useCallback } from 'react';
 import { View, Text, Pressable, StyleSheet, Platform, Alert, ActionSheetIOS, Dimensions } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS } from 'react-native-reanimated';
 import { Check, ChevronDown, ChevronUp } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import SwipeableRow from '@/components/SwipeableRow';
 import { TaskContextMenu } from '@/components/TaskContextMenu';
 import type { Todo, Subtask } from '@/types/todo';
@@ -20,6 +20,7 @@ interface TaskCardProps {
   onDuplicate?: (id: string) => void;
   onReschedule?: (id: string, date: string) => void;
   onEdit?: (todo: Todo) => void;
+  partnerReaction?: string;
 }
 
 export const TaskCard = memo(function TaskCard({
@@ -33,6 +34,7 @@ export const TaskCard = memo(function TaskCard({
   onDuplicate,
   onReschedule,
   onEdit,
+  partnerReaction,
 }: TaskCardProps) {
   const [subtasksExpanded, setSubtasksExpanded] = useState(false);
 
@@ -199,7 +201,15 @@ export const TaskCard = memo(function TaskCard({
             {durationLabel && (
               <Text style={styles.duration}>{durationLabel}</Text>
             )}
+            {todo.assignedByName && (
+              <Text style={styles.assignedBadge}>From {todo.assignedByName}</Text>
+            )}
           </View>
+
+          {/* Partner reaction badge */}
+          {partnerReaction && todo.completed && (
+            <Text style={styles.partnerReaction}>{partnerReaction}</Text>
+          )}
 
           {/* Checkbox */}
           <View
@@ -341,6 +351,16 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#8E8E93',
     marginTop: 2,
+  },
+  assignedBadge: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#007AFF',
+    marginTop: 2,
+  },
+  partnerReaction: {
+    fontSize: 18,
+    marginLeft: 6,
   },
   checkbox: {
     width: 26,

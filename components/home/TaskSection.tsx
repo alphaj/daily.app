@@ -1,7 +1,7 @@
 import React, { memo } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Plus, ChevronDown } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import { TaskCard } from './TaskCard';
 import type { Todo, TimeOfDay } from '@/types/todo';
 
@@ -27,6 +27,7 @@ interface TaskSectionProps {
   onDuplicateTodo?: (id: string) => void;
   onRescheduleTodo?: (id: string, date: string) => void;
   onEditTodo?: (todo: Todo) => void;
+  partnerReactions?: Map<string, string>;
 }
 
 export const TaskSection = memo(function TaskSection({
@@ -44,6 +45,7 @@ export const TaskSection = memo(function TaskSection({
   onDuplicateTodo,
   onRescheduleTodo,
   onEditTodo,
+  partnerReactions,
 }: TaskSectionProps) {
   const config = SECTION_CONFIG[timeOfDay];
   const count = tasks.length;
@@ -107,6 +109,7 @@ export const TaskSection = memo(function TaskSection({
                 onDuplicate={onDuplicateTodo}
                 onReschedule={onRescheduleTodo}
                 onEdit={onEditTodo}
+                partnerReaction={partnerReactions?.get(todo.id)}
               />
             ))
           )}

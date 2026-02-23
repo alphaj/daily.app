@@ -1,5 +1,5 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Mic, Square } from 'lucide-react-native';
+import { ArrowLeft, Mic, Square, Lock, LockOpen } from 'lucide-react-native';
 import React, { useState, useRef, useCallback } from 'react';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {
@@ -24,9 +24,10 @@ import Animated, {
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import { Audio } from 'expo-av';
 import { useCalendarEvents } from '@/contexts/CalendarEventContext';
+import { usePartnership } from '@/contexts/PartnershipContext';
 import { EVENT_COLORS } from '@/types/event';
 import { format, isToday, isTomorrow, parse, addDays } from 'date-fns';
 import { DatePickerModal } from '@/components/DatePickerModal';
@@ -35,6 +36,8 @@ export default function AddEventScreen() {
     const router = useRouter();
     const params = useLocalSearchParams<{ date?: string; startTime?: string }>();
     const { addEvent } = useCalendarEvents();
+    const { hasActivePartnership } = usePartnership();
+    const hasPartner = hasActivePartnership;
 
     const [title, setTitle] = useState('');
     const [selectedDate, setSelectedDate] = useState<Date>(
@@ -52,6 +55,7 @@ export default function AddEventScreen() {
     });
     const [selectedColor, setSelectedColor] = useState(EVENT_COLORS[4]);
     const [notes, setNotes] = useState('');
+    const [isPrivate, setIsPrivate] = useState(false);
 
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [showStartTimePicker, setShowStartTimePicker] = useState(false);
@@ -207,7 +211,8 @@ export default function AddEventScreen() {
                 selectedColor,
                 isAllDay ? undefined : startTime,
                 isAllDay ? undefined : endTime,
-                notes.trim() || undefined
+                notes.trim() || undefined,
+                isPrivate || undefined
             );
             router.back();
         }
@@ -461,6 +466,29 @@ export default function AddEventScreen() {
                             />
                         </View>
                     </View>
+
+                    {/* Privacy Section */}
+                    {hasPartner && (
+                        <View style={styles.pickerSection}>
+                            <Text style={styles.sectionTitle}>Privacy</Text>
+                            <Pressable
+                                style={[styles.privacyToggle, isPrivate && styles.privacyToggleActive]}
+                                onPress={() => {
+                                    Haptics.selectionAsync();
+                                    setIsPrivate(!isPrivate);
+                                }}
+                            >
+                                {isPrivate ? (
+                                    <Lock size={18} color="#FF9500" strokeWidth={2} />
+                                ) : (
+                                    <LockOpen size={18} color="#8E8E93" strokeWidth={2} />
+                                )}
+                                <Text style={[styles.privacyToggleText, isPrivate && styles.privacyToggleTextActive]}>
+                                    {isPrivate ? 'Hidden from partner' : 'Shared with partner'}
+                                </Text>
+                            </Pressable>
+                        </View>
+                    )}
                 </ScrollView>
             </KeyboardAvoidingView>
 
@@ -692,6 +720,29 @@ const styles = StyleSheet.create({
         color: '#000',
         minHeight: 100,
         textAlignVertical: 'top',
+    },
+    privacyToggle: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        paddingHorizontal: 20,
+        paddingVertical: 14,
+        borderRadius: 24,
+        backgroundColor: '#fff',
+        borderWidth: 1,
+        borderColor: '#eee',
+    },
+    privacyToggleActive: {
+        backgroundColor: '#FFF3E0',
+        borderColor: '#FFB74D',
+    },
+    privacyToggleText: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#8E8E93',
+    },
+    privacyToggleTextActive: {
+        color: '#FF9500',
     },
     footer: {
         padding: 20,

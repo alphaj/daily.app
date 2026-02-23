@@ -54,7 +54,8 @@ export const [CalendarEventProvider, useCalendarEvents] = createContextHook(() =
         color: string,
         startTime?: string,
         endTime?: string,
-        notes?: string
+        notes?: string,
+        isPrivate?: boolean
     ): Promise<CalendarEvent> => {
         const newEvent: CalendarEvent = {
             id: generateId(),
@@ -66,6 +67,7 @@ export const [CalendarEventProvider, useCalendarEvents] = createContextHook(() =
             color,
             notes,
             createdAt: new Date().toISOString(),
+            ...(isPrivate ? { isPrivate } : {}),
         };
 
         const newEvents = [...events, newEvent];

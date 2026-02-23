@@ -7,7 +7,7 @@ import {
     Animated,
 } from 'react-native';
 import { Briefcase, Leaf } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 import { useWorkMode } from '@/contexts/WorkModeContext';
 import { MODE_CONFIG } from '@/types/workmode';
 

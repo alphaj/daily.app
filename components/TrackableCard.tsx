@@ -16,7 +16,7 @@ import Animated, {
   withTiming,
   withSequence,
 } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/lib/haptics';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
