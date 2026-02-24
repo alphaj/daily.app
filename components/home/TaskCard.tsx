@@ -174,8 +174,8 @@ export const TaskCard = memo(function TaskCard({
   return (
     <Animated.View style={exitStyle}>
     <SwipeableRow onDelete={() => onDelete(todo.id)}>
-      <Animated.View style={[pressStyle, styles.cardShadow, todo.completed && styles.cardCompleted]}>
-      <View style={styles.card}>
+      <Animated.View style={[pressStyle, styles.cardShadow, todo.completed && styles.cardCompleted, todo.isDefault && !todo.completed && styles.cardDefault]}>
+      <View style={[styles.card, todo.isDefault && !todo.completed && styles.cardDefaultInner]}>
         <Pressable
           style={styles.cardContent}
           onPress={handleToggle}
@@ -203,6 +203,11 @@ export const TaskCard = memo(function TaskCard({
             )}
             {todo.assignedByName && (
               <Text style={styles.assignedBadge}>From {todo.assignedByName}</Text>
+            )}
+            {todo.isDefault && !todo.completed && (
+              <View style={styles.defaultBadge}>
+                <Text style={styles.defaultBadgeText}>Suggested</Text>
+              </View>
             )}
           </View>
 
@@ -315,6 +320,16 @@ const styles = StyleSheet.create({
   cardCompleted: {
     opacity: 0.6,
   },
+  cardDefault: {
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  cardDefaultInner: {
+    backgroundColor: '#FAFAFA',
+    borderWidth: 1.5,
+    borderColor: '#E0E0E0',
+    borderStyle: 'dashed',
+  },
   cardContent: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -357,6 +372,20 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#007AFF',
     marginTop: 2,
+  },
+  defaultBadge: {
+    marginTop: 4,
+    backgroundColor: '#F0EDFF',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    alignSelf: 'flex-start',
+  },
+  defaultBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#7C6EBF',
+    letterSpacing: 0.3,
   },
   partnerReaction: {
     fontSize: 18,

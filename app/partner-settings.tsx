@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useGoBack } from '@/lib/useGoBack';
 import {
   ArrowLeft,
   Copy,
@@ -420,6 +421,7 @@ function PrivacyModeSection() {
 // ── Main Screen ────────────────────────────────────────────────────
 export default function PartnerSettingsScreen() {
   const router = useRouter();
+  const goBack = useGoBack();
   const { activePartners, pendingPartners, hasActivePartnership, isLoading } = usePartnership();
 
   return (
@@ -430,7 +432,7 @@ export default function PartnerSettingsScreen() {
         <View style={styles.header}>
           <Pressable
             style={styles.backButtonCircle}
-            onPress={() => router.back()}
+            onPress={goBack}
             hitSlop={20}
           >
             <ArrowLeft size={20} color="#000" strokeWidth={2.5} />

@@ -1,4 +1,5 @@
 import { useRouter } from 'expo-router';
+import { useGoBack } from '@/lib/useGoBack';
 import { ChevronLeft } from 'lucide-react-native';
 import React from 'react';
 import {
@@ -12,12 +13,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function PrivacyPolicyScreen() {
     const router = useRouter();
+    const goBack = useGoBack();
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
             {/* Header */}
             <View style={styles.header}>
-                <Pressable style={styles.iconButton} onPress={() => router.back()}>
+                <Pressable style={styles.iconButton} onPress={goBack}>
                     <ChevronLeft size={24} color="#000" strokeWidth={1.5} />
                 </Pressable>
 

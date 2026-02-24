@@ -59,6 +59,12 @@ export default function GetStartedScreen() {
                             <ChevronRight size={20} color="white" />
                         </Pressable>
 
+                        <Pressable onPress={() => router.push('/login')}>
+                            <Text style={styles.signInText}>
+                                Already have an account? <Text style={styles.signInLink}>Sign in</Text>
+                            </Text>
+                        </Pressable>
+
                         <View style={styles.disclaimerContainer}>
                             <Text style={styles.disclaimerText}>
                                 By continuing you're accepting our{'\n'}
@@ -131,6 +137,15 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 18,
         fontWeight: '600',
+    },
+    signInText: {
+        fontSize: 15,
+        color: '#8e8e93',
+        textAlign: 'center',
+    },
+    signInLink: {
+        color: '#007AFF',
+        fontWeight: '500',
     },
     disclaimerContainer: {
         alignItems: 'center',

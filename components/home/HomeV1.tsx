@@ -3,6 +3,7 @@ import { View, ScrollView, StyleSheet } from 'react-native';
 import * as Haptics from '@/lib/haptics';
 
 import { TaskSection } from './TaskSection';
+import { PartnerDiscoveryCard } from './PartnerDiscoveryCard';
 import { usePartnerInteractions } from '@/hooks/usePartnerInteractions';
 import type { HomeVariantProps } from './types';
 import type { Todo, TimeOfDay } from '@/types/todo';
@@ -75,6 +76,7 @@ export function HomeV1(props: HomeVariantProps) {
       showsVerticalScrollIndicator={false}
       contentContainerStyle={styles.contentContainer}
     >
+      <PartnerDiscoveryCard />
       {TIME_OF_DAY_ORDER.map((tod) => (
         <TaskSection
           key={tod}

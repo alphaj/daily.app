@@ -1,4 +1,5 @@
 import { useRouter } from 'expo-router';
+import { useGoBack } from '@/lib/useGoBack';
 import { ArrowLeft, Check } from 'lucide-react-native';
 import React from 'react';
 import {
@@ -34,6 +35,7 @@ function SelectRow({ title, selected, onPress, isLast }: {
 
 export default function SettingsPreferencesScreen() {
     const router = useRouter();
+    const goBack = useGoBack();
     const { preferences, updatePreferences } = usePreferences();
 
     return (
@@ -41,7 +43,7 @@ export default function SettingsPreferencesScreen() {
             <AmbientBackground />
             <SafeAreaView style={styles.safeArea} edges={['top']}>
                 <View style={styles.header}>
-                    <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={20}>
+                    <Pressable style={styles.backButton} onPress={goBack} hitSlop={20}>
                         <ArrowLeft size={20} color="#000" strokeWidth={2.5} />
                     </Pressable>
                     <Text style={styles.headerTitle}>Preferences</Text>

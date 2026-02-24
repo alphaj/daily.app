@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, Pressable, StyleSheet, Modal } from 'react-native';
 import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown, Easing } from 'react-native-reanimated';
 import { NUDGE_TEMPLATES } from '@/types/interaction';
@@ -14,6 +14,25 @@ const COOLDOWN_MS = 30_000;
 
 export function NudgePicker({ visible, onSelect, onDismiss }: NudgePickerProps) {
   const [lastSentAt, setLastSentAt] = useState(0);
+  const [isCooling, setIsCooling] = useState(false);
+
+  // Auto-clear cooldown after COOLDOWN_MS
+  useEffect(() => {
+    if (lastSentAt === 0) {
+      setIsCooling(false);
+      return;
+    }
+
+    setIsCooling(true);
+    const remaining = COOLDOWN_MS - (Date.now() - lastSentAt);
+    if (remaining <= 0) {
+      setIsCooling(false);
+      return;
+    }
+
+    const timer = setTimeout(() => setIsCooling(false), remaining);
+    return () => clearTimeout(timer);
+  }, [lastSentAt]);
 
   const handleSelect = useCallback(
     (emoji: string, message: string) => {
@@ -26,8 +45,6 @@ export function NudgePicker({ visible, onSelect, onDismiss }: NudgePickerProps) 
     },
     [lastSentAt, onSelect],
   );
-
-  const isCooling = Date.now() - lastSentAt < COOLDOWN_MS;
 
   if (!visible) return null;
 

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -156,16 +156,20 @@ export default function PartnerListScreen() {
   const { markAllRead } = usePartnerInteractions();
 
   // If exactly one active partner and no pending, navigate directly to detail
+  // Use a ref to prevent re-redirect if the user navigates back
+  const hasAutoRedirected = useRef(false);
   useEffect(() => {
-    if (!isLoading && activePartners.length === 1 && pendingPartners.length === 0) {
+    if (!isLoading && activePartners.length === 1 && pendingPartners.length === 0 && !hasAutoRedirected.current) {
+      hasAutoRedirected.current = true;
       router.replace(`/partner-detail?partnerId=${activePartners[0].partner_id}`);
     }
   }, [isLoading, activePartners, pendingPartners, router]);
 
   // Mark all interactions read when viewing partner screen
+  // Wait until interactions have loaded (markAllRead depends on interactions data)
   useEffect(() => {
     markAllRead();
-  }, []);
+  }, [markAllRead]);
 
   const hasAny = activePartners.length > 0 || pendingPartners.length > 0;
 

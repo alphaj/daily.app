@@ -7,6 +7,7 @@ import {
     SafeAreaView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useGoBack } from '@/lib/useGoBack';
 import { ChevronLeft } from 'lucide-react-native';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { Fonts } from '@/lib/typography';
@@ -21,6 +22,7 @@ const OPTIONS: { value: LosesDayAt; label: string; emoji: string }[] = [
 
 export default function LosesDayScreen() {
     const router = useRouter();
+    const goBack = useGoBack('/(onboarding)/get-started');
     const { state, setLosesDayAt, nextStep, previousStep } = useOnboarding();
     const selected = state.responses.losesDayAt;
 
@@ -37,7 +39,7 @@ export default function LosesDayScreen() {
 
     const handleBack = () => {
         previousStep();
-        router.back();
+        goBack();
     };
 
     return (

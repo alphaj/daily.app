@@ -1,4 +1,5 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useGoBack } from '@/lib/useGoBack';
 import { ArrowLeft, Mic, Square, Lock, LockOpen } from 'lucide-react-native';
 import React, { useState, useRef, useCallback } from 'react';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -34,6 +35,7 @@ import { DatePickerModal } from '@/components/DatePickerModal';
 
 export default function AddEventScreen() {
     const router = useRouter();
+    const goBack = useGoBack();
     const params = useLocalSearchParams<{ date?: string; startTime?: string }>();
     const { addEvent } = useCalendarEvents();
     const { hasActivePartnership } = usePartnership();
@@ -214,7 +216,7 @@ export default function AddEventScreen() {
                 notes.trim() || undefined,
                 isPrivate || undefined
             );
-            router.back();
+            goBack();
         }
     };
 
@@ -299,7 +301,7 @@ export default function AddEventScreen() {
             >
                 {/* Header */}
                 <View style={styles.header}>
-                    <Pressable onPress={() => router.back()} style={styles.iconBtn}>
+                    <Pressable onPress={goBack} style={styles.iconBtn}>
                         <ArrowLeft size={24} color="#000" />
                     </Pressable>
                     <Text style={styles.headerTitle}>Add Event</Text>

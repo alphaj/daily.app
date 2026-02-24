@@ -7,6 +7,7 @@ import {
     SafeAreaView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useGoBack } from '@/lib/useGoBack';
 import { ChevronLeft, Check } from 'lucide-react-native';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { Fonts } from '@/lib/typography';
@@ -21,6 +22,7 @@ const OPTIONS: { value: FallsThrough; label: string; icon: string }[] = [
 
 export default function FallsThroughScreen() {
     const router = useRouter();
+    const goBack = useGoBack('/(onboarding)/get-started');
     const { state, toggleFallsThrough, nextStep, previousStep } = useOnboarding();
     const selected = state.responses.fallsThrough;
 
@@ -33,7 +35,7 @@ export default function FallsThroughScreen() {
 
     const handleBack = () => {
         previousStep();
-        router.back();
+        goBack();
     };
 
     const isSelected = (value: FallsThrough) => selected.includes(value);

@@ -47,7 +47,7 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
     priority?: 'low' | 'medium' | 'high',
     isWork?: boolean,
     dueTime?: string,
-    extras?: { emoji?: string; emojiColor?: string; estimatedMinutes?: number; timeOfDay?: TimeOfDay; repeat?: RepeatOption; subtasks?: Subtask[]; isPrivate?: boolean }
+    extras?: { emoji?: string; emojiColor?: string; estimatedMinutes?: number; timeOfDay?: TimeOfDay; repeat?: RepeatOption; subtasks?: Subtask[]; isPrivate?: boolean; isDefault?: boolean }
   ) => {
     const dueDate = date ? getDateKey(date) : getToday();
 

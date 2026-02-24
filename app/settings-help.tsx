@@ -1,4 +1,5 @@
 import { useRouter } from 'expo-router';
+import { useGoBack } from '@/lib/useGoBack';
 import { ArrowLeft, ChevronDown, ChevronUp, Star, Mail, Shield, Download, Trash2 } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
@@ -54,6 +55,7 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
 
 export default function SettingsHelpScreen() {
     const router = useRouter();
+    const goBack = useGoBack();
     const { resetOnboarding } = useOnboarding();
 
     const handleRateApp = async () => {
@@ -116,7 +118,7 @@ export default function SettingsHelpScreen() {
             <AmbientBackground />
             <SafeAreaView style={styles.safeArea} edges={['top']}>
                 <View style={styles.header}>
-                    <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={20}>
+                    <Pressable style={styles.backButton} onPress={goBack} hitSlop={20}>
                         <ArrowLeft size={20} color="#000" strokeWidth={2.5} />
                     </Pressable>
                     <Text style={styles.headerTitle}>Help</Text>

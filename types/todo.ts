@@ -40,4 +40,6 @@ export interface Todo {
   assignedById?: string;
   /** Display name of the partner who assigned this task */
   assignedByName?: string;
+  /** Whether this is a default-seeded task from onboarding */
+  isDefault?: boolean;
 }

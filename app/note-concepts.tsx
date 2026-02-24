@@ -1,4 +1,5 @@
 import { useRouter } from 'expo-router';
+import { useGoBack } from '@/lib/useGoBack';
 import {
     ChevronLeft,
     ChevronRight,
@@ -554,13 +555,14 @@ function Concept6LongPressDate() {
 // ============================================
 export default function NoteConceptsScreen() {
     const router = useRouter();
+    const goBack = useGoBack();
     const insets = useSafeAreaInsets();
 
     return (
         <View style={styles.container}>
             <SafeAreaView style={styles.safeArea} edges={['top']}>
                 <View style={styles.header}>
-                    <Pressable onPress={() => router.back()} style={styles.backBtn}>
+                    <Pressable onPress={goBack} style={styles.backBtn}>
                         <ChevronLeft size={24} color="#000" />
                     </Pressable>
                     <Text style={styles.headerTitle}>Daily Note Concepts</Text>

@@ -1,4 +1,5 @@
 import { useRouter } from 'expo-router';
+import { useGoBack } from '@/lib/useGoBack';
 import { ArrowLeft, Bell, BellOff } from 'lucide-react-native';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -22,6 +23,7 @@ import { scheduleDailyReminder, cancelDailyReminder, registerPushToken } from '@
 
 export default function SettingsNotificationsScreen() {
     const router = useRouter();
+    const goBack = useGoBack();
     const { preferences, updatePreferences } = usePreferences();
     const [permissionStatus, setPermissionStatus] = useState<'granted' | 'denied' | 'undetermined'>('undetermined');
     const [showTimePicker, setShowTimePicker] = useState(false);
@@ -85,7 +87,7 @@ export default function SettingsNotificationsScreen() {
             <AmbientBackground />
             <SafeAreaView style={styles.safeArea} edges={['top']}>
                 <View style={styles.header}>
-                    <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={20}>
+                    <Pressable style={styles.backButton} onPress={goBack} hitSlop={20}>
                         <ArrowLeft size={20} color="#000" strokeWidth={2.5} />
                     </Pressable>
                     <Text style={styles.headerTitle}>Notifications</Text>

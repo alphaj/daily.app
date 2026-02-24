@@ -1,4 +1,5 @@
 import { useRouter } from 'expo-router';
+import { useGoBack } from '@/lib/useGoBack';
 import {
     ChevronRight,
     Bell,
@@ -80,6 +81,7 @@ function MenuItem({
 
 export default function MenuScreen() {
     const router = useRouter();
+    const goBack = useGoBack();
     const { resetOnboarding } = useOnboarding();
     const { signOut, profile, uploadAvatar, removeAvatar } = useAuth();
 
@@ -147,7 +149,7 @@ export default function MenuScreen() {
                 <View style={styles.header}>
                     <Pressable
                         style={styles.backButtonCircle}
-                        onPress={() => router.back()}
+                        onPress={goBack}
                         hitSlop={20}
                     >
                         <ArrowLeft size={20} color="#000" strokeWidth={2.5} />

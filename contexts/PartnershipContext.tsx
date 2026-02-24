@@ -141,9 +141,10 @@ export function PartnershipProvider({ children }: { children: ReactNode }) {
           table: 'partnerships',
         },
         (payload) => {
-          const row = payload.new as any;
+          // On DELETE, payload.new is empty — use payload.old instead
+          const row = (payload.eventType === 'DELETE' ? payload.old : payload.new) as any;
           // Only care about partnerships involving us
-          if (row.inviter_id === session.user.id || row.invitee_id === session.user.id) {
+          if (row?.inviter_id === session.user.id || row?.invitee_id === session.user.id) {
             fetchStatus();
           }
         }

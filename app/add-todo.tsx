@@ -1,4 +1,5 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useGoBack } from '@/lib/useGoBack';
 import { X, Check, Plus, GripVertical, Clock, Calendar, Repeat, Sunrise, ChevronDown, Lock, LockOpen, UserPlus } from 'lucide-react-native';
 import React, { useState, useCallback, useRef } from 'react';
 import {
@@ -109,6 +110,7 @@ type ExpandableField = 'timeOfDay' | 'duration' | 'repeat' | null;
 
 export default function AddTodoScreen() {
     const router = useRouter();
+    const goBack = useGoBack();
     const { addTodo } = useTodos();
     const { isWorkMode } = useWorkMode();
     const { activePartners, hasActivePartnership, getPartnership } = usePartnership();
@@ -195,8 +197,8 @@ export default function AddTodoScreen() {
     }, []);
 
     const dismiss = useCallback(() => {
-        router.back();
-    }, [router]);
+        goBack();
+    }, [goBack]);
 
     const handleSave = async () => {
         if (title.trim() && !saving) {
@@ -336,7 +338,7 @@ export default function AddTodoScreen() {
                     <View style={styles.headerContainer}>
                         <View style={styles.modalHandleTop} />
                         <View style={styles.header}>
-                            <Pressable onPress={() => router.back()} style={styles.cancelButton} hitSlop={8}>
+                            <Pressable onPress={goBack} style={styles.cancelButton} hitSlop={8}>
                                 <Text style={styles.cancelText}>Cancel</Text>
                             </Pressable>
                             <Text style={styles.headerTitle}>

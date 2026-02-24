@@ -9,8 +9,9 @@ import {
   Pressable,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useGoBack } from '@/lib/useGoBack';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Lock, Eye, Plus, Send, ArrowLeft } from 'lucide-react-native';
+import { Lock, Eye, Plus, Send, ArrowLeft, Settings } from 'lucide-react-native';
 import * as Haptics from '@/lib/haptics';
 
 import { useAuth } from '@/contexts/AuthContext';
@@ -243,6 +244,7 @@ function FocusSection({ sessions }: { sessions: PartnerFocusSession[] }) {
 
 export default function PartnerDetailScreen() {
   const router = useRouter();
+  const goBack = useGoBack();
   const { partnerId: partnerIdParam } = useLocalSearchParams<{ partnerId: string }>();
   const { session } = useAuth();
   const { getPartnership } = usePartnership();
@@ -264,10 +266,10 @@ export default function PartnerDetailScreen() {
   // Nudge picker state
   const [nudgePickerVisible, setNudgePickerVisible] = useState(false);
 
-  // Mark all interactions read when screen loads
+  // Mark all interactions read when screen loads and when interactions data changes
   useEffect(() => {
     markAllRead();
-  }, []);
+  }, [markAllRead]);
 
   const loadData = useCallback(async () => {
     // Fetch privacy mode first
@@ -344,7 +346,7 @@ export default function PartnerDetailScreen() {
           <View style={styles.headerLeft}>
             <Pressable
               style={styles.backButton}
-              onPress={() => router.back()}
+              onPress={goBack}
               hitSlop={20}
             >
               <ArrowLeft size={20} color="#000" strokeWidth={2.5} />
@@ -376,6 +378,16 @@ export default function PartnerDetailScreen() {
                 <Text style={styles.nudgeButtonText}>Nudge</Text>
               </Pressable>
             )}
+            <Pressable
+              style={styles.settingsButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push('/partner-settings');
+              }}
+              hitSlop={20}
+            >
+              <Settings size={20} color="#000" strokeWidth={1.8} />
+            </Pressable>
             <Avatar
               uri={partnership?.partner_avatar_url}
               name={partnerName}
@@ -443,12 +455,14 @@ export default function PartnerDetailScreen() {
           </ScrollView>
         )}
       </SafeAreaView>
-      <Pressable
-        style={styles.fab}
-        onPress={() => router.push(`/add-todo?forPartnerId=${partnerId}`)}
-      >
-        <Plus size={24} color="#fff" strokeWidth={2.5} />
-      </Pressable>
+      {privacyMode === 'open' && (
+        <Pressable
+          style={styles.fab}
+          onPress={() => router.push(`/add-todo?forPartnerId=${partnerId}`)}
+        >
+          <Plus size={24} color="#fff" strokeWidth={2.5} />
+        </Pressable>
+      )}
       <BottomNavBar />
       <ReactionPicker
         visible={!!reactionTarget}
@@ -707,6 +721,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+  },
+  settingsButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
   },
   nudgeButton: {
     flexDirection: 'row',

@@ -7,6 +7,7 @@ import {
     SafeAreaView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useGoBack } from '@/lib/useGoBack';
 import { ChevronLeft } from 'lucide-react-native';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { Fonts } from '@/lib/typography';
@@ -28,6 +29,7 @@ const DESCRIPTIONS: Record<CurrentFeeling, string> = {
 
 export default function FeelingScreen() {
     const router = useRouter();
+    const goBack = useGoBack('/(onboarding)/get-started');
     const { state, setCurrentFeeling, nextStep, previousStep } = useOnboarding();
     const selected = state.responses.currentFeeling;
 
@@ -44,7 +46,7 @@ export default function FeelingScreen() {
 
     const handleBack = () => {
         previousStep();
-        router.back();
+        goBack();
     };
 
     return (

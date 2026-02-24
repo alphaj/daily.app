@@ -1,4 +1,5 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useGoBack } from '@/lib/useGoBack';
 import { X, Check, Plus, GripVertical, Clock, Calendar, Repeat, Sunrise, ChevronDown, Lock, LockOpen } from 'lucide-react-native';
 import React, { useState, useMemo, useRef, useCallback } from 'react';
 import {
@@ -86,6 +87,7 @@ type ExpandableField = 'timeOfDay' | 'duration' | 'repeat' | null;
 
 export default function EditTodoScreen() {
     const router = useRouter();
+    const goBack = useGoBack();
     const { id } = useLocalSearchParams<{ id: string }>();
     const { todos, updateTodo } = useTodos();
     const { hasActivePartnership } = usePartnership();
@@ -157,7 +159,7 @@ export default function EditTodoScreen() {
                 subtasks: subtaskData.length > 0 ? subtaskData : undefined,
                 isPrivate: isPrivate || undefined,
             });
-            router.back();
+            goBack();
         }
     };
 
@@ -217,7 +219,7 @@ export default function EditTodoScreen() {
                 >
                     {/* Header */}
                     <View style={styles.header}>
-                        <Pressable onPress={() => router.back()} style={styles.headerButton} hitSlop={8}>
+                        <Pressable onPress={goBack} style={styles.headerButton} hitSlop={8}>
                             <X size={22} color="#1C1C1E" strokeWidth={2} />
                         </Pressable>
                         <Text style={styles.headerTitle}>Edit task</Text>

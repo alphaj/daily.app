@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useGoBack } from '@/lib/useGoBack';
 import { ChevronLeft, Bell } from 'lucide-react-native';
 import * as Notifications from 'expo-notifications';
 import { useOnboarding } from '@/contexts/OnboardingContext';
@@ -15,6 +16,7 @@ import { Fonts } from '@/lib/typography';
 
 export default function NotificationsScreen() {
     const router = useRouter();
+    const goBack = useGoBack('/(onboarding)/get-started');
     const { setNotificationsEnabled, nextStep, previousStep } = useOnboarding();
 
     const handleAllow = async () => {
@@ -37,7 +39,7 @@ export default function NotificationsScreen() {
 
     const handleBack = () => {
         previousStep();
-        router.back();
+        goBack();
     };
 
     return (

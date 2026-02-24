@@ -36,22 +36,15 @@ export function BottomNavBar({ onFabPress }: BottomNavBarProps) {
     // Determine partner tab label
     const partnerLabel = activePartners.length === 1
         ? activePartners[0].partner_name?.split(' ')[0] ?? 'Partner'
-        : 'Partners';
+        : activePartners.length > 1
+        ? 'Partners'
+        : 'Together';
 
     const navItems: { route: NavRoute; path: string; icon: any; label: string }[] = [
         { route: 'today', path: '/history', icon: CalendarRange, label: 'Today' },
         { route: 'focus', path: '/flow', icon: CircleDashed, label: 'Focus' },
+        { route: 'partner', path: '/partner', icon: Heart, label: partnerLabel },
     ];
-
-    // Show partner tab when any partnership is active
-    if (hasActivePartnership) {
-        navItems.push({
-            route: 'partner',
-            path: '/partner',
-            icon: Heart,
-            label: partnerLabel,
-        });
-    }
 
     return (
         <View style={[styles.outerWrapper, { bottom: Math.max(insets.bottom, 12) }]}>

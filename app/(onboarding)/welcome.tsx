@@ -74,6 +74,7 @@ export default function WelcomeScreen() {
                 emojiColor: '#FFF3E0',
                 timeOfDay: 'morning',
                 repeat: 'daily',
+                isDefault: true,
                 subtasks: [
                     { id: 'seed_1', title: 'Drink a glass of water', completed: false },
                     { id: 'seed_2', title: 'Go for a morning walk', completed: false },
@@ -87,6 +88,7 @@ export default function WelcomeScreen() {
                 emojiColor: '#E8E0F0',
                 timeOfDay: 'evening',
                 repeat: 'daily',
+                isDefault: true,
                 subtasks: [
                     { id: 'seed_5', title: 'Review what you accomplished today', completed: false },
                     { id: 'seed_6', title: 'Prepare tomorrow\'s priorities', completed: false },
@@ -140,6 +142,10 @@ export default function WelcomeScreen() {
                         <Text style={styles.winText}>{state.responses.todayWin}</Text>
                     </View>
                 )}
+
+                <Text style={styles.partnerTip}>
+                    Tip: Invite a partner to keep each other accountable.
+                </Text>
 
                 {error ? (
                     <Text style={styles.errorText}>{error}</Text>
@@ -231,6 +237,12 @@ const styles = StyleSheet.create({
         fontWeight: '500',
         textAlign: 'center',
         lineHeight: 24,
+    },
+    partnerTip: {
+        fontSize: 14,
+        color: '#AEAEB2',
+        textAlign: 'center',
+        marginTop: 24,
     },
     errorText: {
         color: '#FF3B30',

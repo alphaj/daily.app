@@ -11,6 +11,7 @@ import {
     ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useGoBack } from '@/lib/useGoBack';
 import { ChevronLeft } from 'lucide-react-native';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { Fonts } from '@/lib/typography';
@@ -24,6 +25,7 @@ const SUGGESTIONS = [
 
 export default function TodayWinScreen() {
     const router = useRouter();
+    const goBack = useGoBack('/(onboarding)/get-started');
     const { state, setTodayWin, nextStep, previousStep } = useOnboarding();
     const [localWin, setLocalWin] = useState(state.responses.todayWin);
 
@@ -41,7 +43,7 @@ export default function TodayWinScreen() {
 
     const handleBack = () => {
         previousStep();
-        router.back();
+        goBack();
     };
 
     const canContinue = localWin.trim().length > 0;
