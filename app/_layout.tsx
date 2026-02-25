@@ -37,7 +37,7 @@ function useProtectedRoute() {
     const inOnboarding = segments[0] === "(onboarding)";
     const inLogin = segments[0] === "login";
 
-    if (!state.hasCompletedOnboarding && !inOnboarding) {
+    if (!state.hasCompletedOnboarding && !inOnboarding && !inLogin) {
       // New user — send to onboarding
       router.replace("/(onboarding)/get-started");
     } else if (state.hasCompletedOnboarding && !session && !inOnboarding && !inLogin) {
