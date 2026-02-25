@@ -42,4 +42,6 @@ export interface Todo {
   assignedByName?: string;
   /** Whether this is a default-seeded task from onboarding */
   isDefault?: boolean;
+  /** Original due date before rollover (YYYY-MM-DD). If unset, dueDate is the original. */
+  originalDueDate?: string;
 }

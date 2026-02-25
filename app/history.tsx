@@ -39,6 +39,7 @@ function CalendarModal({
   onSelectDate,
   hasNoteForDate,
   getTaskCountForDate,
+  incompleteDateMap,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -46,6 +47,7 @@ function CalendarModal({
   onSelectDate: (date: Date) => void;
   hasNoteForDate: (date: Date) => boolean;
   getTaskCountForDate: (date: Date) => { total: number; completed: number };
+  incompleteDateMap?: Record<string, { incomplete: number; total: number }>;
 }) {
   const [currentMonth, setCurrentMonth] = React.useState(selectedDate);
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -222,7 +224,10 @@ function CalendarModal({
 
                     const tasks = getTaskCountForDate(date);
                     const hasTaskActivity = tasks.completed > 0;
-                    const showActivityDots = (hasTaskActivity || hasNote) && !isSelected;
+                    const dateKeyStr = format(date, 'yyyy-MM-dd');
+                    const incompleteData = incompleteDateMap?.[dateKeyStr];
+                    const hasIncomplete = incompleteData && incompleteData.incomplete > 0;
+                    const showActivityDots = (hasTaskActivity || hasNote || hasIncomplete) && !isSelected;
 
                     return (
                       <Pressable
@@ -246,6 +251,9 @@ function CalendarModal({
                         </Text>
                         {showActivityDots && (
                           <View style={styles.activityDotsContainer}>
+                            {hasIncomplete && (
+                              <View style={[styles.activityDot, { backgroundColor: incompleteData.incomplete >= 3 ? '#FF3B30' : '#FFCC00' }]} />
+                            )}
                             {hasTaskActivity && <View style={[styles.activityDot, styles.activityDotTask]} />}
                             {hasNote && !hasTaskActivity && (
                               <View style={[styles.activityDot, styles.activityDotNote]} />
@@ -293,7 +301,7 @@ function CalendarModal({
 export default function TodayScreen() {
   const router = useRouter();
 
-  const { getTodosForDate, getCompletedTodosForDate, toggleTodo, deleteTodo, duplicateTodo, rescheduleTodo, todos: allTodos, reorderTodos, toggleSubtask } = useTodos();
+  const { getTodosForDate, getCompletedTodosForDate, toggleTodo, deleteTodo, duplicateTodo, rescheduleTodo, todos: allTodos, reorderTodos, toggleSubtask, incompleteDateMap } = useTodos();
 
   const { hasNoteForDate } = useNotes();
   const { items: inboxItems } = useInbox();
@@ -391,6 +399,7 @@ export default function TodayScreen() {
           onSelectDate={handleSelectDate}
           onMorePress={() => router.push('/menu')}
           onAddPress={handleAddPress}
+          incompleteDateMap={incompleteDateMap}
         />
 
         <HomeV1 {...variantProps} />
@@ -409,6 +418,7 @@ export default function TodayScreen() {
           onSelectDate={setSelectedDate}
           hasNoteForDate={hasNoteForDate}
           getTaskCountForDate={getTaskCountForDate}
+          incompleteDateMap={incompleteDateMap}
         />
 
         <DailySummaryModal

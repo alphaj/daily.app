@@ -77,6 +77,7 @@ function RootLayoutNav() {
       <Stack.Screen name="settings-notifications" options={{ headerShown: false, animation: 'slide_from_right' }} />
       <Stack.Screen name="settings-preferences" options={{ headerShown: false, animation: 'slide_from_right' }} />
       <Stack.Screen name="settings-help" options={{ headerShown: false, animation: 'slide_from_right' }} />
+      <Stack.Screen name="incomplete" options={{ headerShown: false, animation: 'slide_from_right' }} />
     </Stack>
   );
 }

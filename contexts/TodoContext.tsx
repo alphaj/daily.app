@@ -116,7 +116,7 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
     if (tasksToRollover.length > 0) {
       const newTodos = todos.map(todo =>
         !todo.completed && todo.dueDate < todayKey
-          ? { ...todo, dueDate: todayKey }
+          ? { ...todo, originalDueDate: todo.originalDueDate || todo.dueDate, dueDate: todayKey }
           : todo
       );
       setTodos(newTodos);
@@ -260,6 +260,36 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
     await saveTodos(newTodos);
   }, [todos, saveTodos]);
 
+  const incompleteDateMap = useMemo(() => {
+    const todayKey = getToday();
+    const map: Record<string, { incomplete: number; total: number }> = {};
+
+    for (const todo of todos) {
+      const dateKey = todo.originalDueDate || todo.dueDate;
+      if (dateKey >= todayKey) continue;
+      if (!map[dateKey]) map[dateKey] = { incomplete: 0, total: 0 };
+      map[dateKey].total++;
+      if (!todo.completed) {
+        map[dateKey].incomplete++;
+      }
+    }
+
+    const result: Record<string, { incomplete: number; total: number }> = {};
+    for (const [date, counts] of Object.entries(map)) {
+      if (counts.incomplete > 0) {
+        result[date] = counts;
+      }
+    }
+    return result;
+  }, [todos]);
+
+  const getIncompleteTodosForDate = useCallback((dateKey: string): Todo[] => {
+    return todos.filter(todo => {
+      const effectiveDate = todo.originalDueDate || todo.dueDate;
+      return effectiveDate === dateKey && !todo.completed;
+    });
+  }, [todos]);
+
   const completedCount = useMemo(() => todos.filter(t => t.completed).length, [todos]);
   const workCompletedCount = useMemo(() => todos.filter(t => t.completed && t.isWork === true).length, [todos]);
   const lifeCompletedCount = useMemo(() => todos.filter(t => t.completed && (t.isWork === false || t.isWork === undefined)).length, [todos]);
@@ -288,5 +318,7 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
     workCompletedCount,
     lifeCompletedCount,
     totalCount,
+    incompleteDateMap,
+    getIncompleteTodosForDate,
   };
 });

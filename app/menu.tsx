@@ -26,8 +26,10 @@ import { Camera } from 'lucide-react-native';
 
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTodos } from '@/contexts/TodoContext';
 import { AmbientBackground } from '@/components/AmbientBackground';
 import { Avatar } from '@/components/Avatar';
+import { CircleAlert } from 'lucide-react-native';
 
 interface MenuItemProps {
     icon: React.ReactNode;
@@ -84,6 +86,9 @@ export default function MenuScreen() {
     const goBack = useGoBack();
     const { resetOnboarding } = useOnboarding();
     const { signOut, profile, uploadAvatar, removeAvatar } = useAuth();
+    const { incompleteDateMap } = useTodos();
+
+    const totalIncomplete = Object.values(incompleteDateMap).reduce((sum, d) => sum + d.incomplete, 0);
 
     const handleAvatarPress = () => {
         const options: { text: string; onPress?: () => void; style?: 'cancel' | 'destructive' }[] = [
@@ -182,6 +187,19 @@ export default function MenuScreen() {
                             <Text style={styles.profileEmail}>{profile?.email ?? ''}</Text>
                         </View>
                     </View>
+
+                    {/* Incomplete Tasks */}
+                    {totalIncomplete > 0 && (
+                        <View style={styles.section}>
+                            <MenuItem
+                                icon={<CircleAlert size={22} color="#FF9500" strokeWidth={2} />}
+                                title="Incomplete Tasks"
+                                subtitle={`${totalIncomplete} task${totalIncomplete !== 1 ? 's' : ''} need attention`}
+                                onPress={() => router.push('/incomplete')}
+                                isLast
+                            />
+                        </View>
+                    )}
 
                     {/* Partner Mode */}
                     <View style={styles.section}>

@@ -17,6 +17,7 @@ interface HomeHeaderProps {
   onSelectDate: (date: Date) => void;
   onMorePress: () => void;
   onAddPress: () => void;
+  incompleteDateMap?: Record<string, { incomplete: number; total: number }>;
 }
 
 function generateWeeks(): Date[] {
@@ -33,15 +34,23 @@ function getWeekIndexForDate(date: Date): number {
   return Math.max(0, Math.min(TOTAL_WEEKS - 1, CENTER_INDEX + diff));
 }
 
+function getIncompleteDotColor(count: number): string | null {
+  if (count >= 3) return '#FF3B30';
+  if (count >= 1) return '#FFCC00';
+  return null;
+}
+
 const WeekItem = memo(
   function WeekItem({
     weekStart,
     selectedDate,
     onSelectDate,
+    incompleteDateMap,
   }: {
     weekStart: Date;
     selectedDate: Date;
     onSelectDate: (date: Date) => void;
+    incompleteDateMap?: Record<string, { incomplete: number; total: number }>;
   }) {
     const days = useMemo(
       () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
@@ -53,6 +62,9 @@ const WeekItem = memo(
         {days.map((day, index) => {
           const isSelected = isSameDay(day, selectedDate);
           const isToday = isSameDay(day, new Date());
+          const dateKey = format(day, 'yyyy-MM-dd');
+          const incompleteData = incompleteDateMap?.[dateKey];
+          const dotColor = incompleteData ? getIncompleteDotColor(incompleteData.incomplete) : null;
           return (
             <Pressable
               key={day.toISOString()}
@@ -66,6 +78,7 @@ const WeekItem = memo(
                 styles.dayCircle,
                 isToday && !isSelected && styles.dayCircleToday,
                 isSelected && styles.dayCircleSelected,
+                dotColor && !isSelected && { borderWidth: 2, borderColor: dotColor },
               ]}>
                 <Text style={[
                   styles.dayNumber,
@@ -90,6 +103,7 @@ const WeekItem = memo(
   (prev, next) => {
     if (prev.weekStart.getTime() !== next.weekStart.getTime()) return false;
     if (prev.onSelectDate !== next.onSelectDate) return false;
+    if (prev.incompleteDateMap !== next.incompleteDateMap) return false;
     const weekEndTime = addDays(prev.weekStart, 7).getTime();
     const wsTime = prev.weekStart.getTime();
     const prevIn = prev.selectedDate.getTime() >= wsTime && prev.selectedDate.getTime() < weekEndTime;
@@ -105,6 +119,7 @@ export const HomeHeader = memo(function HomeHeader({
   onSelectDate,
   onMorePress,
   onAddPress,
+  incompleteDateMap,
 }: HomeHeaderProps) {
   const dayName = format(selectedDate, 'EEEE');
   const dateString = format(selectedDate, 'MMMM do, yyyy');
@@ -156,9 +171,10 @@ export const HomeHeader = memo(function HomeHeader({
         weekStart={item}
         selectedDate={selectedDate}
         onSelectDate={onSelectDate}
+        incompleteDateMap={incompleteDateMap}
       />
     ),
-    [selectedDate, onSelectDate]
+    [selectedDate, onSelectDate, incompleteDateMap]
   );
 
   const keyExtractor = useCallback((item: Date) => item.toISOString(), []);
