@@ -96,11 +96,15 @@ export async function pushEvents(userId: string): Promise<void> {
   }
 
   const localIds = events.map((e) => e.id);
-  await supabase
+  const { error: deleteError } = await supabase
     .from('synced_events')
     .delete()
     .eq('user_id', userId)
     .not('id', 'in', `(${localIds.join(',')})`);
+
+  if (deleteError) {
+    console.error('[sync] Failed to clean stale events:', deleteError.message);
+  }
 }
 
 export async function pushFocusSessions(userId: string): Promise<void> {
