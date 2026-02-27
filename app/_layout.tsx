@@ -37,15 +37,17 @@ function useProtectedRoute() {
     const inOnboarding = segments[0] === "(onboarding)";
     const inLogin = segments[0] === "login";
 
-    if (!state.hasCompletedOnboarding && !inOnboarding && !inLogin) {
-      // New user — send to onboarding
-      router.replace("/(onboarding)/get-started");
-    } else if (state.hasCompletedOnboarding && !session && !inOnboarding && !inLogin) {
-      // Completed onboarding but no session — send to login
-      router.replace("/login");
-    } else if (state.hasCompletedOnboarding && session && (inOnboarding || inLogin)) {
-      // Fully authenticated — send to home
+    if (session && state.hasCompletedOnboarding && (inOnboarding || inLogin)) {
+      // Fully onboarded + authenticated user still on onboarding/login — send to home
       router.replace("/");
+    } else if (!session && !inOnboarding && !inLogin) {
+      if (!state.hasCompletedOnboarding) {
+        // New user — send to onboarding
+        router.replace("/(onboarding)/get-started");
+      } else {
+        // Completed onboarding but no session — send to login
+        router.replace("/login");
+      }
     }
   }, [segments, state.hasCompletedOnboarding, session, onboardingLoading, authLoading, router]);
 }

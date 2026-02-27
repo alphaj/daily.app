@@ -14,12 +14,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Eye, EyeOff } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
+import { useOnboarding } from '@/contexts/OnboardingContext';
 import { Fonts } from '@/lib/typography';
 import * as Haptics from '@/lib/haptics';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { signIn } = useAuth();
+  const { completeOnboarding } = useOnboarding();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -42,6 +44,10 @@ export default function LoginScreen() {
       setIsLoading(false);
       return;
     }
+
+    // Ensure onboarding is marked complete for users who signed in
+    // without going through the full onboarding flow
+    await completeOnboarding();
 
     router.replace('/');
   };

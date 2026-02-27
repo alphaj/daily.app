@@ -131,13 +131,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
   ): Promise<{ error: string | null }> => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
         return { error: error.message };
+      }
+
+      // Set session immediately so navigation guards see it
+      // before login.tsx calls router.replace('/')
+      if (data.session) {
+        setSession(data.session);
+        await fetchProfile(data.session.user.id);
       }
 
       return { error: null };
