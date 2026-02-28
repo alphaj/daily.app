@@ -3,8 +3,8 @@ import { View, ScrollView, StyleSheet } from 'react-native';
 import * as Haptics from '@/lib/haptics';
 
 import { TaskSection } from './TaskSection';
-import { PartnerDiscoveryCard } from './PartnerDiscoveryCard';
-import { usePartnerInteractions } from '@/hooks/usePartnerInteractions';
+import { BuddyDiscoveryCard } from './BuddyDiscoveryCard';
+import { useBuddyInteractions } from '@/hooks/useBuddyInteractions';
 import type { HomeVariantProps } from './types';
 import type { Todo, TimeOfDay } from '@/types/todo';
 
@@ -41,7 +41,7 @@ export function HomeV1(props: HomeVariantProps) {
     onEditTodo,
   } = props;
 
-  const { reactionsOnMyTasks } = usePartnerInteractions();
+  const { reactionsOnMyTasks } = useBuddyInteractions();
 
   const [collapsedSections, setCollapsedSections] = useState<Record<TimeOfDay, boolean>>({
     anytime: false,
@@ -76,7 +76,7 @@ export function HomeV1(props: HomeVariantProps) {
       showsVerticalScrollIndicator={false}
       contentContainerStyle={styles.contentContainer}
     >
-      <PartnerDiscoveryCard />
+      <BuddyDiscoveryCard />
       {TIME_OF_DAY_ORDER.map((tod) => (
         <TaskSection
           key={tod}
@@ -94,7 +94,7 @@ export function HomeV1(props: HomeVariantProps) {
           onDuplicateTodo={onDuplicateTodo}
           onRescheduleTodo={onRescheduleTodo}
           onEditTodo={onEditTodo}
-          partnerReactions={reactionsOnMyTasks}
+          buddyReactions={reactionsOnMyTasks}
         />
       ))}
     </ScrollView>

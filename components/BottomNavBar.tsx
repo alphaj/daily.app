@@ -2,12 +2,12 @@ import React from 'react';
 import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CalendarRange, CircleDashed, Heart, UserCircle } from 'lucide-react-native';
+import { CalendarRange, CircleDashed, Heart, User } from 'lucide-react-native';
 import * as Haptics from '@/lib/haptics';
-import { usePartnership } from '@/contexts/PartnershipContext';
-import { usePartnerInteractions } from '@/hooks/usePartnerInteractions';
+import { useBuddy } from '@/contexts/BuddyContext';
+import { useBuddyInteractions } from '@/hooks/useBuddyInteractions';
 
-export type NavRoute = 'today' | 'focus' | 'partner' | 'profile';
+export type NavRoute = 'today' | 'focus' | 'buddy' | 'profile';
 
 interface BottomNavBarProps {
     onFabPress?: () => void;
@@ -15,8 +15,8 @@ interface BottomNavBarProps {
 
 function getActiveRoute(pathname: string): NavRoute {
     if (pathname === '/flow') return 'focus';
-    if (pathname === '/partner' || pathname.startsWith('/partner-detail')) return 'partner';
-    if (pathname === '/menu' || pathname.startsWith('/settings-') || pathname === '/partner-settings' || pathname === '/incomplete') return 'profile';
+    if (pathname === '/buddy' || pathname.startsWith('/buddy-detail')) return 'buddy';
+    if (pathname === '/menu' || pathname.startsWith('/settings-') || pathname === '/buddy-settings' || pathname === '/incomplete') return 'profile';
     return 'today';
 }
 
@@ -24,8 +24,8 @@ export function BottomNavBar({ onFabPress }: BottomNavBarProps) {
     const router = useRouter();
     const pathname = usePathname();
     const insets = useSafeAreaInsets();
-    const { activePartners, hasActivePartnership } = usePartnership();
-    const { unreadCount } = usePartnerInteractions();
+    const { activeBuddies, hasActiveBuddy } = useBuddy();
+    const { unreadCount } = useBuddyInteractions();
     const activeRoute = getActiveRoute(pathname);
 
     const handleNavPress = (route: NavRoute, path: string) => {
@@ -34,18 +34,18 @@ export function BottomNavBar({ onFabPress }: BottomNavBarProps) {
         router.replace(path as any);
     };
 
-    // Determine partner tab label
-    const partnerLabel = activePartners.length === 1
-        ? activePartners[0].partner_name?.split(' ')[0] ?? 'Partner'
-        : activePartners.length > 1
-        ? 'Partners'
-        : 'Together';
+    // Determine buddy tab label
+    const buddyLabel = activeBuddies.length === 1
+        ? activeBuddies[0].partner_name?.split(' ')[0] ?? 'Buddy'
+        : activeBuddies.length > 1
+        ? 'Buddies'
+        : 'Buddy';
 
     const navItems: { route: NavRoute; path: string; icon: any; label: string }[] = [
         { route: 'today', path: '/history', icon: CalendarRange, label: 'Today' },
         { route: 'focus', path: '/flow', icon: CircleDashed, label: 'Focus' },
-        { route: 'partner', path: '/partner', icon: Heart, label: partnerLabel },
-        { route: 'profile', path: '/menu', icon: UserCircle, label: 'Profile' },
+        { route: 'buddy', path: '/buddy', icon: Heart, label: buddyLabel },
+        { route: 'profile', path: '/menu', icon: User, label: 'Profile' },
     ];
 
     return (
@@ -83,7 +83,7 @@ export function BottomNavBar({ onFabPress }: BottomNavBarProps) {
                                                 color="#6E6E73"
                                                 strokeWidth={1.6}
                                             />
-                                            {item.route === 'partner' && unreadCount > 0 && (
+                                            {item.route === 'buddy' && unreadCount > 0 && (
                                                 <View style={styles.unreadBadge} />
                                             )}
                                         </View>

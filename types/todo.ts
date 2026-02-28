@@ -34,14 +34,16 @@ export interface Todo {
   repeat?: RepeatOption;
   /** Sub-tasks / checklist items */
   subtasks?: Subtask[];
-  /** Hide this item from partner view */
+  /** Hide this item from buddy view */
   isPrivate?: boolean;
-  /** User ID of the partner who assigned this task */
+  /** User ID of the buddy who assigned this task */
   assignedById?: string;
-  /** Display name of the partner who assigned this task */
+  /** Display name of the buddy who assigned this task */
   assignedByName?: string;
   /** Whether this is a default-seeded task from onboarding */
   isDefault?: boolean;
   /** Original due date before rollover (YYYY-MM-DD). If unset, dueDate is the original. */
   originalDueDate?: string;
+  /** ID of the completed task that spawned this repeat instance (duplicate prevention) */
+  repeatSourceId?: string;
 }

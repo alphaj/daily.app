@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useCallback } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
-import { usePartnership } from '@/contexts/PartnershipContext';
+import { useBuddy } from '@/contexts/BuddyContext';
 import {
   sendReaction as syncSendReaction,
   sendNudge as syncSendNudge,
@@ -11,7 +11,7 @@ import {
 } from '@/lib/sync';
 import { supabase } from '@/lib/supabase';
 import { showToast } from '@/lib/toast';
-import type { PartnerInteraction } from '@/types/interaction';
+import type { BuddyInteraction } from '@/types/interaction';
 
 function sendPushNotification(recipientId: string, title: string, body: string) {
   supabase.functions.invoke('send-push-notification', {
@@ -21,19 +21,19 @@ function sendPushNotification(recipientId: string, title: string, body: string) 
   });
 }
 
-export function usePartnerInteractions(partnerId?: string | null) {
+export function useBuddyInteractions(partnerId?: string | null) {
   const { session, profile } = useAuth();
-  const { hasActivePartnership, getPartnership } = usePartnership();
+  const { hasActiveBuddy, getBuddy } = useBuddy();
   const queryClient = useQueryClient();
   const userId = session?.user?.id;
-  const isActive = !!userId && hasActivePartnership;
+  const isActive = !!userId && hasActiveBuddy;
 
-  // When scoped to a specific partner, use scoped query keys
+  // When scoped to a specific buddy, use scoped query keys
   const scopeKey = partnerId ?? 'all';
 
-  // Unread interactions sent TO me (optionally filtered by partner)
-  const { data: interactions = [] } = useQuery<PartnerInteraction[]>({
-    queryKey: ['partner-interactions', scopeKey],
+  // Unread interactions sent TO me (optionally filtered by buddy)
+  const { data: interactions = [] } = useQuery<BuddyInteraction[]>({
+    queryKey: ['buddy-interactions', scopeKey],
     queryFn: async () => {
       const all = await pullInteractions(userId!);
       if (partnerId) {
@@ -45,8 +45,8 @@ export function usePartnerInteractions(partnerId?: string | null) {
     staleTime: 30_000,
   });
 
-  // Reactions on MY completed tasks (from partner)
-  const { data: myTaskReactions = [] } = useQuery<PartnerInteraction[]>({
+  // Reactions on MY completed tasks (from buddy)
+  const { data: myTaskReactions = [] } = useQuery<BuddyInteraction[]>({
     queryKey: ['my-task-reactions', scopeKey],
     queryFn: async () => {
       const all = await pullReactionsOnMyTasks(userId!);
@@ -59,8 +59,8 @@ export function usePartnerInteractions(partnerId?: string | null) {
     staleTime: 30_000,
   });
 
-  // Reactions I've sent on partner's tasks
-  const { data: sentReactionsRaw = [] } = useQuery<PartnerInteraction[]>({
+  // Reactions I've sent on buddy's tasks
+  const { data: sentReactionsRaw = [] } = useQuery<BuddyInteraction[]>({
     queryKey: ['sent-reactions', scopeKey],
     queryFn: async () => {
       if (!userId) return [];
@@ -75,7 +75,7 @@ export function usePartnerInteractions(partnerId?: string | null) {
       }
       const { data, error } = await query;
       if (error) return [];
-      return (data ?? []) as PartnerInteraction[];
+      return (data ?? []) as BuddyInteraction[];
     },
     enabled: isActive,
     staleTime: 30_000,
@@ -115,7 +115,7 @@ export function usePartnerInteractions(partnerId?: string | null) {
     if (!userId || !isActive) return;
 
     const channel = supabase
-      .channel(`partner-interactions-realtime-${scopeKey}`)
+      .channel(`buddy-interactions-realtime-${scopeKey}`)
       .on(
         'postgres_changes',
         {
@@ -125,29 +125,29 @@ export function usePartnerInteractions(partnerId?: string | null) {
           filter: `receiver_id=eq.${userId}`,
         },
         (payload) => {
-          const row = payload.new as PartnerInteraction;
+          const row = payload.new as BuddyInteraction;
 
-          // If scoped to a partner, only show toast for that partner
+          // If scoped to a buddy, only show toast for that buddy
           if (partnerId && row.sender_id !== partnerId) return;
 
-          const partner = getPartnership(row.sender_id);
-          const partnerName = partner?.partner_name ?? 'Partner';
+          const buddy = getBuddy(row.sender_id);
+          const buddyName = buddy?.partner_name ?? 'Buddy';
 
           if (row.type === 'reaction') {
             showToast({
               emoji: row.emoji,
-              title: partnerName,
+              title: buddyName,
               message: 'reacted to your task',
             });
           } else if (row.type === 'nudge') {
             showToast({
               emoji: row.emoji,
-              title: partnerName,
+              title: buddyName,
               message: row.message ?? '',
             });
           }
 
-          queryClient.invalidateQueries({ queryKey: ['partner-interactions'] });
+          queryClient.invalidateQueries({ queryKey: ['buddy-interactions'] });
           queryClient.invalidateQueries({ queryKey: ['my-task-reactions'] });
         },
       )
@@ -156,7 +156,7 @@ export function usePartnerInteractions(partnerId?: string | null) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId, isActive, partnerId, scopeKey, getPartnership, queryClient]);
+  }, [userId, isActive, partnerId, scopeKey, getBuddy, queryClient]);
 
   // Mutations
   const senderName = profile?.name ?? 'Your partner';
@@ -204,7 +204,7 @@ export function usePartnerInteractions(partnerId?: string | null) {
     const ids = interactions.map((i) => i.id);
     if (ids.length === 0) return;
     await markInteractionsRead(ids);
-    queryClient.invalidateQueries({ queryKey: ['partner-interactions'] });
+    queryClient.invalidateQueries({ queryKey: ['buddy-interactions'] });
   }, [interactions, queryClient]);
 
   return {

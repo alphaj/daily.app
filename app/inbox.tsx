@@ -35,6 +35,7 @@ import { BottomNavBar } from '@/components/BottomNavBar';
 import type { InboxItem, InboxItemType } from '@/types/inbox';
 import { TYPE_CONFIG } from '@/types/inbox';
 import { Fonts } from '@/lib/typography';
+import { Logo } from '@/components/Logo';
 
 const ICON_MAP: Record<string, React.ComponentType<any>> = {
     MessageCircle,
@@ -235,6 +236,9 @@ export default function InboxScreen() {
         <View style={styles.root}>
             <AmbientBackground />
             <SafeAreaView style={styles.container} edges={['top']}>
+                <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
+                    <Logo />
+                </View>
                 <KeyboardAvoidingView
                     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                     style={styles.flex}

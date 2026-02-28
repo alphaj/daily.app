@@ -25,7 +25,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
-  regeneratePartnerCode: () => Promise<{ error: string | null; partnerCode: string | null }>;
+  regenerateBuddyCode: () => Promise<{ error: string | null; partnerCode: string | null }>;
   privacyMode: PrivacyMode;
   setPrivacyMode: (mode: PrivacyMode) => Promise<{ error: string | null }>;
   uploadAvatar: (source: 'camera' | 'gallery') => Promise<{ error: string | null }>;
@@ -231,7 +231,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const regeneratePartnerCode = async (): Promise<{ error: string | null; partnerCode: string | null }> => {
+  const regenerateBuddyCode = async (): Promise<{ error: string | null; partnerCode: string | null }> => {
     try {
       const { data, error } = await supabase.rpc('regenerate_partner_code');
 
@@ -258,7 +258,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signIn,
         signOut,
         refreshProfile,
-        regeneratePartnerCode,
+        regenerateBuddyCode,
         privacyMode: profile?.privacy_mode ?? 'open',
         setPrivacyMode,
         uploadAvatar,

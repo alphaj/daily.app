@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from '@/lib/haptics';
 
 import { AmbientBackground } from '@/components/AmbientBackground';
+import { Logo } from '@/components/Logo';
 import { usePreferences } from '@/contexts/PreferencesContext';
 
 function SelectRow({ title, selected, onPress, isLast }: {
@@ -42,6 +43,9 @@ export default function SettingsPreferencesScreen() {
         <View style={styles.container}>
             <AmbientBackground />
             <SafeAreaView style={styles.safeArea} edges={['top']}>
+                <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
+                    <Logo />
+                </View>
                 <View style={styles.header}>
                     <Pressable style={styles.backButton} onPress={goBack} hitSlop={20}>
                         <ArrowLeft size={20} color="#000" strokeWidth={2.5} />

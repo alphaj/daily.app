@@ -10,6 +10,7 @@ import {
     ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Logo } from '@/components/Logo';
 
 export default function PrivacyPolicyScreen() {
     const router = useRouter();
@@ -24,7 +25,7 @@ export default function PrivacyPolicyScreen() {
                 </Pressable>
 
                 <View style={styles.headerCenter}>
-                    <Text style={styles.logoText}>daily.app</Text>
+                    <Logo />
                     <Text style={styles.headerTitle}>Privacy Policy</Text>
                 </View>
 
@@ -156,9 +157,14 @@ const styles = StyleSheet.create({
         letterSpacing: -0.5,
     },
     headerTitle: {
-        fontSize: 13,
-        fontWeight: '500',
-        color: '#8E8E93',
+        fontSize: 17,
+        fontWeight: '600',
+        color: '#000',
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        textAlign: 'center',
+        zIndex: -1,
     },
     content: {
         flex: 1,

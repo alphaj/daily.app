@@ -12,16 +12,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Settings, UserPlus, Check, X, Clock } from 'lucide-react-native';
 import * as Haptics from '@/lib/haptics';
 
-import { usePartnership, PartnershipStatus } from '@/contexts/PartnershipContext';
-import { usePartnerInteractions } from '@/hooks/usePartnerInteractions';
+import { useBuddy, BuddyStatus } from '@/contexts/BuddyContext';
+import { useBuddyInteractions } from '@/hooks/useBuddyInteractions';
 import { AmbientBackground } from '@/components/AmbientBackground';
 import { Avatar } from '@/components/Avatar';
 import { BottomNavBar } from '@/components/BottomNavBar';
 import { Fonts } from '@/lib/typography';
+import { Logo } from '@/components/Logo';
 
 // ── Partner Card ────────────────────────────────────────────────────
 
-function PartnerCard({ partner }: { partner: PartnershipStatus }) {
+function BuddyCard({ partner }: { partner: BuddyStatus }) {
   const router = useRouter();
 
   return (
@@ -29,7 +30,7 @@ function PartnerCard({ partner }: { partner: PartnershipStatus }) {
       style={({ pressed }) => [styles.partnerCard, pressed && styles.partnerCardPressed]}
       onPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        router.push(`/partner-detail?partnerId=${partner.partner_id}`);
+        router.push(`/buddy-detail?partnerId=${partner.partner_id}`);
       }}
     >
       <Avatar
@@ -39,10 +40,10 @@ function PartnerCard({ partner }: { partner: PartnershipStatus }) {
       />
       <View style={styles.partnerCardInfo}>
         <Text style={styles.partnerCardName}>
-          {partner.partner_name ?? 'Partner'}
+          {partner.partner_name ?? 'Buddy'}
         </Text>
         <Text style={styles.partnerCardSince}>
-          Partners since {partner.created_at
+          Buddies since {partner.created_at
             ? new Date(partner.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
             : 'today'}
         </Text>
@@ -53,15 +54,15 @@ function PartnerCard({ partner }: { partner: PartnershipStatus }) {
 
 // ── Pending Request Card ────────────────────────────────────────────
 
-function PendingRequestCard({ partner }: { partner: PartnershipStatus }) {
-  const { respondToPartnership } = usePartnership();
+function PendingRequestCard({ partner }: { partner: BuddyStatus }) {
+  const { respondToBuddy } = useBuddy();
   const [isResponding, setIsResponding] = React.useState(false);
 
   const handleRespond = async (accept: boolean) => {
     if (!partner.partnership_id) return;
     setIsResponding(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await respondToPartnership(partner.partnership_id, accept);
+    await respondToBuddy(partner.partnership_id, accept);
     setIsResponding(false);
   };
 
@@ -95,7 +96,7 @@ function PendingRequestCard({ partner }: { partner: PartnershipStatus }) {
       />
       <View style={styles.pendingCardInfo}>
         <Text style={styles.pendingCardName}>{partner.partner_name}</Text>
-        <Text style={styles.pendingCardSubtext}>Wants to partner with you</Text>
+        <Text style={styles.pendingCardSubtext}>Wants to be your buddy</Text>
       </View>
       {isResponding ? (
         <ActivityIndicator size="small" color="#007AFF" />
@@ -129,20 +130,20 @@ function EmptyState() {
   return (
     <View style={styles.emptyContainer}>
       <Text style={styles.emptyEmoji}>👥</Text>
-      <Text style={styles.emptyTitle}>No partners yet</Text>
+      <Text style={styles.emptyTitle}>No buddies yet</Text>
       <Text style={styles.emptySubtitle}>
-        Connect with friends, family, or your partner{'\n'}
+        Connect with friends, family, or anyone{'\n'}
         to share daily progress and stay motivated
       </Text>
       <Pressable
         style={({ pressed }) => [styles.addButton, pressed && { opacity: 0.8 }]}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          router.push('/partner-settings');
+          router.push('/buddy-settings');
         }}
       >
         <UserPlus size={20} color="#fff" strokeWidth={2} />
-        <Text style={styles.addButtonText}>Add a Partner</Text>
+        <Text style={styles.addButtonText}>Add a Buddy</Text>
       </Pressable>
     </View>
   );
@@ -150,20 +151,20 @@ function EmptyState() {
 
 // ── Main Screen ─────────────────────────────────────────────────────
 
-export default function PartnerListScreen() {
+export default function BuddyListScreen() {
   const router = useRouter();
-  const { activePartners, pendingPartners, isLoading } = usePartnership();
-  const { markAllRead } = usePartnerInteractions();
+  const { activeBuddies, pendingBuddies, isLoading } = useBuddy();
+  const { markAllRead } = useBuddyInteractions();
 
   // If exactly one active partner and no pending, navigate directly to detail
   // Use a ref to prevent re-redirect if the user navigates back
   const hasAutoRedirected = useRef(false);
   useEffect(() => {
-    if (!isLoading && activePartners.length === 1 && pendingPartners.length === 0 && !hasAutoRedirected.current) {
+    if (!isLoading && activeBuddies.length === 1 && pendingBuddies.length === 0 && !hasAutoRedirected.current) {
       hasAutoRedirected.current = true;
-      router.replace(`/partner-detail?partnerId=${activePartners[0].partner_id}`);
+      router.replace(`/buddy-detail?partnerId=${activeBuddies[0].partner_id}`);
     }
-  }, [isLoading, activePartners, pendingPartners, router]);
+  }, [isLoading, activeBuddies, pendingBuddies, router]);
 
   // Mark all interactions read when viewing partner screen
   // Wait until interactions have loaded (markAllRead depends on interactions data)
@@ -171,26 +172,28 @@ export default function PartnerListScreen() {
     markAllRead();
   }, [markAllRead]);
 
-  const hasAny = activePartners.length > 0 || pendingPartners.length > 0;
+  const hasAny = activeBuddies.length > 0 || pendingBuddies.length > 0;
 
   return (
     <View style={styles.container}>
       <AmbientBackground />
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Partners</Text>
+        {/* Header — matches Home layout */}
+        <View style={styles.topRow}>
+          <Logo />
           <Pressable
             style={styles.settingsButton}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              router.push('/partner-settings');
+              router.push('/buddy-settings');
             }}
             hitSlop={20}
           >
             <Settings size={22} color="#000" strokeWidth={1.8} />
           </Pressable>
         </View>
+        <Text style={styles.headerTitle}>Buddies</Text>
+        <View style={{ height: 16 }} />
 
         {isLoading ? (
           <View style={styles.loadingContainer}>
@@ -205,23 +208,23 @@ export default function PartnerListScreen() {
             showsVerticalScrollIndicator={false}
           >
             {/* Pending Requests */}
-            {pendingPartners.length > 0 && (
+            {pendingBuddies.length > 0 && (
               <View style={styles.sectionBlock}>
                 <Text style={styles.sectionLabel}>PENDING</Text>
-                {pendingPartners.map((p) => (
+                {pendingBuddies.map((p) => (
                   <PendingRequestCard key={p.partnership_id} partner={p} />
                 ))}
               </View>
             )}
 
             {/* Active Partners */}
-            {activePartners.length > 0 && (
+            {activeBuddies.length > 0 && (
               <View style={styles.sectionBlock}>
-                {pendingPartners.length > 0 && (
+                {pendingBuddies.length > 0 && (
                   <Text style={styles.sectionLabel}>ACTIVE</Text>
                 )}
-                {activePartners.map((p) => (
-                  <PartnerCard key={p.partnership_id} partner={p} />
+                {activeBuddies.map((p) => (
+                  <BuddyCard key={p.partnership_id} partner={p} />
                 ))}
               </View>
             )}
@@ -231,11 +234,11 @@ export default function PartnerListScreen() {
               style={({ pressed }) => [styles.addAnotherButton, pressed && { opacity: 0.7 }]}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                router.push('/partner-settings');
+                router.push('/buddy-settings');
               }}
             >
               <UserPlus size={18} color="#007AFF" strokeWidth={2} />
-              <Text style={styles.addAnotherText}>Add another partner</Text>
+              <Text style={styles.addAnotherText}>Add another buddy</Text>
             </Pressable>
 
             <View style={{ height: 100 }} />
@@ -248,34 +251,31 @@ export default function PartnerListScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: '#F2F2F7' },
   safeArea: { flex: 1 },
-  header: {
+  topRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 8,
-    paddingBottom: 16,
+    marginBottom: 16,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 34,
     fontFamily: Fonts.heading,
     fontWeight: '700',
-    color: '#000',
+    color: '#1C1C1E',
     letterSpacing: -0.5,
+    textAlign: 'center',
   },
   settingsButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.8)',
+    backgroundColor: '#F2F2F7',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
   },
   scrollView: { flex: 1 },
   scrollContent: { paddingHorizontal: 16, paddingTop: 8 },

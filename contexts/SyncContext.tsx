@@ -3,16 +3,16 @@ import { AppState, AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
-import { usePartnership } from '@/contexts/PartnershipContext';
-import { pushAllData, pullPartnerData, pullAssignedTasks, markAssignedTasksDelivered, pullInteractions, markInteractionsDelivered, PartnerData } from '@/lib/sync';
+import { useBuddy } from '@/contexts/BuddyContext';
+import { pushAllData, pullBuddyData, pullAssignedTasks, markAssignedTasksDelivered, pullInteractions, markInteractionsDelivered, BuddyData } from '@/lib/sync';
 import { supabase } from '@/lib/supabase';
 import type { Todo } from '@/types/todo';
 
 interface SyncContextType {
   /** Trigger a manual push of local data to cloud */
   syncNow: () => Promise<void>;
-  /** Pull partner's data for a given date */
-  fetchPartnerData: (partnerId: string, date?: string) => Promise<PartnerData | null>;
+  /** Pull buddy's data for a given date */
+  fetchBuddyData: (partnerId: string, date?: string) => Promise<BuddyData | null>;
   /** Whether a sync is currently in progress */
   isSyncing: boolean;
   /** Last successful sync timestamp */
@@ -27,13 +27,13 @@ const TODOS_STORAGE_KEY = 'daily_todos';
 
 export function SyncProvider({ children }: { children: ReactNode }) {
   const { session } = useAuth();
-  const { hasActivePartnership } = usePartnership();
+  const { hasActiveBuddy } = useBuddy();
   const queryClient = useQueryClient();
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
   const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const shouldSync = session && hasActivePartnership;
+  const shouldSync = session && hasActiveBuddy;
 
   const syncNow = useCallback(async () => {
     if (!session?.user?.id || !shouldSync) return;
@@ -43,7 +43,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     try {
       await pushAllData(session.user.id);
 
-      // Pull assigned tasks from partner
+      // Pull assigned tasks from buddy
       const assigned = await pullAssignedTasks(session.user.id);
       if (assigned.length > 0) {
         const raw = await AsyncStorage.getItem(TODOS_STORAGE_KEY);
@@ -91,7 +91,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         if (pendingIds.length > 0) {
           await markInteractionsDelivered(pendingIds);
         }
-        queryClient.invalidateQueries({ queryKey: ['partner-interactions'] });
+        queryClient.invalidateQueries({ queryKey: ['buddy-interactions'] });
         queryClient.invalidateQueries({ queryKey: ['my-task-reactions'] });
       }
 
@@ -103,9 +103,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     }
   }, [session?.user?.id, shouldSync, isSyncing, queryClient]);
 
-  const fetchPartnerData = useCallback(async (partnerId: string, date?: string): Promise<PartnerData | null> => {
+  const fetchBuddyData = useCallback(async (partnerId: string, date?: string): Promise<BuddyData | null> => {
     try {
-      return await pullPartnerData(partnerId, date);
+      return await pullBuddyData(partnerId, date);
     } catch (err) {
       console.error('[sync] Pull failed:', err);
       return null;
@@ -159,7 +159,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     if (!session?.user?.id || !shouldSync) return;
 
     const channel = supabase
-      .channel('partner-interactions-sync')
+      .channel('buddy-interactions-sync')
       .on(
         'postgres_changes',
         {
@@ -169,8 +169,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
           filter: `receiver_id=eq.${session.user.id}`,
         },
         () => {
-          console.log('[sync] New partner interaction detected via realtime');
-          queryClient.invalidateQueries({ queryKey: ['partner-interactions'] });
+          console.log('[sync] New buddy interaction detected via realtime');
+          queryClient.invalidateQueries({ queryKey: ['buddy-interactions'] });
           queryClient.invalidateQueries({ queryKey: ['my-task-reactions'] });
         }
       )
@@ -181,7 +181,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     };
   }, [session?.user?.id, shouldSync, queryClient]);
 
-  // Sync on partnership becoming active
+  // Sync on buddy becoming active
   useEffect(() => {
     if (shouldSync) {
       syncNow();
@@ -207,7 +207,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   }, [shouldSync, syncNow]);
 
   return (
-    <SyncContext.Provider value={{ syncNow, fetchPartnerData, isSyncing, lastSyncAt }}>
+    <SyncContext.Provider value={{ syncNow, fetchBuddyData, isSyncing, lastSyncAt }}>
       {children}
     </SyncContext.Provider>
   );

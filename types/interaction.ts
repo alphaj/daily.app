@@ -2,7 +2,7 @@ export type InteractionType = 'reaction' | 'nudge';
 
 export type ReactionEmoji = '🔥' | '👏' | '❤️' | '⭐';
 
-export interface PartnerInteraction {
+export interface BuddyInteraction {
   id: string;
   partnership_id: string;
   sender_id: string;

@@ -25,7 +25,6 @@ import { format, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, getDay,
 import { BottomNavBar } from '@/components/BottomNavBar';
 import { CaptureBar } from '@/components/CaptureBar';
 import { DailySummaryModal, useDailySummary } from '@/components/DailySummaryModal';
-import { useWorkMode } from '@/contexts/WorkModeContext';
 
 import { BlurView } from 'expo-blur';
 import { AmbientBackground } from '@/components/AmbientBackground';
@@ -301,11 +300,10 @@ function CalendarModal({
 export default function TodayScreen() {
   const router = useRouter();
 
-  const { getTodosForDate, getCompletedTodosForDate, toggleTodo, deleteTodo, duplicateTodo, rescheduleTodo, todos: allTodos, reorderTodos, toggleSubtask, incompleteDateMap } = useTodos();
+  const { getTodosForDate, getCompletedTodosForDate, toggleTodo, deleteTodo, duplicateTodo, rescheduleTodo, todos: allTodos, reorderTodos, toggleSubtask, deleteSubtask, editSubtask, convertSubtaskToTask, incompleteDateMap } = useTodos();
 
   const { hasNoteForDate } = useNotes();
   const { items: inboxItems } = useInbox();
-  const { shouldShowItem } = useWorkMode();
   const [selectedDate, setSelectedDate] = useState(new Date());
 
   const [calendarModalVisible, setCalendarModalVisible] = useState(false);
@@ -315,10 +313,15 @@ export default function TodayScreen() {
   const isPastDate = !isSameDay(selectedDate, new Date()) && selectedDate < new Date();
 
   const allTodosForDate = isPastDate
-    ? getCompletedTodosForDate(selectedDate)
+    ? (() => {
+        const completed = getCompletedTodosForDate(selectedDate);
+        const due = getTodosForDate(selectedDate);
+        const completedIds = new Set(completed.map(t => t.id));
+        return [...completed, ...due.filter(t => !completedIds.has(t.id))];
+      })()
     : getTodosForDate(selectedDate);
 
-  const todosForDate = allTodosForDate.filter(todo => shouldShowItem(todo.isWork));
+  const todosForDate = allTodosForDate;
 
   const getTaskCountForDate = useCallback((date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
@@ -384,13 +387,16 @@ export default function TodayScreen() {
     onAddTodo: () => router.push('/add-todo'),
     onAddTodoForSection: handleAddTodoForSection,
     onToggleSubtask: toggleSubtask,
+    onDeleteSubtask: deleteSubtask,
+    onEditSubtask: editSubtask,
+    onConvertSubtaskToTask: convertSubtaskToTask,
     onDuplicateTodo: duplicateTodo,
     onRescheduleTodo: rescheduleTodo,
     onEditTodo: handleEditTodo,
   };
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: '#F2F2F7' }}>
       <AmbientBackground />
       <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]} edges={['top']}>
 

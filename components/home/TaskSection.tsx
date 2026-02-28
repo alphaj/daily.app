@@ -27,7 +27,7 @@ interface TaskSectionProps {
   onDuplicateTodo?: (id: string) => void;
   onRescheduleTodo?: (id: string, date: string) => void;
   onEditTodo?: (todo: Todo) => void;
-  partnerReactions?: Map<string, string>;
+  buddyReactions?: Map<string, string>;
 }
 
 export const TaskSection = memo(function TaskSection({
@@ -45,10 +45,11 @@ export const TaskSection = memo(function TaskSection({
   onDuplicateTodo,
   onRescheduleTodo,
   onEditTodo,
-  partnerReactions,
+  buddyReactions,
 }: TaskSectionProps) {
   const config = SECTION_CONFIG[timeOfDay];
   const count = tasks.length;
+  const todayKey = new Date().toISOString().split('T')[0];
 
   const handleCollapse = () => {
     Haptics.selectionAsync();
@@ -100,6 +101,7 @@ export const TaskSection = memo(function TaskSection({
               <TaskCard
                 key={todo.id}
                 todo={todo}
+                isOverdue={!todo.completed && todo.dueDate < todayKey}
                 onToggle={onToggleTodo}
                 onDelete={onDeleteTodo}
                 onToggleSubtask={onToggleSubtask}
@@ -109,7 +111,7 @@ export const TaskSection = memo(function TaskSection({
                 onDuplicate={onDuplicateTodo}
                 onReschedule={onRescheduleTodo}
                 onEdit={onEditTodo}
-                partnerReaction={partnerReactions?.get(todo.id)}
+                buddyReaction={buddyReactions?.get(todo.id)}
               />
             ))
           )}

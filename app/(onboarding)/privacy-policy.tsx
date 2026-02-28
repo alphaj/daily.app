@@ -156,9 +156,14 @@ const styles = StyleSheet.create({
         letterSpacing: -0.5,
     },
     headerTitle: {
-        fontSize: 13,
-        fontWeight: '500',
-        color: '#8E8E93',
+        fontSize: 17,
+        fontWeight: '600',
+        color: '#000',
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        textAlign: 'center',
+        zIndex: -1,
     },
     content: {
         flex: 1,

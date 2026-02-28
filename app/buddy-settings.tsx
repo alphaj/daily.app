@@ -27,15 +27,16 @@ import * as Haptics from '@/lib/haptics';
 import * as Clipboard from 'expo-clipboard';
 
 import { useAuth, PrivacyMode } from '@/contexts/AuthContext';
-import { usePartnership, SharingPreferences, PartnershipStatus } from '@/contexts/PartnershipContext';
+import { useBuddy, SharingPreferences, BuddyStatus } from '@/contexts/BuddyContext';
 import { AmbientBackground } from '@/components/AmbientBackground';
 import { Avatar } from '@/components/Avatar';
 import { Fonts } from '@/lib/typography';
+import { Logo } from '@/components/Logo';
 
 // ── Connect form (always visible at the top) ────────────────────────
 function ConnectSection() {
-  const { profile, regeneratePartnerCode } = useAuth();
-  const { requestPartnership } = usePartnership();
+  const { profile, regenerateBuddyCode } = useAuth();
+  const { requestBuddy } = useBuddy();
   const [copied, setCopied] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [connectCode, setConnectCode] = useState('');
@@ -56,7 +57,7 @@ function ConnectSection() {
     if (!profile?.partner_code) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     await Share.share({
-      message: `Partner up with me on Daily! My code is: ${profile.partner_code}`,
+      message: `Be my buddy on Daily! My code is: ${profile.partner_code}`,
     });
   };
 
@@ -70,7 +71,7 @@ function ConnectSection() {
     setIsConnecting(true);
     setConnectError('');
 
-    const { error } = await requestPartnership(code);
+    const { error } = await requestBuddy(code);
 
     setIsConnecting(false);
 
@@ -93,7 +94,7 @@ function ConnectSection() {
           style: 'destructive',
           onPress: async () => {
             setIsRegenerating(true);
-            const { error } = await regeneratePartnerCode();
+            const { error } = await regenerateBuddyCode();
             setIsRegenerating(false);
             if (error) {
               Alert.alert('Error', error);
@@ -108,12 +109,12 @@ function ConnectSection() {
 
   return (
     <>
-      {/* Partner Code Card */}
+      {/* Buddy Code Card */}
       <View style={styles.codeCard}>
-        <Text style={styles.codeLabel}>YOUR PARTNER CODE</Text>
+        <Text style={styles.codeLabel}>YOUR BUDDY CODE</Text>
         <Text style={styles.codeText}>{partnerCode}</Text>
         <Text style={styles.codeHint}>
-          Share this code with someone to connect as partners
+          Share this code with someone to connect as buddies
         </Text>
 
         <View style={styles.codeActions}>
@@ -139,9 +140,9 @@ function ConnectSection() {
         </View>
       </View>
 
-      {/* Connect with Partner */}
+      {/* Connect with Buddy */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Add a Partner</Text>
+        <Text style={styles.cardTitle}>Add a Buddy</Text>
         <Text style={styles.cardSubtitle}>
           Enter their 6-character code to send a request
         </Text>
@@ -200,14 +201,14 @@ function ConnectSection() {
 
 // ── Pending partnership card ─────────────────────────────────────────
 
-function PendingPartnershipCard({ partnership }: { partnership: PartnershipStatus }) {
-  const { respondToPartnership } = usePartnership();
+function PendingBuddyCard({ partnership }: { partnership: BuddyStatus }) {
+  const { respondToBuddy } = useBuddy();
   const [isResponding, setIsResponding] = useState(false);
 
   const handleRespond = async (accept: boolean) => {
     if (!partnership.partnership_id) return;
     setIsResponding(true);
-    const { error } = await respondToPartnership(partnership.partnership_id, accept);
+    const { error } = await respondToBuddy(partnership.partnership_id, accept);
     setIsResponding(false);
     if (error) {
       Alert.alert('Error', error);
@@ -237,7 +238,7 @@ function PendingPartnershipCard({ partnership }: { partnership: PartnershipStatu
       <UserCheck size={28} color="#007AFF" strokeWidth={1.5} />
       <View style={styles.statusCardInfo}>
         <Text style={styles.statusCardName}>{partnership.partner_name}</Text>
-        <Text style={styles.statusCardSubtext}>Wants to partner with you</Text>
+        <Text style={styles.statusCardSubtext}>Wants to be your buddy</Text>
       </View>
       {isResponding ? (
         <ActivityIndicator size="small" color="#007AFF" />
@@ -273,23 +274,23 @@ const SHARING_OPTIONS: { key: keyof SharingPreferences; label: string; descripti
   { key: 'share_later', label: 'Later / Someday', description: 'Your someday/maybe items' },
 ];
 
-function ActivePartnershipCard({ partnership }: { partnership: PartnershipStatus }) {
-  const { sharingPrefsMap, dissolvePartnership, updateSharingPrefs } = usePartnership();
+function ActiveBuddyCard({ partnership }: { partnership: BuddyStatus }) {
+  const { sharingPrefsMap, dissolveBuddy, updateSharingPrefs } = useBuddy();
   const partnershipId = partnership.partnership_id!;
   const sharingPrefs = sharingPrefsMap[partnershipId] ?? null;
   const [showPrefs, setShowPrefs] = useState(false);
 
   const handleDissolve = () => {
     Alert.alert(
-      'End Partnership',
+      'Remove Buddy',
       `This will disconnect you from ${partnership.partner_name}. They will no longer be able to see your shared data.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'End Partnership',
+          text: 'Remove Buddy',
           style: 'destructive',
           onPress: async () => {
-            const { error } = await dissolvePartnership(partnershipId);
+            const { error } = await dissolveBuddy(partnershipId);
             if (error) {
               Alert.alert('Error', error);
             } else {
@@ -369,7 +370,7 @@ function ActivePartnershipCard({ partnership }: { partnership: PartnershipStatus
         onPress={handleDissolve}
       >
         <Unlink size={16} color="#FF3B30" strokeWidth={2} />
-        <Text style={styles.dissolveRowText}>End partnership</Text>
+        <Text style={styles.dissolveRowText}>Remove buddy</Text>
       </Pressable>
     </View>
   );
@@ -378,8 +379,8 @@ function ActivePartnershipCard({ partnership }: { partnership: PartnershipStatus
 // ── Privacy mode (global, not per-partner) ──────────────────────────
 
 const PRIVACY_MODES: { value: PrivacyMode; label: string; description: string }[] = [
-  { value: 'open', label: 'Open', description: 'Partners see everything you share' },
-  { value: 'focus', label: 'Focus', description: 'Partners see you\'re busy, not details' },
+  { value: 'open', label: 'Open', description: 'Buddies see everything you share' },
+  { value: 'focus', label: 'Focus', description: 'Buddies see you\'re busy, not details' },
   { value: 'private', label: 'Private', description: 'All shared data hidden temporarily' },
 ];
 
@@ -390,7 +391,7 @@ function PrivacyModeSection() {
     <View style={styles.card}>
       <Text style={styles.cardTitle}>Privacy Mode</Text>
       <Text style={styles.cardSubtitle}>
-        Quickly control your visibility to all partners
+        Quickly control your visibility to all buddies
       </Text>
       <View style={styles.privacyModeContainer}>
         {PRIVACY_MODES.map((mode) => {
@@ -419,15 +420,18 @@ function PrivacyModeSection() {
 }
 
 // ── Main Screen ────────────────────────────────────────────────────
-export default function PartnerSettingsScreen() {
+export default function BuddySettingsScreen() {
   const router = useRouter();
   const goBack = useGoBack();
-  const { activePartners, pendingPartners, hasActivePartnership, isLoading } = usePartnership();
+  const { activeBuddies, pendingBuddies, hasActiveBuddy, isLoading } = useBuddy();
 
   return (
     <View style={styles.container}>
       <AmbientBackground />
       <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
+          <Logo />
+        </View>
         {/* Header */}
         <View style={styles.header}>
           <Pressable
@@ -437,7 +441,7 @@ export default function PartnerSettingsScreen() {
           >
             <ArrowLeft size={20} color="#000" strokeWidth={2.5} />
           </Pressable>
-          <Text style={styles.headerTitle}>Partner Mode</Text>
+          <Text style={styles.headerTitle}>Buddy Mode</Text>
           <View style={{ width: 36 }} />
         </View>
 
@@ -455,24 +459,24 @@ export default function PartnerSettingsScreen() {
             <ConnectSection />
 
             {/* Privacy mode — only if has any active partnership */}
-            {hasActivePartnership && <PrivacyModeSection />}
+            {hasActiveBuddy && <PrivacyModeSection />}
 
             {/* Pending partnerships */}
-            {pendingPartners.length > 0 && (
+            {pendingBuddies.length > 0 && (
               <View style={styles.sectionBlock}>
                 <Text style={styles.sectionLabel}>PENDING</Text>
-                {pendingPartners.map((p) => (
-                  <PendingPartnershipCard key={p.partnership_id} partnership={p} />
+                {pendingBuddies.map((p) => (
+                  <PendingBuddyCard key={p.partnership_id} partnership={p} />
                 ))}
               </View>
             )}
 
             {/* Active partnerships */}
-            {activePartners.length > 0 && (
+            {activeBuddies.length > 0 && (
               <View style={styles.sectionBlock}>
-                <Text style={styles.sectionLabel}>ACTIVE PARTNERSHIPS</Text>
-                {activePartners.map((p) => (
-                  <ActivePartnershipCard key={p.partnership_id} partnership={p} />
+                <Text style={styles.sectionLabel}>ACTIVE BUDDIES</Text>
+                {activeBuddies.map((p) => (
+                  <ActiveBuddyCard key={p.partnership_id} partnership={p} />
                 ))}
               </View>
             )}

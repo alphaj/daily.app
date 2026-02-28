@@ -2,17 +2,17 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { formatDistanceToNow } from 'date-fns';
 import { supabase } from '@/lib/supabase';
-import { fetchPartnerLastActive } from '@/lib/sync';
+import { fetchBuddyLastActive } from '@/lib/sync';
 import { useAuth } from '@/contexts/AuthContext';
 
-interface PartnerPresence {
+interface BuddyPresence {
   isOnline: boolean;
   lastActiveText: string | null;
 }
 
 const POLL_INTERVAL_MS = 60_000; // 1 minute
 
-export function usePartnerPresence(partnerId: string | null, partnershipId: string | null): PartnerPresence {
+export function useBuddyPresence(partnerId: string | null, partnershipId: string | null): BuddyPresence {
   const { session, privacyMode } = useAuth();
   const [isOnline, setIsOnline] = useState(false);
   const [lastActiveText, setLastActiveText] = useState<string | null>(null);
@@ -26,7 +26,7 @@ export function usePartnerPresence(partnerId: string | null, partnershipId: stri
   const fetchLastActive = useCallback(async () => {
     if (!partnerId) return;
 
-    const ts = await fetchPartnerLastActive(partnerId);
+    const ts = await fetchBuddyLastActive(partnerId);
     if (ts) {
       setLastActiveText(formatDistanceToNow(new Date(ts), { addSuffix: true }));
     } else {

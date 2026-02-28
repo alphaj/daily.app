@@ -14,6 +14,7 @@ import * as Haptics from '@/lib/haptics';
 import { useTodos } from '@/contexts/TodoContext';
 import { AmbientBackground } from '@/components/AmbientBackground';
 import { BottomNavBar } from '@/components/BottomNavBar';
+import { Logo } from '@/components/Logo';
 import { format } from 'date-fns';
 import type { Todo } from '@/types/todo';
 
@@ -68,6 +69,9 @@ export default function IncompleteScreen() {
     <View style={styles.container}>
       <AmbientBackground />
       <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
+          <Logo />
+        </View>
         {/* Header */}
         <View style={styles.header}>
           <Pressable

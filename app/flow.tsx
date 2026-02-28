@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { AmbientBackground } from '@/components/AmbientBackground';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from '@/lib/haptics';
-import { Pause, Play, RotateCcw, Timer } from 'lucide-react-native';
+import { Pause, Play, RotateCcw } from 'lucide-react-native';
 import { format } from 'date-fns';
 import Animated, {
   useSharedValue,
@@ -15,6 +15,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { Fonts } from '@/lib/typography';
+import { Logo } from '@/components/Logo';
 import { useFocus } from '@/contexts/FocusContext';
 import { FocusProgressRing } from '@/components/focus/FocusProgressRing';
 import { FocusTaskCarousel } from '@/components/focus/FocusTaskCarousel';
@@ -39,7 +40,6 @@ export default function FlowScreen() {
     startSession,
     pauseSession,
     resumeSession,
-    extendSession,
     cancelSession,
     resetSession,
   } = useFocus();
@@ -50,6 +50,7 @@ export default function FlowScreen() {
     title: string;
     emoji?: string;
   } | null>(null);
+
 
   // 0 = idle, 1 = in-cocoon (running/paused), 2 = completed
   const cocoon = useSharedValue(0);
@@ -127,10 +128,6 @@ export default function FlowScreen() {
     });
   };
 
-  const handleExtend = () => {
-    Haptics.selectionAsync();
-    requestAnimationFrame(() => extendSession(1));
-  };
 
   const handleCancel = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -157,25 +154,18 @@ export default function FlowScreen() {
 
       <View style={styles.safeArea}>
         {/* ===== PERSISTENT TITLE — stays perfectly still during transitions ===== */}
-        <View style={[styles.header, styles.persistentHeader, { paddingTop: insets.top + 8 }]} pointerEvents="none">
-          <View style={styles.headerSpacer} />
+        <View style={[styles.persistentHeader, { paddingTop: insets.top + 8 }]} pointerEvents="none">
+          <View style={styles.logoRow}>
+            <Logo />
+          </View>
           <Text style={styles.title}>Focus</Text>
-          <View style={styles.headerSpacer} />
         </View>
 
         {/* ===== IDLE LAYER ===== */}
         <Animated.View style={[styles.layer, idleStyle]}>
-          <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-            <View style={styles.headerSpacer} />
+          <View style={[styles.headerSpacer, { paddingTop: insets.top + 8 }]}>
+            <View style={styles.logoPlaceholder} />
             <View style={styles.titlePlaceholder} />
-            <Pressable
-              style={styles.startButton}
-              onPress={handleStart}
-              hitSlop={8}
-            >
-              <Timer size={16} color="#1C1C1E" strokeWidth={2} />
-              <Text style={styles.startButtonText}>Start focus</Text>
-            </Pressable>
           </View>
 
           <View style={styles.centerContent}>
@@ -230,12 +220,9 @@ export default function FlowScreen() {
 
         {/* ===== RUNNING / PAUSED LAYER ===== */}
         <Animated.View style={[styles.layer, runningStyle]}>
-          <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-            <Pressable onPress={handleCancel} hitSlop={12}>
-              <Text style={styles.cancelText}>End</Text>
-            </Pressable>
+          <View style={[styles.headerSpacer, { paddingTop: insets.top + 8 }]}>
+            <View style={styles.logoPlaceholder} />
             <View style={styles.titlePlaceholder} />
-            <View style={styles.headerSpacer} />
           </View>
 
           <View style={styles.centerContent}>
@@ -257,15 +244,15 @@ export default function FlowScreen() {
             <Text style={styles.countdown}>{formatMMSS(remainingMs)}</Text>
 
             <View style={styles.controlsRow}>
-              <Pressable onPress={handleExtend} hitSlop={12}>
-                <Text style={styles.extendText}>+ 1 min</Text>
+              <Pressable style={styles.endCircle} onPress={handleCancel}>
+                <Text style={styles.endCircleText}>End</Text>
               </Pressable>
 
-              <Pressable style={styles.controlPill} onPress={handlePauseResume}>
+              <Pressable style={styles.pauseCircle} onPress={handlePauseResume}>
                 {status === 'running' ? (
-                  <Pause size={22} color="#fff" fill="#fff" strokeWidth={0} />
+                  <Pause size={24} color="#fff" fill="#fff" strokeWidth={0} />
                 ) : (
-                  <Play size={22} color="#fff" fill="#fff" strokeWidth={0} />
+                  <Play size={24} color="#fff" fill="#fff" strokeWidth={0} />
                 )}
               </Pressable>
             </View>
@@ -274,10 +261,9 @@ export default function FlowScreen() {
 
         {/* ===== COMPLETED LAYER ===== */}
         <Animated.View style={[styles.layer, completedStyle]}>
-          <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-            <View style={styles.headerSpacer} />
+          <View style={[styles.headerSpacer, { paddingTop: insets.top + 8 }]}>
+            <View style={styles.logoPlaceholder} />
             <View style={styles.titlePlaceholder} />
-            <View style={styles.headerSpacer} />
           </View>
 
           <View style={styles.centerContent}>
@@ -322,11 +308,9 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
+  logoRow: {
+    paddingHorizontal: 20,
+    marginBottom: 16,
   },
   persistentHeader: {
     position: 'absolute',
@@ -335,11 +319,14 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   headerSpacer: {
-    width: 80,
+    // invisible spacer matching the persistent header height
+  },
+  logoPlaceholder: {
+    height: 22, // matches Logo text height
+    marginBottom: 16,
   },
   titlePlaceholder: {
-    width: 1,
-    height: 41, // matches title line height so header spacing is preserved
+    height: 41, // matches title line height
   },
   title: {
     fontSize: 34,
@@ -348,24 +335,26 @@ const styles = StyleSheet.create({
     color: '#1C1C1E',
     textAlign: 'center',
   },
-  startButton: {
-    flexDirection: 'row',
+  endCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 59, 48, 0.12)',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.06)',
+    justifyContent: 'center',
   },
-  startButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1C1C1E',
-  },
-  cancelText: {
+  endCircleText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#8E8E93',
+    color: '#FF3B30',
+  },
+  pauseCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#1C1C1E',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   centerContent: {
     flex: 1,
@@ -398,22 +387,9 @@ const styles = StyleSheet.create({
   controlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    marginTop: 8,
-  },
-  extendText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#8E8E93',
-  },
-  controlPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1C1C1E',
-    paddingHorizontal: 36,
-    paddingVertical: 16,
-    borderRadius: 28,
+    gap: 40,
+    marginTop: 8,
   },
   presetRow: {
     flexDirection: 'row',

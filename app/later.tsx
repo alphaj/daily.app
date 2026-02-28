@@ -36,6 +36,7 @@ import { useLater } from '@/contexts/LaterContext';
 import { AREA_CONFIG, type LaterArea, type LaterItem } from '@/types/later';
 import { BottomNavBar } from '@/components/BottomNavBar';
 import { Fonts } from '@/lib/typography';
+import { Logo } from '@/components/Logo';
 
 const PADDING = 20;
 const AREAS = Object.keys(AREA_CONFIG) as LaterArea[];
@@ -248,6 +249,9 @@ export default function LaterScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
+        <Logo />
+      </View>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Later</Text>

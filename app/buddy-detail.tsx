@@ -18,24 +18,25 @@ import { Lock, Eye, Plus, Send, ArrowLeft, Settings } from 'lucide-react-native'
 import * as Haptics from '@/lib/haptics';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { usePartnership } from '@/contexts/PartnershipContext';
+import { useBuddy } from '@/contexts/BuddyContext';
 import { useSync } from '@/contexts/SyncContext';
-import { usePartnerPresence } from '@/hooks/usePartnerPresence';
-import { usePartnerInteractions } from '@/hooks/usePartnerInteractions';
+import { useBuddyPresence } from '@/hooks/useBuddyPresence';
+import { useBuddyInteractions } from '@/hooks/useBuddyInteractions';
 import { AmbientBackground } from '@/components/AmbientBackground';
 import { Avatar } from '@/components/Avatar';
 import { BottomNavBar } from '@/components/BottomNavBar';
-import { ReactionPicker } from '@/components/partner/ReactionPicker';
-import { NudgePicker } from '@/components/partner/NudgePicker';
+import { ReactionPicker } from '@/components/buddy/ReactionPicker';
+import { NudgePicker } from '@/components/buddy/NudgePicker';
 import { Fonts } from '@/lib/typography';
+import { Logo } from '@/components/Logo';
 import type {
-  PartnerData,
-  PartnerTodo,
-  PartnerEvent,
-  PartnerFocusSession,
-  PartnerPrivacyMode,
+  BuddyData,
+  BuddyTodo,
+  BuddyEvent,
+  BuddyFocusSession,
+  BuddyPrivacyMode,
 } from '@/lib/sync';
-import { fetchPartnerPrivacyMode, deleteAssignedTask } from '@/lib/sync';
+import { fetchBuddyPrivacyMode, deleteAssignedTask } from '@/lib/sync';
 
 function formatTime(time: string | null): string {
   if (!time) return '';
@@ -57,7 +58,7 @@ function formatDuration(ms: number): string {
 // ── Sections ───────────────────────────────────────────────────────
 
 interface TodoRowProps {
-  todo: PartnerTodo;
+  todo: BuddyTodo;
   onReact?: (todoId: string, pageY: number) => void;
   onLongPress?: (todo: PartnerTodo) => void;
   sentReaction?: string;
@@ -154,7 +155,7 @@ function TodoRow({ todo, onReact, onLongPress, sentReaction }: TodoRowProps) {
 }
 
 interface TodosSectionProps {
-  todos: PartnerTodo[];
+  todos: BuddyTodo[];
   currentUserId?: string;
   onReact?: (todoId: string, pageY: number) => void;
   onAssignedTaskAction?: (todo: PartnerTodo) => void;
@@ -211,7 +212,7 @@ function TodosSection({ todos, currentUserId, onReact, onAssignedTaskAction, sen
   );
 }
 
-function EventsSection({ events }: { events: PartnerEvent[] }) {
+function EventsSection({ events }: { events: BuddyEvent[] }) {
   if (events.length === 0) return null;
 
   return (
@@ -234,7 +235,7 @@ function EventsSection({ events }: { events: PartnerEvent[] }) {
   );
 }
 
-function FocusSection({ sessions }: { sessions: PartnerFocusSession[] }) {
+function FocusSection({ sessions }: { sessions: BuddyFocusSession[] }) {
   if (sessions.length === 0) return null;
 
   const totalMs = sessions.reduce((sum, s) => sum + s.actualMs, 0);
@@ -262,22 +263,22 @@ function FocusSection({ sessions }: { sessions: PartnerFocusSession[] }) {
 
 // ── Main Screen ────────────────────────────────────────────────────
 
-export default function PartnerDetailScreen() {
+export default function BuddyDetailScreen() {
   const router = useRouter();
   const goBack = useGoBack();
   const { partnerId: partnerIdParam } = useLocalSearchParams<{ partnerId: string }>();
   const { session } = useAuth();
-  const { getPartnership } = usePartnership();
-  const { fetchPartnerData, syncNow } = useSync();
+  const { getBuddy } = useBuddy();
+  const { fetchBuddyData, syncNow } = useSync();
 
-  const partnership = partnerIdParam ? getPartnership(partnerIdParam) : undefined;
+  const partnership = partnerIdParam ? getBuddy(partnerIdParam) : undefined;
   const partnerId = partnership?.partner_id ?? null;
   const partnershipId = partnership?.partnership_id ?? null;
 
-  const { isOnline, lastActiveText } = usePartnerPresence(partnerId, partnershipId);
-  const { sendReaction, sendNudge, sentReactions, markAllRead } = usePartnerInteractions(partnerId);
-  const [data, setData] = useState<PartnerData | null>(null);
-  const [privacyMode, setPrivacyMode] = useState<PartnerPrivacyMode>('open');
+  const { isOnline, lastActiveText } = useBuddyPresence(partnerId, partnershipId);
+  const { sendReaction, sendNudge, sentReactions, markAllRead } = useBuddyInteractions(partnerId);
+  const [data, setData] = useState<BuddyData | null>(null);
+  const [privacyMode, setPrivacyMode] = useState<BuddyPrivacyMode>('open');
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -294,18 +295,18 @@ export default function PartnerDetailScreen() {
   const loadData = useCallback(async () => {
     // Fetch privacy mode first
     if (partnerId) {
-      const mode = await fetchPartnerPrivacyMode(partnerId);
+      const mode = await fetchBuddyPrivacyMode(partnerId);
       setPrivacyMode(mode);
 
       // Only fetch full data if partner is in open mode
       if (mode === 'open') {
-        const result = await fetchPartnerData(partnerId);
+        const result = await fetchBuddyData(partnerId);
         setData(result);
       } else {
         setData(null);
       }
     }
-  }, [fetchPartnerData, partnerId]);
+  }, [fetchBuddyData, partnerId]);
 
   useEffect(() => {
     (async () => {
@@ -410,10 +411,15 @@ export default function PartnerDetailScreen() {
     day: 'numeric',
   });
 
+  const partnerName = partnership?.partner_name ?? 'Buddy';
+
   return (
     <View style={styles.container}>
       <AmbientBackground />
       <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
+          <Logo />
+        </View>
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -455,7 +461,7 @@ export default function PartnerDetailScreen() {
               style={styles.settingsButton}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                router.push('/partner-settings');
+                router.push('/buddy-settings');
               }}
               hitSlop={20}
             >
@@ -532,7 +538,7 @@ export default function PartnerDetailScreen() {
       {privacyMode === 'open' && (
         <Pressable
           style={styles.fab}
-          onPress={() => router.push(`/add-todo?forPartnerId=${partnerId}`)}
+          onPress={() => router.push(`/add-todo?forBuddyId=${partnerId}`)}
         >
           <Plus size={24} color="#fff" strokeWidth={2.5} />
         </Pressable>

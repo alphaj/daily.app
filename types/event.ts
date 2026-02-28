@@ -8,7 +8,7 @@ export interface CalendarEvent {
     color: string;          // hex color code
     notes?: string;
     createdAt: string;      // ISO date string
-    /** Hide this event from partner view */
+    /** Hide this event from buddy view */
     isPrivate?: boolean;
 }
 

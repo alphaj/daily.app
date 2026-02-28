@@ -2,6 +2,7 @@ import React, { memo, useMemo, useRef, useCallback, useEffect } from 'react';
 import { View, Text, Pressable, StyleSheet, FlatList, Dimensions } from 'react-native';
 import { Fonts } from '@/lib/typography';
 import { Plus } from 'lucide-react-native';
+import { Logo } from '@/components/Logo';
 import * as Haptics from '@/lib/haptics';
 import { format, addDays, addWeeks, startOfWeek, isSameDay, differenceInCalendarWeeks } from 'date-fns';
 
@@ -181,9 +182,7 @@ export const HomeHeader = memo(function HomeHeader({
     <View style={styles.container}>
       {/* Top row: logo + actions */}
       <View style={styles.topRow}>
-        <Text style={styles.logo}>
-          daily<Text style={styles.logoDot}>.app</Text>
-        </Text>
+        <Logo />
         <View style={styles.topRight}>
           <Pressable
             style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
@@ -235,16 +234,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     marginBottom: 16,
-  },
-  logo: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1C1C1E',
-    letterSpacing: -0.5,
-  },
-  logoDot: {
-    color: '#8E8E93',
-    fontWeight: '500',
   },
   topRight: {
     flexDirection: 'row',

@@ -28,7 +28,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from '@/lib/haptics';
 import { Audio } from 'expo-av';
 import { useCalendarEvents } from '@/contexts/CalendarEventContext';
-import { usePartnership } from '@/contexts/PartnershipContext';
+import { useBuddy } from '@/contexts/BuddyContext';
 import { EVENT_COLORS } from '@/types/event';
 import { format, isToday, isTomorrow, parse, addDays } from 'date-fns';
 import { DatePickerModal } from '@/components/DatePickerModal';
@@ -38,8 +38,8 @@ export default function AddEventScreen() {
     const goBack = useGoBack();
     const params = useLocalSearchParams<{ date?: string; startTime?: string }>();
     const { addEvent } = useCalendarEvents();
-    const { hasActivePartnership } = usePartnership();
-    const hasPartner = hasActivePartnership;
+    const { hasActiveBuddy } = useBuddy();
+    const hasPartner = hasActiveBuddy;
 
     const [title, setTitle] = useState('');
     const [selectedDate, setSelectedDate] = useState<Date>(
@@ -610,8 +610,14 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
     },
     headerTitle: {
-        fontSize: 18,
-        fontWeight: '700',
+        fontSize: 17,
+        fontWeight: '600',
+        color: '#000',
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        textAlign: 'center',
+        zIndex: -1,
     },
     content: {
         padding: 20,

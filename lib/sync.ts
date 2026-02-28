@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import type { Todo } from '@/types/todo';
 import type { CalendarEvent } from '@/types/event';
 import type { FocusSessionRecord } from '@/types/focus';
-import type { PartnerInteraction } from '@/types/interaction';
+import type { BuddyInteraction } from '@/types/interaction';
 
 const TODOS_KEY = 'daily_todos';
 const EVENTS_KEY = 'calendar_events';
@@ -149,15 +149,15 @@ export async function pushAllData(userId: string): Promise<void> {
   console.log('[sync] Push complete');
 }
 
-// ── Pull partner data ──────────────────────────────────────────────
+// ── Pull buddy data ──────────────────────────────────────────────
 
-export interface PartnerData {
-  todos: PartnerTodo[];
-  events: PartnerEvent[];
-  focusSessions: PartnerFocusSession[];
+export interface BuddyData {
+  todos: BuddyTodo[];
+  events: BuddyEvent[];
+  focusSessions: BuddyFocusSession[];
 }
 
-export interface PartnerTodo {
+export interface BuddyTodo {
   id: string;
   title: string;
   completed: boolean;
@@ -175,7 +175,7 @@ export interface PartnerTodo {
   assignedByName: string | null;
 }
 
-export interface PartnerEvent {
+export interface BuddyEvent {
   id: string;
   title: string;
   date: string;
@@ -185,7 +185,7 @@ export interface PartnerEvent {
   color: string;
 }
 
-export interface PartnerFocusSession {
+export interface BuddyFocusSession {
   id: string;
   date: string;
   durationMs: number;
@@ -196,9 +196,9 @@ export interface PartnerFocusSession {
   todoEmoji: string | null;
 }
 
-export type PartnerPrivacyMode = 'open' | 'focus' | 'private' | null;
+export type BuddyPrivacyMode = 'open' | 'focus' | 'private' | null;
 
-export async function fetchPartnerPrivacyMode(partnerUserId: string): Promise<PartnerPrivacyMode> {
+export async function fetchBuddyPrivacyMode(partnerUserId: string): Promise<BuddyPrivacyMode> {
   const { data, error } = await supabase.rpc('get_partner_privacy_mode', {
     partner_user_id: partnerUserId,
   });
@@ -208,10 +208,10 @@ export async function fetchPartnerPrivacyMode(partnerUserId: string): Promise<Pa
     return null;
   }
 
-  return data as PartnerPrivacyMode;
+  return data as BuddyPrivacyMode;
 }
 
-export async function fetchPartnerLastActive(partnerUserId: string): Promise<string | null> {
+export async function fetchBuddyLastActive(partnerUserId: string): Promise<string | null> {
   const { data, error } = await supabase.rpc('get_partner_last_active', {
     partner_user_id: partnerUserId,
   });
@@ -224,7 +224,7 @@ export async function fetchPartnerLastActive(partnerUserId: string): Promise<str
   return data as string | null;
 }
 
-export async function pullPartnerData(partnerId: string, date?: string): Promise<PartnerData> {
+export async function pullBuddyData(partnerId: string, date?: string): Promise<BuddyData> {
   const targetDate = date ?? new Date().toISOString().split('T')[0];
 
   const [todosRes, eventsRes, focusRes] = await Promise.all([
@@ -289,7 +289,7 @@ export async function pullPartnerData(partnerId: string, date?: string): Promise
   };
 }
 
-// ── Assign tasks to partner ────────────────────────────────────────
+// ── Assign tasks to buddy ────────────────────────────────────────
 
 export interface AssignedTask {
   id: string;
@@ -309,7 +309,7 @@ export interface AssignedTask {
   subtasks: any | null;
 }
 
-export async function assignTaskToPartner(task: {
+export async function assignTaskToBuddy(task: {
   id: string;
   title: string;
   createdAt: string;
@@ -467,7 +467,7 @@ export async function updateAssignedTask(
   return { success: true };
 }
 
-export async function fetchAssignedTask(taskId: string, partnerId: string): Promise<PartnerTodo | null> {
+export async function fetchAssignedTask(taskId: string, partnerId: string): Promise<BuddyTodo | null> {
   const { data, error } = await supabase
     .from('synced_todos')
     .select('id, title, completed, completed_at, due_date, due_time, priority, is_work, emoji, emoji_color, estimated_minutes, time_of_day, subtasks, assigned_by_id, assigned_by_name')
@@ -500,7 +500,7 @@ export async function fetchAssignedTask(taskId: string, partnerId: string): Prom
   };
 }
 
-// ── Partner interactions (reactions & nudges) ──────────────────────
+// ── Buddy interactions (reactions & nudges) ──────────────────────
 
 export async function sendReaction(todoId: string, emoji: string, partnerId?: string): Promise<{ success?: boolean; error?: string }> {
   const { data, error } = await supabase.rpc('send_reaction', {
@@ -536,7 +536,7 @@ export async function sendNudge(emoji: string, message: string, partnerId?: stri
   return { success: true };
 }
 
-export async function pullInteractions(userId: string): Promise<PartnerInteraction[]> {
+export async function pullInteractions(userId: string): Promise<BuddyInteraction[]> {
   const { data, error } = await supabase
     .from('partner_interactions')
     .select('*')
@@ -549,10 +549,10 @@ export async function pullInteractions(userId: string): Promise<PartnerInteracti
     return [];
   }
 
-  return (data ?? []) as PartnerInteraction[];
+  return (data ?? []) as BuddyInteraction[];
 }
 
-export async function pullReactionsOnMyTasks(userId: string): Promise<PartnerInteraction[]> {
+export async function pullReactionsOnMyTasks(userId: string): Promise<BuddyInteraction[]> {
   const { data, error } = await supabase
     .from('partner_interactions')
     .select('*')
@@ -565,7 +565,7 @@ export async function pullReactionsOnMyTasks(userId: string): Promise<PartnerInt
     return [];
   }
 
-  return (data ?? []) as PartnerInteraction[];
+  return (data ?? []) as BuddyInteraction[];
 }
 
 export async function markInteractionsDelivered(ids: string[]): Promise<void> {

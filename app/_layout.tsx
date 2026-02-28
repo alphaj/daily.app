@@ -5,6 +5,7 @@ import * as SplashScreen from "expo-splash-screen";
 import * as SystemUI from "expo-system-ui";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider, initialWindowMetrics } from "react-native-safe-area-context";
 import { TodoProvider } from "@/contexts/TodoContext";
 import { NoteProvider } from "@/contexts/NoteContext";
 import { InboxProvider } from "@/contexts/InboxContext";
@@ -12,7 +13,7 @@ import { WorkModeProvider } from "@/contexts/WorkModeContext";
 import { PreferencesProvider } from "@/contexts/PreferencesContext";
 import { OnboardingProvider, useOnboarding } from "@/contexts/OnboardingContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import { PartnershipProvider } from "@/contexts/PartnershipContext";
+import { BuddyProvider } from "@/contexts/BuddyContext";
 import { SyncProvider } from "@/contexts/SyncContext";
 import { LaterProvider } from "@/contexts/LaterContext";
 import { CalendarEventProvider } from "@/contexts/CalendarEventContext";
@@ -60,22 +61,22 @@ function RootLayoutNav() {
   }, []);
 
   return (
-    <Stack screenOptions={{ headerBackTitle: "Back" }}>
-      <Stack.Screen name="index" options={{ headerShown: false, animation: 'fade' }} />
-      <Stack.Screen name="flow" options={{ headerShown: false, animation: 'fade' }} />
+    <Stack screenOptions={{ headerBackTitle: "Back", contentStyle: { backgroundColor: '#F2F2F7' } }}>
+      <Stack.Screen name="index" options={{ headerShown: false, animation: 'none' }} />
+      <Stack.Screen name="flow" options={{ headerShown: false, animation: 'none' }} />
       <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
       <Stack.Screen name="login" options={{ headerShown: false, animation: 'fade' }} />
-      <Stack.Screen name="inbox" options={{ headerShown: false, animation: 'fade' }} />
-      <Stack.Screen name="menu" options={{ headerShown: false, animation: 'fade' }} />
+      <Stack.Screen name="inbox" options={{ headerShown: false, animation: 'none' }} />
+      <Stack.Screen name="menu" options={{ headerShown: false, animation: 'none' }} />
       <Stack.Screen name="add-todo" options={{ presentation: "modal", headerShown: false }} />
-      <Stack.Screen name="later" options={{ headerShown: false, animation: 'fade' }} />
-      <Stack.Screen name="history" options={{ headerShown: false, animation: 'fade' }} />
+      <Stack.Screen name="later" options={{ headerShown: false, animation: 'none' }} />
+      <Stack.Screen name="history" options={{ headerShown: false, animation: 'none' }} />
       <Stack.Screen name="add-event" options={{ presentation: "modal", headerShown: false }} />
       <Stack.Screen name="edit-todo" options={{ presentation: "modal", headerShown: false }} />
 
-      <Stack.Screen name="partner" options={{ headerShown: false, animation: 'fade' }} />
-      <Stack.Screen name="partner-detail" options={{ headerShown: false, animation: 'slide_from_right' }} />
-      <Stack.Screen name="partner-settings" options={{ headerShown: false, animation: 'slide_from_right' }} />
+      <Stack.Screen name="buddy" options={{ headerShown: false, animation: 'none' }} />
+      <Stack.Screen name="buddy-detail" options={{ headerShown: false, animation: 'slide_from_right' }} />
+      <Stack.Screen name="buddy-settings" options={{ headerShown: false, animation: 'slide_from_right' }} />
       <Stack.Screen name="privacy-policy" options={{ headerShown: false, animation: 'slide_from_right' }} />
       <Stack.Screen name="settings-notifications" options={{ headerShown: false, animation: 'slide_from_right' }} />
       <Stack.Screen name="settings-preferences" options={{ headerShown: false, animation: 'slide_from_right' }} />
@@ -88,7 +89,7 @@ function RootLayoutNav() {
 function AppWrapper() {
   return (
     <AuthProvider>
-      <PartnershipProvider>
+      <BuddyProvider>
       <SyncProvider>
       <CalendarEventProvider>
         <FocusProvider>
@@ -100,8 +101,10 @@ function AppWrapper() {
                     <PreferencesProvider>
                       <OnboardingProvider>
                         <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#F2F2F7' }}>
-                          <RootLayoutNav />
-                          <ToastHost />
+                          <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+                            <RootLayoutNav />
+                            <ToastHost />
+                          </SafeAreaProvider>
                         </GestureHandlerRootView>
                       </OnboardingProvider>
                     </PreferencesProvider>
@@ -113,7 +116,7 @@ function AppWrapper() {
         </FocusProvider>
       </CalendarEventProvider>
     </SyncProvider>
-    </PartnershipProvider>
+    </BuddyProvider>
     </AuthProvider>
   );
 }

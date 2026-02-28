@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Todo, TimeOfDay, RepeatOption, Subtask } from '@/types/todo';
+import { getNextRepeatDate } from '@/lib/repeatDate';
 
 const TODOS_STORAGE_KEY = 'daily_todos';
 
@@ -79,13 +80,46 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
     if (!todo) return false;
 
     const newCompleted = !todo.completed;
-    const newTodos = todos.map(t =>
+    let newTodos = todos.map(t =>
       t.id === id ? {
         ...t,
         completed: newCompleted,
         completedAt: newCompleted ? new Date().toISOString() : undefined,
       } : t
     );
+
+    // Generate next repeat instance on completion
+    if (newCompleted && todo.repeat && todo.repeat !== 'none') {
+      const alreadySpawned = todos.some(t => t.repeatSourceId === id);
+      if (!alreadySpawned) {
+        const nextDate = getNextRepeatDate(todo.repeat, new Date());
+        if (nextDate) {
+          const nextTodo: Todo = {
+            id: generateId(),
+            title: todo.title,
+            completed: false,
+            createdAt: new Date().toISOString(),
+            dueDate: nextDate,
+            dueTime: todo.dueTime,
+            priority: todo.priority,
+            isWork: todo.isWork,
+            emoji: todo.emoji,
+            emojiColor: todo.emojiColor,
+            estimatedMinutes: todo.estimatedMinutes,
+            timeOfDay: todo.timeOfDay,
+            repeat: todo.repeat,
+            isPrivate: todo.isPrivate,
+            repeatSourceId: id,
+            subtasks: todo.subtasks?.map(st => ({
+              ...st,
+              id: generateId(),
+              completed: false,
+            })),
+          };
+          newTodos = [...newTodos, nextTodo];
+        }
+      }
+    }
 
     setTodos(newTodos);
     await saveTodos(newTodos);
@@ -106,23 +140,6 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
 
     return todos.filter(todo => todo.dueDate === dateKey);
   }, [todos]);
-
-  const rolloverTasks = useCallback(async () => {
-    const todayKey = getToday();
-    const tasksToRollover = todos.filter(
-      todo => !todo.completed && todo.dueDate < todayKey
-    );
-
-    if (tasksToRollover.length > 0) {
-      const newTodos = todos.map(todo =>
-        !todo.completed && todo.dueDate < todayKey
-          ? { ...todo, originalDueDate: todo.originalDueDate || todo.dueDate, dueDate: todayKey }
-          : todo
-      );
-      setTodos(newTodos);
-      await saveTodos(newTodos);
-    }
-  }, [todos, saveTodos]);
 
   const clearCompletedTodos = useCallback(async () => {
     const newTodos = todos.filter(t => !t.completed);
@@ -306,7 +323,6 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
     rescheduleTodo,
     getTodosForDate,
     getCompletedTodosForDate,
-    rolloverTasks,
     clearCompletedTodos,
     reorderTodos,
     addSubtask,

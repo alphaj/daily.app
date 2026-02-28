@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 
-export interface PartnershipStatus {
+export interface BuddyStatus {
   partnership_id: string | null;
   status: 'none' | 'pending' | 'active' | 'dissolved' | 'declined';
   partner_name: string | null;
@@ -22,47 +22,47 @@ export interface SharingPreferences {
   share_later: boolean;
 }
 
-interface PartnershipContextType {
+interface BuddyContextType {
   /** All active + pending partnerships */
-  partnerships: PartnershipStatus[];
+  partnerships: BuddyStatus[];
   /** Sharing prefs keyed by partnership_id */
   sharingPrefsMap: Record<string, SharingPreferences>;
   /** Only active partnerships */
-  activePartners: PartnershipStatus[];
+  activeBuddies: BuddyStatus[];
   /** Only pending partnerships */
-  pendingPartners: PartnershipStatus[];
+  pendingBuddies: BuddyStatus[];
   /** Whether any partnership is active */
-  hasActivePartnership: boolean;
+  hasActiveBuddy: boolean;
   isLoading: boolean;
-  getPartnership: (partnerId: string) => PartnershipStatus | undefined;
-  requestPartnership: (code: string) => Promise<{ error: string | null; partnerName: string | null }>;
-  respondToPartnership: (partnershipId: string, accept: boolean) => Promise<{ error: string | null }>;
-  dissolvePartnership: (partnershipId: string) => Promise<{ error: string | null }>;
+  getBuddy: (partnerId: string) => BuddyStatus | undefined;
+  requestBuddy: (code: string) => Promise<{ error: string | null; partnerName: string | null }>;
+  respondToBuddy: (partnershipId: string, accept: boolean) => Promise<{ error: string | null }>;
+  dissolveBuddy: (partnershipId: string) => Promise<{ error: string | null }>;
   updateSharingPrefs: (partnershipId: string, prefs: Partial<SharingPreferences>) => Promise<{ error: string | null }>;
   refresh: () => Promise<void>;
 }
 
-const PartnershipContext = createContext<PartnershipContextType | undefined>(undefined);
+const BuddyContext = createContext<BuddyContextType | undefined>(undefined);
 
-export function PartnershipProvider({ children }: { children: ReactNode }) {
+export function BuddyProvider({ children }: { children: ReactNode }) {
   const { session, profile } = useAuth();
-  const [partnerships, setPartnerships] = useState<PartnershipStatus[]>([]);
+  const [partnerships, setPartnerships] = useState<BuddyStatus[]>([]);
   const [sharingPrefsMap, setSharingPrefsMap] = useState<Record<string, SharingPreferences>>({});
   const [isLoading, setIsLoading] = useState(true);
 
-  const activePartners = useMemo(
+  const activeBuddies = useMemo(
     () => partnerships.filter((p) => p.status === 'active'),
     [partnerships],
   );
 
-  const pendingPartners = useMemo(
+  const pendingBuddies = useMemo(
     () => partnerships.filter((p) => p.status === 'pending'),
     [partnerships],
   );
 
-  const hasActivePartnership = activePartners.length > 0;
+  const hasActiveBuddy = activeBuddies.length > 0;
 
-  const getPartnership = useCallback(
+  const getBuddy = useCallback(
     (partnerId: string) => partnerships.find((p) => p.partner_id === partnerId),
     [partnerships],
   );
@@ -84,7 +84,7 @@ export function PartnershipProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const result = (data ?? []) as PartnershipStatus[];
+      const result = (data ?? []) as BuddyStatus[];
       setPartnerships(result);
 
       // Fetch sharing preferences for all active partnerships
@@ -132,7 +132,7 @@ export function PartnershipProvider({ children }: { children: ReactNode }) {
     if (!session) return;
 
     const channel = supabase
-      .channel('partnership-changes')
+      .channel('buddy-changes')
       .on(
         'postgres_changes',
         {
@@ -156,7 +156,7 @@ export function PartnershipProvider({ children }: { children: ReactNode }) {
     };
   }, [session, fetchStatus]);
 
-  const requestPartnership = async (code: string): Promise<{ error: string | null; partnerName: string | null }> => {
+  const requestBuddy = async (code: string): Promise<{ error: string | null; partnerName: string | null }> => {
     try {
       const { data, error } = await supabase.rpc('request_partnership', {
         partner_code_input: code.toUpperCase(),
@@ -198,7 +198,7 @@ export function PartnershipProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const respondToPartnership = async (partnershipId: string, accept: boolean): Promise<{ error: string | null }> => {
+  const respondToBuddy = async (partnershipId: string, accept: boolean): Promise<{ error: string | null }> => {
     try {
       const { data, error } = await supabase.rpc('respond_to_partnership', {
         partnership_id_input: partnershipId,
@@ -221,7 +221,7 @@ export function PartnershipProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const dissolvePartnership = async (partnershipId: string): Promise<{ error: string | null }> => {
+  const dissolveBuddy = async (partnershipId: string): Promise<{ error: string | null }> => {
     try {
       const { data, error } = await supabase.rpc('dissolve_partnership', {
         partnership_id_input: partnershipId,
@@ -270,31 +270,31 @@ export function PartnershipProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <PartnershipContext.Provider
+    <BuddyContext.Provider
       value={{
         partnerships,
         sharingPrefsMap,
-        activePartners,
-        pendingPartners,
-        hasActivePartnership,
+        activeBuddies,
+        pendingBuddies,
+        hasActiveBuddy,
         isLoading,
-        getPartnership,
-        requestPartnership,
-        respondToPartnership,
-        dissolvePartnership,
+        getBuddy,
+        requestBuddy,
+        respondToBuddy,
+        dissolveBuddy,
         updateSharingPrefs,
         refresh: fetchStatus,
       }}
     >
       {children}
-    </PartnershipContext.Provider>
+    </BuddyContext.Provider>
   );
 }
 
-export function usePartnership() {
-  const context = useContext(PartnershipContext);
+export function useBuddy() {
+  const context = useContext(BuddyContext);
   if (context === undefined) {
-    throw new Error('usePartnership must be used within a PartnershipProvider');
+    throw new Error('useBuddy must be used within a BuddyProvider');
   }
   return context;
 }

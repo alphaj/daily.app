@@ -4,13 +4,27 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, run
 import { Check, ChevronDown, ChevronUp } from 'lucide-react-native';
 import * as Haptics from '@/lib/haptics';
 import SwipeableRow from '@/components/SwipeableRow';
-import { TaskContextMenu } from '@/components/TaskContextMenu';
+import { TaskContextMenuA } from '@/components/TaskContextMenuA';
+import { TaskContextMenuB } from '@/components/TaskContextMenuB';
+import { TaskContextMenuC } from '@/components/TaskContextMenuC';
+import { TaskContextMenuD } from '@/components/TaskContextMenuD';
 import type { Todo, Subtask } from '@/types/todo';
+
+// Change this to 'A' | 'B' | 'C' | 'D' to switch variants
+const MENU_VARIANT: 'A' | 'B' | 'C' | 'D' = 'A';
+
+const MenuComponent = {
+  A: TaskContextMenuA,
+  B: TaskContextMenuB,
+  C: TaskContextMenuC,
+  D: TaskContextMenuD,
+}[MENU_VARIANT];
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
 interface TaskCardProps {
   todo: Todo;
+  isOverdue?: boolean;
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
   onToggleSubtask?: (todoId: string, subtaskId: string) => void;
@@ -20,11 +34,12 @@ interface TaskCardProps {
   onDuplicate?: (id: string) => void;
   onReschedule?: (id: string, date: string) => void;
   onEdit?: (todo: Todo) => void;
-  partnerReaction?: string;
+  buddyReaction?: string;
 }
 
 export const TaskCard = memo(function TaskCard({
   todo,
+  isOverdue,
   onToggle,
   onDelete,
   onToggleSubtask,
@@ -34,7 +49,7 @@ export const TaskCard = memo(function TaskCard({
   onDuplicate,
   onReschedule,
   onEdit,
-  partnerReaction,
+  buddyReaction,
 }: TaskCardProps) {
   const [subtasksExpanded, setSubtasksExpanded] = useState(false);
 
@@ -174,7 +189,7 @@ export const TaskCard = memo(function TaskCard({
   return (
     <Animated.View style={exitStyle}>
     <SwipeableRow onDelete={() => onDelete(todo.id)}>
-      <Animated.View style={[pressStyle, styles.cardShadow, todo.completed && styles.cardCompleted, todo.isDefault && !todo.completed && styles.cardDefault]}>
+      <Animated.View style={[pressStyle, styles.cardShadow, todo.completed && styles.cardCompleted, todo.isDefault && !todo.completed && styles.cardDefault, isOverdue && !todo.completed && styles.cardOverdue]}>
       <View style={[styles.card, todo.isDefault && !todo.completed && styles.cardDefaultInner]}>
         <Pressable
           style={styles.cardContent}
@@ -209,11 +224,16 @@ export const TaskCard = memo(function TaskCard({
                 <Text style={styles.defaultBadgeText}>Suggested</Text>
               </View>
             )}
+            {isOverdue && !todo.completed && (
+              <View style={styles.overdueBadge}>
+                <Text style={styles.overdueBadgeText}>Overdue · {todo.dueDate}</Text>
+              </View>
+            )}
           </View>
 
           {/* Partner reaction badge */}
-          {partnerReaction && todo.completed && (
-            <Text style={styles.partnerReaction}>{partnerReaction}</Text>
+          {buddyReaction && todo.completed && (
+            <Text style={styles.buddyReaction}>{buddyReaction}</Text>
           )}
 
           {/* Checkbox */}
@@ -284,7 +304,7 @@ export const TaskCard = memo(function TaskCard({
       </View>
       </Animated.View>
     </SwipeableRow>
-    <TaskContextMenu
+    <MenuComponent
       visible={menuVisible}
       onClose={() => setMenuVisible(false)}
       onCopy={handleCopy}
@@ -323,6 +343,12 @@ const styles = StyleSheet.create({
   cardDefault: {
     shadowOpacity: 0,
     elevation: 0,
+  },
+  cardOverdue: {
+    borderWidth: 1.5,
+    borderColor: '#FF9500',
+    borderStyle: 'dashed',
+    borderRadius: 12,
   },
   cardDefaultInner: {
     backgroundColor: '#FAFAFA',
@@ -387,7 +413,21 @@ const styles = StyleSheet.create({
     color: '#7C6EBF',
     letterSpacing: 0.3,
   },
-  partnerReaction: {
+  overdueBadge: {
+    marginTop: 4,
+    backgroundColor: '#FFF3E0',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    alignSelf: 'flex-start',
+  },
+  overdueBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#E65100',
+    letterSpacing: 0.3,
+  },
+  buddyReaction: {
     fontSize: 18,
     marginLeft: 6,
   },
