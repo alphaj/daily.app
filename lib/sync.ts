@@ -1,12 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
 import type { Todo } from '@/types/todo';
-import type { CalendarEvent } from '@/types/event';
+
 import type { FocusSessionRecord } from '@/types/focus';
 import type { BuddyInteraction } from '@/types/interaction';
 
 const TODOS_KEY = 'daily_todos';
-const EVENTS_KEY = 'calendar_events';
+
 const FOCUS_HISTORY_KEY = 'daily_focus_history';
 
 // ── Push local data to Supabase ────────────────────────────────────
@@ -64,49 +64,6 @@ export async function pushTodos(userId: string): Promise<void> {
   }
 }
 
-export async function pushEvents(userId: string): Promise<void> {
-  const raw = await AsyncStorage.getItem(EVENTS_KEY);
-  if (!raw) return;
-
-  const events: CalendarEvent[] = JSON.parse(raw);
-  if (events.length === 0) return;
-
-  const rows = events.map((e) => ({
-    id: e.id,
-    user_id: userId,
-    title: e.title,
-    date: e.date,
-    start_time: e.startTime ?? null,
-    end_time: e.endTime ?? null,
-    is_all_day: e.isAllDay,
-    color: e.color,
-    notes: e.notes ?? null,
-    created_at: e.createdAt,
-    is_private: e.isPrivate ?? false,
-    synced_at: new Date().toISOString(),
-  }));
-
-  const { error } = await supabase
-    .from('synced_events')
-    .upsert(rows, { onConflict: 'id,user_id' });
-
-  if (error) {
-    console.error('[sync] Failed to push events:', error.message);
-    return;
-  }
-
-  const localIds = events.map((e) => e.id);
-  const { error: deleteError } = await supabase
-    .from('synced_events')
-    .delete()
-    .eq('user_id', userId)
-    .not('id', 'in', `(${localIds.join(',')})`);
-
-  if (deleteError) {
-    console.error('[sync] Failed to clean stale events:', deleteError.message);
-  }
-}
-
 export async function pushFocusSessions(userId: string): Promise<void> {
   const raw = await AsyncStorage.getItem(FOCUS_HISTORY_KEY);
   if (!raw) return;
@@ -142,7 +99,6 @@ export async function pushFocusSessions(userId: string): Promise<void> {
 export async function pushAllData(userId: string): Promise<void> {
   await Promise.all([
     pushTodos(userId),
-    pushEvents(userId),
     pushFocusSessions(userId),
     supabase.rpc('update_last_active'),
   ]);
@@ -153,7 +109,6 @@ export async function pushAllData(userId: string): Promise<void> {
 
 export interface BuddyData {
   todos: BuddyTodo[];
-  events: BuddyEvent[];
   focusSessions: BuddyFocusSession[];
 }
 
@@ -173,16 +128,6 @@ export interface BuddyTodo {
   subtasks: any[] | null;
   assignedById: string | null;
   assignedByName: string | null;
-}
-
-export interface BuddyEvent {
-  id: string;
-  title: string;
-  date: string;
-  startTime: string | null;
-  endTime: string | null;
-  isAllDay: boolean;
-  color: string;
 }
 
 export interface BuddyFocusSession {
@@ -227,20 +172,13 @@ export async function fetchBuddyLastActive(partnerUserId: string): Promise<strin
 export async function pullBuddyData(partnerId: string, date?: string): Promise<BuddyData> {
   const targetDate = date ?? new Date().toISOString().split('T')[0];
 
-  const [todosRes, eventsRes, focusRes] = await Promise.all([
+  const [todosRes, focusRes] = await Promise.all([
     supabase
       .from('synced_todos')
       .select('id, title, completed, completed_at, due_date, due_time, priority, is_work, emoji, emoji_color, estimated_minutes, time_of_day, subtasks, assigned_by_id, assigned_by_name')
       .eq('user_id', partnerId)
       .eq('is_private', false)
       .or(`due_date.eq.${targetDate},and(due_date.lt.${targetDate},completed.eq.false)`),
-
-    supabase
-      .from('synced_events')
-      .select('id, title, date, start_time, end_time, is_all_day, color')
-      .eq('user_id', partnerId)
-      .eq('is_private', false)
-      .eq('date', targetDate),
 
     supabase
       .from('synced_focus_sessions')
@@ -266,15 +204,6 @@ export async function pullBuddyData(partnerId: string, date?: string): Promise<B
       subtasks: r.subtasks ? (typeof r.subtasks === 'string' ? JSON.parse(r.subtasks) : r.subtasks) : null,
       assignedById: r.assigned_by_id,
       assignedByName: r.assigned_by_name,
-    })),
-    events: (eventsRes.data ?? []).map((r: any) => ({
-      id: r.id,
-      title: r.title,
-      date: r.date,
-      startTime: r.start_time,
-      endTime: r.end_time,
-      isAllDay: r.is_all_day,
-      color: r.color,
     })),
     focusSessions: (focusRes.data ?? []).map((r: any) => ({
       id: r.id,
@@ -422,82 +351,6 @@ export async function deleteAssignedTask(taskId: string, partnerId: string): Pro
   }
 
   return { success: true };
-}
-
-export async function updateAssignedTask(
-  taskId: string,
-  partnerId: string,
-  updates: {
-    title?: string;
-    emoji?: string | null;
-    emoji_color?: string | null;
-    due_date?: string;
-    due_time?: string | null;
-    priority?: string | null;
-    estimated_minutes?: number | null;
-    time_of_day?: string | null;
-    subtasks?: any | null;
-  },
-): Promise<{ success?: boolean; error?: string }> {
-  // Update in partner's synced_todos
-  const { error: syncError } = await supabase
-    .from('synced_todos')
-    .update(updates)
-    .eq('id', taskId)
-    .eq('user_id', partnerId);
-
-  if (syncError) {
-    console.error('[sync] Failed to update synced_todos:', syncError.message);
-  }
-
-  // Also update in assigned_tasks table
-  const { error: assignError } = await supabase
-    .from('assigned_tasks')
-    .update(updates)
-    .eq('id', taskId);
-
-  if (assignError) {
-    console.error('[sync] Failed to update assigned_tasks:', assignError.message);
-  }
-
-  if (syncError && assignError) {
-    return { error: syncError.message };
-  }
-
-  return { success: true };
-}
-
-export async function fetchAssignedTask(taskId: string, partnerId: string): Promise<BuddyTodo | null> {
-  const { data, error } = await supabase
-    .from('synced_todos')
-    .select('id, title, completed, completed_at, due_date, due_time, priority, is_work, emoji, emoji_color, estimated_minutes, time_of_day, subtasks, assigned_by_id, assigned_by_name')
-    .eq('id', taskId)
-    .eq('user_id', partnerId)
-    .single();
-
-  if (error || !data) {
-    console.error('[sync] Failed to fetch assigned task:', error?.message);
-    return null;
-  }
-
-  const r = data as any;
-  return {
-    id: r.id,
-    title: r.title,
-    completed: r.completed,
-    completedAt: r.completed_at,
-    dueDate: r.due_date,
-    dueTime: r.due_time,
-    priority: r.priority,
-    isWork: r.is_work,
-    emoji: r.emoji,
-    emojiColor: r.emoji_color,
-    estimatedMinutes: r.estimated_minutes,
-    timeOfDay: r.time_of_day,
-    subtasks: r.subtasks ? (typeof r.subtasks === 'string' ? JSON.parse(r.subtasks) : r.subtasks) : null,
-    assignedById: r.assigned_by_id,
-    assignedByName: r.assigned_by_name,
-  };
 }
 
 // ── Buddy interactions (reactions & nudges) ──────────────────────

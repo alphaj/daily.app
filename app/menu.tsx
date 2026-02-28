@@ -310,8 +310,11 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     topRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
         paddingHorizontal: 20,
         paddingTop: 8,
+        minHeight: 48,
         marginBottom: 16,
     },
     screenTitle: {

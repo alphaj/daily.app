@@ -311,6 +311,8 @@ const styles = StyleSheet.create({
   logoRow: {
     paddingHorizontal: 20,
     marginBottom: 16,
+    height: 40,
+    justifyContent: 'center',
   },
   persistentHeader: {
     position: 'absolute',
@@ -322,7 +324,7 @@ const styles = StyleSheet.create({
     // invisible spacer matching the persistent header height
   },
   logoPlaceholder: {
-    height: 22, // matches Logo text height
+    height: 40, // matches logoRow height
     marginBottom: 16,
   },
   titlePlaceholder: {

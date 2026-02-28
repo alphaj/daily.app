@@ -4,21 +4,8 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, run
 import { Check, ChevronDown, ChevronUp } from 'lucide-react-native';
 import * as Haptics from '@/lib/haptics';
 import SwipeableRow from '@/components/SwipeableRow';
-import { TaskContextMenuA } from '@/components/TaskContextMenuA';
-import { TaskContextMenuB } from '@/components/TaskContextMenuB';
-import { TaskContextMenuC } from '@/components/TaskContextMenuC';
-import { TaskContextMenuD } from '@/components/TaskContextMenuD';
+import { TaskContextMenuD as TaskContextMenu } from '@/components/TaskContextMenuD';
 import type { Todo, Subtask } from '@/types/todo';
-
-// Change this to 'A' | 'B' | 'C' | 'D' to switch variants
-const MENU_VARIANT: 'A' | 'B' | 'C' | 'D' = 'A';
-
-const MenuComponent = {
-  A: TaskContextMenuA,
-  B: TaskContextMenuB,
-  C: TaskContextMenuC,
-  D: TaskContextMenuD,
-}[MENU_VARIANT];
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -304,7 +291,7 @@ export const TaskCard = memo(function TaskCard({
       </View>
       </Animated.View>
     </SwipeableRow>
-    <MenuComponent
+    <TaskContextMenu
       visible={menuVisible}
       onClose={() => setMenuVisible(false)}
       onCopy={handleCopy}

@@ -266,12 +266,12 @@ function PendingBuddyCard({ partnership }: { partnership: BuddyStatus }) {
 
 const SHARING_OPTIONS: { key: keyof SharingPreferences; label: string; description: string }[] = [
   { key: 'share_todos', label: 'Tasks', description: 'Your daily tasks and completion status' },
-  { key: 'share_events', label: 'Calendar Events', description: 'Your scheduled events' },
+
   { key: 'share_focus', label: 'Focus Sessions', description: 'When you\'re focusing and for how long' },
   { key: 'share_inbox', label: 'Brain Dump', description: 'Your captured thoughts and ideas' },
   { key: 'share_notes', label: 'Notes', description: 'Your daily notes' },
   { key: 'share_work_items', label: 'Work Tasks', description: 'Tasks marked as work-related' },
-  { key: 'share_later', label: 'Later / Someday', description: 'Your someday/maybe items' },
+
 ];
 
 function ActiveBuddyCard({ partnership }: { partnership: BuddyStatus }) {

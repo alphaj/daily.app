@@ -15,8 +15,8 @@ import { OnboardingProvider, useOnboarding } from "@/contexts/OnboardingContext"
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { BuddyProvider } from "@/contexts/BuddyContext";
 import { SyncProvider } from "@/contexts/SyncContext";
-import { LaterProvider } from "@/contexts/LaterContext";
-import { CalendarEventProvider } from "@/contexts/CalendarEventContext";
+
+
 import { FocusProvider } from "@/contexts/FocusContext";
 import { ToastHost } from "@/components/InAppToast";
 
@@ -63,18 +63,18 @@ function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerBackTitle: "Back", contentStyle: { backgroundColor: '#F2F2F7' } }}>
       <Stack.Screen name="index" options={{ headerShown: false, animation: 'none' }} />
-      <Stack.Screen name="flow" options={{ headerShown: false, animation: 'none' }} />
+      <Stack.Screen name="flow" options={{ headerShown: false, animation: 'fade', animationDuration: 100 }} />
       <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
       <Stack.Screen name="login" options={{ headerShown: false, animation: 'fade' }} />
-      <Stack.Screen name="inbox" options={{ headerShown: false, animation: 'none' }} />
-      <Stack.Screen name="menu" options={{ headerShown: false, animation: 'none' }} />
+      <Stack.Screen name="inbox" options={{ headerShown: false, animation: 'fade', animationDuration: 100 }} />
+      <Stack.Screen name="menu" options={{ headerShown: false, animation: 'fade', animationDuration: 100 }} />
       <Stack.Screen name="add-todo" options={{ presentation: "modal", headerShown: false }} />
-      <Stack.Screen name="later" options={{ headerShown: false, animation: 'none' }} />
-      <Stack.Screen name="history" options={{ headerShown: false, animation: 'none' }} />
-      <Stack.Screen name="add-event" options={{ presentation: "modal", headerShown: false }} />
+
+      <Stack.Screen name="history" options={{ headerShown: false, animation: 'fade', animationDuration: 100 }} />
+
       <Stack.Screen name="edit-todo" options={{ presentation: "modal", headerShown: false }} />
 
-      <Stack.Screen name="buddy" options={{ headerShown: false, animation: 'none' }} />
+      <Stack.Screen name="buddy" options={{ headerShown: false, animation: 'fade', animationDuration: 100 }} />
       <Stack.Screen name="buddy-detail" options={{ headerShown: false, animation: 'slide_from_right' }} />
       <Stack.Screen name="buddy-settings" options={{ headerShown: false, animation: 'slide_from_right' }} />
       <Stack.Screen name="privacy-policy" options={{ headerShown: false, animation: 'slide_from_right' }} />
@@ -91,9 +91,7 @@ function AppWrapper() {
     <AuthProvider>
       <BuddyProvider>
       <SyncProvider>
-      <CalendarEventProvider>
         <FocusProvider>
-          <LaterProvider>
             <TodoProvider>
               <NoteProvider>
                 <InboxProvider>
@@ -112,9 +110,7 @@ function AppWrapper() {
                 </InboxProvider>
               </NoteProvider>
             </TodoProvider>
-          </LaterProvider>
         </FocusProvider>
-      </CalendarEventProvider>
     </SyncProvider>
     </BuddyProvider>
     </AuthProvider>

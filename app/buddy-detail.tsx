@@ -32,7 +32,6 @@ import { Logo } from '@/components/Logo';
 import type {
   BuddyData,
   BuddyTodo,
-  BuddyEvent,
   BuddyFocusSession,
   BuddyPrivacyMode,
 } from '@/lib/sync';
@@ -60,7 +59,7 @@ function formatDuration(ms: number): string {
 interface TodoRowProps {
   todo: BuddyTodo;
   onReact?: (todoId: string, pageY: number) => void;
-  onLongPress?: (todo: PartnerTodo) => void;
+  onLongPress?: (todo: BuddyTodo) => void;
   sentReaction?: string;
 }
 
@@ -158,7 +157,7 @@ interface TodosSectionProps {
   todos: BuddyTodo[];
   currentUserId?: string;
   onReact?: (todoId: string, pageY: number) => void;
-  onAssignedTaskAction?: (todo: PartnerTodo) => void;
+  onAssignedTaskAction?: (todo: BuddyTodo) => void;
   sentReactions?: Map<string, string>;
 }
 
@@ -209,29 +208,6 @@ function TodosSection({ todos, currentUserId, onReact, onAssignedTaskAction, sen
         </View>
       )}
     </>
-  );
-}
-
-function EventsSection({ events }: { events: BuddyEvent[] }) {
-  if (events.length === 0) return null;
-
-  return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Events</Text>
-      {events.map((event) => (
-        <View key={event.id} style={styles.eventRow}>
-          <View style={[styles.eventDot, { backgroundColor: event.color }]} />
-          <View style={styles.eventContent}>
-            <Text style={styles.eventTitle}>{event.title}</Text>
-            <Text style={styles.eventTime}>
-              {event.isAllDay
-                ? 'All day'
-                : `${formatTime(event.startTime)}${event.endTime ? ` – ${formatTime(event.endTime)}` : ''}`}
-            </Text>
-          </View>
-        </View>
-      ))}
-    </View>
   );
 }
 
@@ -344,9 +320,9 @@ export default function BuddyDetailScreen() {
     [sendNudge],
   );
 
-  const partnerName = partnership?.partner_name ?? 'Partner';
+  const partnerName = partnership?.partner_name ?? 'Buddy';
 
-  const handleAssignedTaskAction = useCallback((todo: PartnerTodo) => {
+  const handleAssignedTaskAction = useCallback((todo: BuddyTodo) => {
     const options = ['Edit', 'Delete', 'Cancel'];
     const destructiveButtonIndex = 1;
     const cancelButtonIndex = 2;
@@ -402,7 +378,6 @@ export default function BuddyDetailScreen() {
   const isEmpty =
     data &&
     data.todos.length === 0 &&
-    data.events.length === 0 &&
     data.focusSessions.length === 0;
 
   const today = new Date().toLocaleDateString('en-US', {
@@ -410,8 +385,6 @@ export default function BuddyDetailScreen() {
     month: 'short',
     day: 'numeric',
   });
-
-  const partnerName = partnership?.partner_name ?? 'Buddy';
 
   return (
     <View style={styles.container}>
@@ -525,7 +498,6 @@ export default function BuddyDetailScreen() {
                     sentReactions={sentReactions}
                   />
                 )}
-                {data && <EventsSection events={data.events} />}
                 {data && <FocusSection sessions={data.focusSessions} />}
               </>
             )}
@@ -728,30 +700,6 @@ const styles = StyleSheet.create({
   subtaskTitleDone: {
     color: '#8E8E93',
     textDecorationLine: 'line-through',
-  },
-
-  // ── Events ──
-  eventRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  eventDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 12,
-  },
-  eventContent: { flex: 1 },
-  eventTitle: {
-    fontSize: 16,
-    color: '#000',
-    fontWeight: '500',
-  },
-  eventTime: {
-    fontSize: 13,
-    color: '#8E8E93',
-    marginTop: 2,
   },
 
   // ── Focus ──
