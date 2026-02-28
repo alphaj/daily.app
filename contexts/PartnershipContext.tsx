@@ -45,7 +45,7 @@ interface PartnershipContextType {
 const PartnershipContext = createContext<PartnershipContextType | undefined>(undefined);
 
 export function PartnershipProvider({ children }: { children: ReactNode }) {
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
   const [partnerships, setPartnerships] = useState<PartnershipStatus[]>([]);
   const [sharingPrefsMap, setSharingPrefsMap] = useState<Record<string, SharingPreferences>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -172,6 +172,26 @@ export function PartnershipProvider({ children }: { children: ReactNode }) {
       }
 
       await fetchStatus();
+
+      // Send push notification to the invitee
+      if (result.partnership_id) {
+        const { data: partnershipRow } = await supabase
+          .from('partnerships')
+          .select('invitee_id')
+          .eq('id', result.partnership_id)
+          .single();
+
+        if (partnershipRow?.invitee_id) {
+          supabase.functions.invoke('send-push-notification', {
+            body: {
+              recipient_id: partnershipRow.invitee_id,
+              title: 'Partner Request',
+              body: `${profile?.name ?? 'Someone'} wants to partner with you on Daily!`,
+            },
+          }).catch(() => {});
+        }
+      }
+
       return { error: null, partnerName: result.partner_name };
     } catch (err: any) {
       return { error: err.message ?? 'An unexpected error occurred', partnerName: null };

@@ -2,12 +2,12 @@ import React from 'react';
 import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CalendarRange, CircleDashed, Heart } from 'lucide-react-native';
+import { CalendarRange, CircleDashed, Heart, UserCircle } from 'lucide-react-native';
 import * as Haptics from '@/lib/haptics';
 import { usePartnership } from '@/contexts/PartnershipContext';
 import { usePartnerInteractions } from '@/hooks/usePartnerInteractions';
 
-export type NavRoute = 'today' | 'focus' | 'partner';
+export type NavRoute = 'today' | 'focus' | 'partner' | 'profile';
 
 interface BottomNavBarProps {
     onFabPress?: () => void;
@@ -16,6 +16,7 @@ interface BottomNavBarProps {
 function getActiveRoute(pathname: string): NavRoute {
     if (pathname === '/flow') return 'focus';
     if (pathname === '/partner' || pathname.startsWith('/partner-detail')) return 'partner';
+    if (pathname === '/menu' || pathname.startsWith('/settings-') || pathname === '/partner-settings' || pathname === '/incomplete') return 'profile';
     return 'today';
 }
 
@@ -44,6 +45,7 @@ export function BottomNavBar({ onFabPress }: BottomNavBarProps) {
         { route: 'today', path: '/history', icon: CalendarRange, label: 'Today' },
         { route: 'focus', path: '/flow', icon: CircleDashed, label: 'Focus' },
         { route: 'partner', path: '/partner', icon: Heart, label: partnerLabel },
+        { route: 'profile', path: '/menu', icon: UserCircle, label: 'Profile' },
     ];
 
     return (

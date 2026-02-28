@@ -135,13 +135,13 @@ export const TaskCard = memo(function TaskCard({
   const handleDelete = useCallback(() => {
     Alert.alert(
       'Are you sure you want to delete this?',
-      undefined,
+      todo.assignedByName ? `This task was assigned by ${todo.assignedByName}.` : undefined,
       [
         { text: 'No', style: 'cancel' },
         { text: 'Yes, delete', style: 'destructive', onPress: () => onDelete(todo.id) },
       ]
     );
-  }, [todo.id, onDelete]);
+  }, [todo.id, todo.assignedByName, onDelete]);
 
   const showTaskMenu = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);

@@ -1,35 +1,35 @@
 import { useRouter } from 'expo-router';
-import { useGoBack } from '@/lib/useGoBack';
 import {
     ChevronRight,
     Bell,
     Settings,
     LifeBuoy,
-    ArrowLeft,
     Users,
+    Pencil,
+    LogOut,
+    CircleAlert,
 } from 'lucide-react-native';
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import {
     View,
     Text,
+    TextInput,
     StyleSheet,
     Pressable,
     ScrollView,
     Alert,
+    Keyboard,
 } from 'react-native';
 import Constants from 'expo-constants';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from '@/lib/haptics';
-
-import { Camera } from 'lucide-react-native';
 
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTodos } from '@/contexts/TodoContext';
 import { AmbientBackground } from '@/components/AmbientBackground';
 import { Avatar } from '@/components/Avatar';
-import { CircleAlert } from 'lucide-react-native';
+import { BottomNavBar } from '@/components/BottomNavBar';
 
 interface MenuItemProps {
     icon: React.ReactNode;
@@ -83,12 +83,29 @@ function MenuItem({
 
 export default function MenuScreen() {
     const router = useRouter();
-    const goBack = useGoBack();
     const { resetOnboarding } = useOnboarding();
-    const { signOut, profile, uploadAvatar, removeAvatar } = useAuth();
+    const { signOut, profile, uploadAvatar, removeAvatar, updateName } = useAuth();
     const { incompleteDateMap } = useTodos();
+    const [isEditingName, setIsEditingName] = useState(false);
+    const [editedName, setEditedName] = useState(profile?.name ?? '');
+    const nameInputRef = useRef<TextInput>(null);
 
     const totalIncomplete = Object.values(incompleteDateMap).reduce((sum, d) => sum + d.incomplete, 0);
+
+    const handleSaveName = async () => {
+        Keyboard.dismiss();
+        const trimmed = editedName.trim();
+        if (!trimmed || trimmed === profile?.name) {
+            setIsEditingName(false);
+            return;
+        }
+        const { error } = await updateName(trimmed);
+        if (error) {
+            Alert.alert('Error', error);
+            setEditedName(profile?.name ?? '');
+        }
+        setIsEditingName(false);
+    };
 
     const handleAvatarPress = () => {
         const options: { text: string; onPress?: () => void; style?: 'cancel' | 'destructive' }[] = [
@@ -150,47 +167,72 @@ export default function MenuScreen() {
         <View style={styles.container}>
             <AmbientBackground />
             <SafeAreaView style={styles.safeArea} edges={['top']}>
-                {/* Header */}
-                <View style={styles.header}>
-                    <Pressable
-                        style={styles.backButtonCircle}
-                        onPress={goBack}
-                        hitSlop={20}
-                    >
-                        <ArrowLeft size={20} color="#000" strokeWidth={2.5} />
-                    </Pressable>
-
-                    <Text style={styles.headerTitle}>Settings</Text>
-
-                    <View style={{ width: 36 }} />
-                </View>
-
                 <ScrollView
                     style={styles.scrollView}
                     contentContainerStyle={styles.scrollContent}
                     showsVerticalScrollIndicator={false}
                 >
-                    {/* Profile */}
-                    <View style={styles.profileSection}>
-                        <Pressable onPress={handleAvatarPress} style={styles.profileAvatarWrap}>
+                    {/* Large title */}
+                    <Text style={styles.largeTitle}>Settings</Text>
+
+                    {/* Profile row — iOS Settings style */}
+                    <View style={styles.section}>
+                        <Pressable
+                            style={({ pressed }) => [
+                                styles.profileRow,
+                                pressed && styles.menuItemPressed,
+                            ]}
+                            onPress={handleAvatarPress}
+                        >
                             <Avatar
                                 uri={profile?.avatar_url}
                                 name={profile?.name}
-                                size={68}
+                                size={60}
                             />
-                            <View style={styles.cameraOverlay}>
-                                <Camera size={14} color="#fff" strokeWidth={2.5} />
+                            <View style={styles.profileInfo}>
+                                {isEditingName ? (
+                                    <TextInput
+                                        ref={nameInputRef}
+                                        style={styles.profileNameInput}
+                                        value={editedName}
+                                        onChangeText={setEditedName}
+                                        autoFocus
+                                        returnKeyType="done"
+                                        selectTextOnFocus
+                                        maxLength={50}
+                                        onSubmitEditing={handleSaveName}
+                                        onBlur={handleSaveName}
+                                    />
+                                ) : (
+                                    <Pressable
+                                        style={styles.nameRow}
+                                        onPress={() => {
+                                            Haptics.selectionAsync();
+                                            setEditedName(profile?.name ?? '');
+                                            setIsEditingName(true);
+                                        }}
+                                        hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                                    >
+                                        <Text style={styles.profileName} numberOfLines={1}>{profile?.name ?? ''}</Text>
+                                        <Pencil size={12} color="#C7C7CC" strokeWidth={2} />
+                                    </Pressable>
+                                )}
+                                <Text style={styles.profileEmail} numberOfLines={1}>{profile?.email ?? ''}</Text>
                             </View>
+                            <ChevronRight size={18} color="#C7C7CC" strokeWidth={2} />
                         </Pressable>
-                        <View style={styles.profileInfo}>
-                            <Text style={styles.profileName}>{profile?.name ?? ''}</Text>
-                            <Text style={styles.profileEmail}>{profile?.email ?? ''}</Text>
-                        </View>
                     </View>
 
-                    {/* Incomplete Tasks */}
-                    {totalIncomplete > 0 && (
-                        <View style={styles.section}>
+                    {/* Partner & Tasks */}
+                    <View style={styles.section}>
+                        <MenuItem
+                            icon={<Users size={22} color="#007AFF" strokeWidth={2} />}
+                            title="Partner Mode"
+                            subtitle={profile?.partner_code ? `Code: ${profile.partner_code}` : undefined}
+                            onPress={() => router.push('/partner-settings')}
+                            isLast={totalIncomplete === 0}
+                        />
+                        {totalIncomplete > 0 && (
                             <MenuItem
                                 icon={<CircleAlert size={22} color="#FF9500" strokeWidth={2} />}
                                 title="Incomplete Tasks"
@@ -198,21 +240,11 @@ export default function MenuScreen() {
                                 onPress={() => router.push('/incomplete')}
                                 isLast
                             />
-                        </View>
-                    )}
-
-                    {/* Partner Mode */}
-                    <View style={styles.section}>
-                        <MenuItem
-                            icon={<Users size={22} color="#007AFF" strokeWidth={2} />}
-                            title="Partner Mode"
-                            subtitle={profile?.partner_code ? `Code: ${profile.partner_code}` : undefined}
-                            onPress={() => router.push('/partner-settings')}
-                            isLast
-                        />
+                        )}
                     </View>
 
-                    {/* Main Settings List */}
+                    {/* General */}
+                    <Text style={styles.sectionLabel}>GENERAL</Text>
                     <View style={styles.section}>
                         <MenuItem
                             icon={<Bell size={22} color="#000" strokeWidth={2} />}
@@ -232,13 +264,15 @@ export default function MenuScreen() {
                         />
                     </View>
 
-                    {/* Sign Out */}
+                    {/* Account */}
+                    <Text style={styles.sectionLabel}>ACCOUNT</Text>
                     <View style={styles.section}>
                         <MenuItem
-                            icon={<View style={{ width: 22, alignItems: 'center' }}><Text style={{ fontSize: 18 }}>🚪</Text></View>}
+                            icon={<LogOut size={22} color="#FF3B30" strokeWidth={2} />}
                             title="Sign Out"
                             onPress={handleSignOut}
                             danger
+                            showChevron={false}
                             isLast
                         />
                     </View>
@@ -249,6 +283,7 @@ export default function MenuScreen() {
 
                 </ScrollView>
             </SafeAreaView>
+            <BottomNavBar />
         </View>
     );
 }
@@ -260,64 +295,78 @@ const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
     },
-    header: {
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        zIndex: 10,
-    },
-    backButtonCircle: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: 'rgba(255,255,255,0.8)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-    },
-    headerTitle: {
-        fontSize: 17,
-        fontWeight: '600',
-        color: '#000',
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        textAlign: 'center',
-        zIndex: -1,
-    },
     scrollView: {
         flex: 1,
     },
     scrollContent: {
-        paddingTop: 24,
-        paddingBottom: 40,
-        gap: 24,
+        paddingBottom: 100,
+    },
+    largeTitle: {
+        fontSize: 34,
+        fontWeight: '700',
+        color: '#000',
+        letterSpacing: -0.5,
+        paddingHorizontal: 16,
+        paddingTop: 8,
+        paddingBottom: 16,
     },
     section: {
         marginHorizontal: 16,
+        marginBottom: 24,
         backgroundColor: 'rgba(255,255,255,0.7)',
-        borderRadius: 16,
+        borderRadius: 12,
         overflow: 'hidden',
     },
-    sectionHeader: {
+    sectionLabel: {
         fontSize: 13,
-        fontWeight: '600',
-        color: '#8E8E93',
+        fontWeight: '400',
+        color: 'rgba(60,60,67,0.6)',
+        letterSpacing: -0.08,
+        marginHorizontal: 32,
+        marginBottom: 6,
         textTransform: 'uppercase',
-        letterSpacing: 0.5,
-        paddingHorizontal: 16,
-        paddingTop: 12,
-        paddingBottom: 4,
     },
+    // Profile row
+    profileRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+        paddingRight: 16,
+    },
+    profileInfo: {
+        flex: 1,
+        marginLeft: 14,
+        justifyContent: 'center',
+    },
+    nameRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+    },
+    profileName: {
+        fontSize: 20,
+        fontWeight: '600',
+        color: '#000',
+        letterSpacing: -0.3,
+    },
+    profileNameInput: {
+        fontSize: 20,
+        fontWeight: '600',
+        color: '#000',
+        letterSpacing: -0.3,
+        paddingVertical: 0,
+        paddingHorizontal: 0,
+    },
+    profileEmail: {
+        fontSize: 14,
+        color: '#8E8E93',
+        marginTop: 2,
+    },
+    // Menu items
     menuItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 16,
+        paddingVertical: 12,
         paddingHorizontal: 16,
         backgroundColor: 'transparent',
     },
@@ -341,14 +390,14 @@ const styles = StyleSheet.create({
     },
     menuTitle: {
         fontSize: 17,
-        fontWeight: '500',
+        fontWeight: '400',
         color: '#000',
-        letterSpacing: -0.2,
+        letterSpacing: -0.4,
     },
     menuSubtitle: {
         fontSize: 13,
         color: '#8E8E93',
-        marginTop: 2,
+        marginTop: 1,
     },
     menuTitleDanger: {
         color: '#FF3B30',
@@ -369,44 +418,5 @@ const styles = StyleSheet.create({
         color: 'rgba(60,60,67,0.5)',
         marginTop: 12,
         marginBottom: 20,
-    },
-    profileSection: {
-        marginHorizontal: 16,
-        backgroundColor: 'rgba(255,255,255,0.7)',
-        borderRadius: 16,
-        padding: 20,
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    profileAvatarWrap: {
-        position: 'relative',
-    },
-    cameraOverlay: {
-        position: 'absolute',
-        bottom: 0,
-        right: 0,
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-        backgroundColor: 'rgba(0,0,0,0.55)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 2,
-        borderColor: '#fff',
-    },
-    profileInfo: {
-        flex: 1,
-        marginLeft: 16,
-    },
-    profileName: {
-        fontSize: 20,
-        fontWeight: '600',
-        color: '#000',
-        letterSpacing: -0.3,
-    },
-    profileEmail: {
-        fontSize: 14,
-        color: '#8E8E93',
-        marginTop: 2,
     },
 });

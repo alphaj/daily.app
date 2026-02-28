@@ -1,7 +1,7 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useGoBack } from '@/lib/useGoBack';
 import { X, Check, Plus, GripVertical, Clock, Calendar, Repeat, Sunrise, ChevronDown, Lock, LockOpen, UserPlus } from 'lucide-react-native';
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
     View,
     Text,
@@ -37,8 +37,9 @@ import { AnimatedBottomSheet } from '@/components/AnimatedBottomSheet';
 import { LinearGradient } from 'expo-linear-gradient';
 import { suggestEmoji } from '@/utils/emojiSuggest';
 import { AmbientBackground } from '@/components/AmbientBackground';
-import { assignTaskToPartner } from '@/lib/sync';
+import { assignTaskToPartner, updateAssignedTask, fetchAssignedTask } from '@/lib/sync';
 import { useSync } from '@/contexts/SyncContext';
+import { showToast } from '@/lib/toast';
 import type { TimeOfDay, RepeatOption, Subtask } from '@/types/todo';
 
 if (Platform.OS === 'android') {
@@ -115,8 +116,9 @@ export default function AddTodoScreen() {
     const { isWorkMode } = useWorkMode();
     const { activePartners, hasActivePartnership, getPartnership } = usePartnership();
     const { syncNow } = useSync();
-    const { timeOfDay: initialTimeOfDay, forPartnerId } = useLocalSearchParams<{ timeOfDay?: string; forPartnerId?: string }>();
+    const { timeOfDay: initialTimeOfDay, forPartnerId, editAssignedId } = useLocalSearchParams<{ timeOfDay?: string; forPartnerId?: string; editAssignedId?: string }>();
     const hasPartner = hasActivePartnership;
+    const isEditingAssigned = !!editAssignedId;
     const [assignToPartnerId, setAssignToPartnerId] = useState<string | null>(forPartnerId ?? null);
     const assignToPartner = !!assignToPartnerId;
     const assignedPartnership = assignToPartnerId ? getPartnership(assignToPartnerId) : (activePartners.length === 1 ? activePartners[0] : null);
@@ -125,6 +127,34 @@ export default function AddTodoScreen() {
     const [emoji, setEmoji] = useState<string | undefined>('🌤');
     const [emojiColor, setEmojiColor] = useState<string | undefined>(undefined);
     const userPickedEmoji = useRef(false);
+    const [editDataLoaded, setEditDataLoaded] = useState(false);
+
+    // Load existing task data when editing an assigned task
+    useEffect(() => {
+        if (!editAssignedId || !forPartnerId || editDataLoaded) return;
+        (async () => {
+            const task = await fetchAssignedTask(editAssignedId, forPartnerId);
+            if (task) {
+                setTitle(task.title);
+                if (task.emoji) {
+                    setEmoji(task.emoji);
+                    userPickedEmoji.current = true;
+                }
+                if (task.emojiColor) setEmojiColor(task.emojiColor);
+                if (task.estimatedMinutes) setEstimatedMinutes(task.estimatedMinutes);
+                if (task.timeOfDay) setTimeOfDay(task.timeOfDay as TimeOfDay);
+                if (task.dueDate) setDueDate(new Date(task.dueDate + 'T00:00:00'));
+                if (task.subtasks && task.subtasks.length > 0) {
+                    setSubtasks(task.subtasks.map((st: any) => ({
+                        id: st.id,
+                        title: st.title,
+                        emoji: st.emoji ?? '📋',
+                    })));
+                }
+            }
+            setEditDataLoaded(true);
+        })();
+    }, [editAssignedId, forPartnerId, editDataLoaded]);
 
     const handleTitleChange = useCallback((text: string) => {
         setTitle(text);
@@ -211,7 +241,25 @@ export default function AddTodoScreen() {
                 completed: false,
             }));
 
-            if (assignToPartner && hasPartner) {
+            if (isEditingAssigned && editAssignedId && forPartnerId) {
+                // Editing an existing assigned task
+                const result = await updateAssignedTask(editAssignedId, forPartnerId, {
+                    title: title.trim(),
+                    emoji: emoji ?? null,
+                    emoji_color: emojiColor ?? null,
+                    due_date: (dueDate || new Date()).toISOString().split('T')[0],
+                    estimated_minutes: estimatedMinutes ?? null,
+                    time_of_day: timeOfDay ?? null,
+                    subtasks: subtaskData.length > 0 ? JSON.stringify(subtaskData) : null,
+                });
+
+                if (result.error) {
+                    setSaving(false);
+                    Alert.alert('Could not update task', result.error);
+                    return;
+                }
+                showToast({ emoji: '✅', title: 'Updated', message: 'Task updated' });
+            } else if (assignToPartner && hasPartner) {
                 const targetPartnerId = assignToPartnerId ?? assignedPartnership?.partner_id ?? undefined;
                 const result = await assignTaskToPartner({
                     id: generateId(),
@@ -237,6 +285,8 @@ export default function AddTodoScreen() {
 
                 // Push local data so partner view stays current
                 syncNow();
+                const partnerFirstName = assignedPartnership?.partner_name?.split(' ')[0] ?? 'partner';
+                showToast({ emoji: '📤', title: 'Sent!', message: `Task sent to ${partnerFirstName}` });
             } else {
                 addTodo(title.trim(), dueDate || new Date(), undefined, isWorkMode, undefined, {
                     emoji,
@@ -342,7 +392,9 @@ export default function AddTodoScreen() {
                                 <Text style={styles.cancelText}>Cancel</Text>
                             </Pressable>
                             <Text style={styles.headerTitle}>
-                                {assignToPartner && hasPartner && assignedPartnership
+                                {isEditingAssigned
+                                    ? 'Edit Task'
+                                    : assignToPartner && hasPartner && assignedPartnership
                                     ? `For ${assignedPartnership.partner_name?.split(' ')[0] ?? 'Partner'}`
                                     : 'New Task'}
                             </Text>
@@ -353,7 +405,7 @@ export default function AddTodoScreen() {
                                     hitSlop={8}
                                     style={styles.saveButtonInner}
                                 >
-                                    <Animated.Text style={[styles.saveText, canSave && styles.saveTextActive, saveTextStyle]}>Add</Animated.Text>
+                                    <Animated.Text style={[styles.saveText, canSave && styles.saveTextActive, saveTextStyle]}>{isEditingAssigned ? 'Save' : 'Add'}</Animated.Text>
                                     <Animated.View style={[styles.checkOverlay, checkStyle]}>
                                         <Check size={18} color="#fff" strokeWidth={3} />
                                     </Animated.View>

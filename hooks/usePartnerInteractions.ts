@@ -13,8 +13,16 @@ import { supabase } from '@/lib/supabase';
 import { showToast } from '@/lib/toast';
 import type { PartnerInteraction } from '@/types/interaction';
 
+function sendPushNotification(recipientId: string, title: string, body: string) {
+  supabase.functions.invoke('send-push-notification', {
+    body: { recipient_id: recipientId, title, body },
+  }).catch((err) => {
+    console.log('[interactions] Push notification failed (non-blocking):', err);
+  });
+}
+
 export function usePartnerInteractions(partnerId?: string | null) {
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
   const { hasActivePartnership, getPartnership } = usePartnership();
   const queryClient = useQueryClient();
   const userId = session?.user?.id;
@@ -151,22 +159,30 @@ export function usePartnerInteractions(partnerId?: string | null) {
   }, [userId, isActive, partnerId, scopeKey, getPartnership, queryClient]);
 
   // Mutations
+  const senderName = profile?.name ?? 'Your partner';
+
   const sendReactionMutation = useMutation({
     mutationFn: ({ todoId, emoji }: { todoId: string; emoji: string }) =>
       syncSendReaction(todoId, emoji, partnerId ?? undefined),
-    onSuccess: () => {
+    onSuccess: (_result, { emoji }) => {
       queryClient.invalidateQueries({ queryKey: ['sent-reactions'] });
+      if (partnerId) {
+        sendPushNotification(partnerId, `${emoji} ${senderName}`, 'reacted to your task');
+      }
     },
   });
 
   const sendNudgeMutation = useMutation({
     mutationFn: ({ emoji, message }: { emoji: string; message: string }) =>
       syncSendNudge(emoji, message, partnerId ?? undefined),
-    onSuccess: (result, { emoji }) => {
+    onSuccess: (result, { emoji, message }) => {
       if (result.error) {
         showToast({ emoji: '⚠️', title: 'Nudge failed', message: result.error });
       } else {
         showToast({ emoji, title: 'Sent!', message: 'Nudge delivered' });
+        if (partnerId) {
+          sendPushNotification(partnerId, `${emoji} ${senderName}`, message);
+        }
       }
     },
     onError: () => {

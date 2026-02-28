@@ -2,9 +2,14 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 Deno.serve(async (req) => {
   try {
-    const { assignee_id, task_title, assigner_name } = await req.json();
+    const body = await req.json();
 
-    if (!assignee_id || !task_title || !assigner_name) {
+    // Support both generic (recipient_id, title, body) and legacy (assignee_id, task_title, assigner_name) params
+    const recipientId = body.recipient_id ?? body.assignee_id;
+    const title = body.title ?? (body.assigner_name ? `New task from ${body.assigner_name}` : null);
+    const message = body.body ?? body.task_title;
+
+    if (!recipientId || !title || !message) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
         status: 400,
       });
@@ -19,7 +24,7 @@ Deno.serve(async (req) => {
     const { data: user, error } = await supabase
       .from("users")
       .select("expo_push_token")
-      .eq("id", assignee_id)
+      .eq("id", recipientId)
       .single();
 
     if (error || !user?.expo_push_token) {
@@ -37,8 +42,8 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         to: user.expo_push_token,
-        title: `New task from ${assigner_name}`,
-        body: task_title,
+        title,
+        body: message,
         sound: "default",
       }),
     });

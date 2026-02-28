@@ -7,6 +7,9 @@ import {
   RefreshControl,
   ActivityIndicator,
   Pressable,
+  Alert,
+  ActionSheetIOS,
+  Platform,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useGoBack } from '@/lib/useGoBack';
@@ -32,7 +35,7 @@ import type {
   PartnerFocusSession,
   PartnerPrivacyMode,
 } from '@/lib/sync';
-import { fetchPartnerPrivacyMode } from '@/lib/sync';
+import { fetchPartnerPrivacyMode, deleteAssignedTask } from '@/lib/sync';
 
 function formatTime(time: string | null): string {
   if (!time) return '';
@@ -56,10 +59,11 @@ function formatDuration(ms: number): string {
 interface TodoRowProps {
   todo: PartnerTodo;
   onReact?: (todoId: string, pageY: number) => void;
+  onLongPress?: (todo: PartnerTodo) => void;
   sentReaction?: string;
 }
 
-function TodoRow({ todo, onReact, sentReaction }: TodoRowProps) {
+function TodoRow({ todo, onReact, onLongPress, sentReaction }: TodoRowProps) {
   const handlePress = useCallback(
     (evt: any) => {
       if (todo.completed && onReact) {
@@ -69,6 +73,13 @@ function TodoRow({ todo, onReact, sentReaction }: TodoRowProps) {
     },
     [todo.completed, todo.id, onReact],
   );
+
+  const handleLongPress = useCallback(() => {
+    if (onLongPress) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      onLongPress(todo);
+    }
+  }, [todo, onLongPress]);
 
   const inner = (
     <View style={styles.todoRow}>
@@ -128,8 +139,15 @@ function TodoRow({ todo, onReact, sentReaction }: TodoRowProps) {
     </View>
   );
 
-  if (todo.completed && onReact) {
-    return <Pressable onPress={handlePress}>{inner}</Pressable>;
+  if (onReact || onLongPress) {
+    return (
+      <Pressable
+        onPress={todo.completed && onReact ? handlePress : undefined}
+        onLongPress={onLongPress ? handleLongPress : undefined}
+      >
+        {inner}
+      </Pressable>
+    );
   }
 
   return inner;
@@ -139,10 +157,11 @@ interface TodosSectionProps {
   todos: PartnerTodo[];
   currentUserId?: string;
   onReact?: (todoId: string, pageY: number) => void;
+  onAssignedTaskAction?: (todo: PartnerTodo) => void;
   sentReactions?: Map<string, string>;
 }
 
-function TodosSection({ todos, currentUserId, onReact, sentReactions }: TodosSectionProps) {
+function TodosSection({ todos, currentUserId, onReact, onAssignedTaskAction, sentReactions }: TodosSectionProps) {
   if (todos.length === 0) return null;
 
   const theirTasks = todos.filter((t) => !t.assignedById);
@@ -182,6 +201,7 @@ function TodosSection({ todos, currentUserId, onReact, sentReactions }: TodosSec
               key={todo.id}
               todo={todo}
               onReact={onReact}
+              onLongPress={onAssignedTaskAction}
               sentReaction={sentReactions?.get(todo.id)}
             />
           ))}
@@ -323,6 +343,61 @@ export default function PartnerDetailScreen() {
     [sendNudge],
   );
 
+  const partnerName = partnership?.partner_name ?? 'Partner';
+
+  const handleAssignedTaskAction = useCallback((todo: PartnerTodo) => {
+    const options = ['Edit', 'Delete', 'Cancel'];
+    const destructiveButtonIndex = 1;
+    const cancelButtonIndex = 2;
+
+    const doAction = (buttonIndex: number) => {
+      if (buttonIndex === 0) {
+        // Edit - navigate to add-todo in edit-assigned mode
+        router.push(
+          `/add-todo?forPartnerId=${partnerId}&editAssignedId=${todo.id}` as any,
+        );
+      } else if (buttonIndex === 1) {
+        // Delete
+        Alert.alert(
+          'Delete assigned task?',
+          `This will remove "${todo.title}" from ${partnerName}'s tasks.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Delete',
+              style: 'destructive',
+              onPress: async () => {
+                if (!partnerId) return;
+                const result = await deleteAssignedTask(todo.id, partnerId);
+                if (result.success) {
+                  await loadData();
+                }
+              },
+            },
+          ],
+        );
+      }
+    };
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options, destructiveButtonIndex, cancelButtonIndex },
+        doAction,
+      );
+    } else {
+      // Android fallback using Alert
+      Alert.alert(
+        todo.title,
+        undefined,
+        [
+          { text: 'Edit', onPress: () => doAction(0) },
+          { text: 'Delete', style: 'destructive', onPress: () => doAction(1) },
+          { text: 'Cancel', style: 'cancel' },
+        ],
+      );
+    }
+  }, [partnerId, partnerName, router, loadData]);
+
   const isEmpty =
     data &&
     data.todos.length === 0 &&
@@ -334,8 +409,6 @@ export default function PartnerDetailScreen() {
     month: 'short',
     day: 'numeric',
   });
-
-  const partnerName = partnership?.partner_name ?? 'Partner';
 
   return (
     <View style={styles.container}>
@@ -442,6 +515,7 @@ export default function PartnerDetailScreen() {
                     todos={data.todos}
                     currentUserId={session?.user?.id}
                     onReact={handleReact}
+                    onAssignedTaskAction={handleAssignedTaskAction}
                     sentReactions={sentReactions}
                   />
                 )}

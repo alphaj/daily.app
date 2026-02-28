@@ -397,7 +397,6 @@ export default function TodayScreen() {
         <HomeHeader
           selectedDate={selectedDate}
           onSelectDate={handleSelectDate}
-          onMorePress={() => router.push('/menu')}
           onAddPress={handleAddPress}
           incompleteDateMap={incompleteDateMap}
         />

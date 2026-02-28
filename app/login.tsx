@@ -125,10 +125,10 @@ export default function LoginScreen() {
               </View>
             </View>
 
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
           </View>
 
           <View style={styles.buttonContainer}>
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
             <Pressable
               style={({ pressed }) => [
                 styles.loginButton,
@@ -235,11 +235,12 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#FF3B30',
     fontSize: 14,
-    marginTop: 4,
+    textAlign: 'center',
   },
   buttonContainer: {
     paddingHorizontal: 24,
     paddingBottom: 24,
+    paddingTop: 24,
     gap: 16,
     alignItems: 'center',
   },

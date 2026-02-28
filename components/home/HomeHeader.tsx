@@ -1,7 +1,7 @@
 import React, { memo, useMemo, useRef, useCallback, useEffect } from 'react';
 import { View, Text, Pressable, StyleSheet, FlatList, Dimensions } from 'react-native';
 import { Fonts } from '@/lib/typography';
-import { MoreHorizontal, Plus } from 'lucide-react-native';
+import { Plus } from 'lucide-react-native';
 import * as Haptics from '@/lib/haptics';
 import { format, addDays, addWeeks, startOfWeek, isSameDay, differenceInCalendarWeeks } from 'date-fns';
 
@@ -15,7 +15,6 @@ const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 interface HomeHeaderProps {
   selectedDate: Date;
   onSelectDate: (date: Date) => void;
-  onMorePress: () => void;
   onAddPress: () => void;
   incompleteDateMap?: Record<string, { incomplete: number; total: number }>;
 }
@@ -117,7 +116,6 @@ const WeekItem = memo(
 export const HomeHeader = memo(function HomeHeader({
   selectedDate,
   onSelectDate,
-  onMorePress,
   onAddPress,
   incompleteDateMap,
 }: HomeHeaderProps) {
@@ -187,16 +185,6 @@ export const HomeHeader = memo(function HomeHeader({
           daily<Text style={styles.logoDot}>.app</Text>
         </Text>
         <View style={styles.topRight}>
-          <Pressable
-            style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
-            onPress={() => {
-              Haptics.selectionAsync();
-              onMorePress();
-            }}
-            hitSlop={8}
-          >
-            <MoreHorizontal size={20} color="#1C1C1E" strokeWidth={2} />
-          </Pressable>
           <Pressable
             style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
             onPress={() => {

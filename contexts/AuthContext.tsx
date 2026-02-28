@@ -30,6 +30,7 @@ interface AuthContextType {
   setPrivacyMode: (mode: PrivacyMode) => Promise<{ error: string | null }>;
   uploadAvatar: (source: 'camera' | 'gallery') => Promise<{ error: string | null }>;
   removeAvatar: () => Promise<{ error: string | null }>;
+  updateName: (name: string) => Promise<{ error: string | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -48,6 +49,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setIsLoading(false);
       }
+    }).catch(() => {
+      setIsLoading(false);
     });
 
     // Listen for auth changes
@@ -206,6 +209,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateName = async (name: string): Promise<{ error: string | null }> => {
+    try {
+      const userId = session?.user?.id;
+      if (!userId) return { error: 'Not signed in' };
+
+      const trimmed = name.trim();
+      if (!trimmed) return { error: 'Name cannot be empty' };
+
+      const { error } = await supabase
+        .from('users')
+        .update({ name: trimmed })
+        .eq('id', userId);
+
+      if (error) return { error: error.message };
+
+      setProfile(prev => prev ? { ...prev, name: trimmed } : prev);
+      return { error: null };
+    } catch (err: any) {
+      return { error: err.message ?? 'Failed to update name' };
+    }
+  };
+
   const regeneratePartnerCode = async (): Promise<{ error: string | null; partnerCode: string | null }> => {
     try {
       const { data, error } = await supabase.rpc('regenerate_partner_code');
@@ -238,6 +263,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setPrivacyMode,
         uploadAvatar,
         removeAvatar,
+        updateName,
       }}
     >
       {children}

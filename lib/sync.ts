@@ -395,6 +395,111 @@ export async function markAssignedTasksDelivered(ids: string[]): Promise<void> {
   }
 }
 
+export async function deleteAssignedTask(taskId: string, partnerId: string): Promise<{ success?: boolean; error?: string }> {
+  // Delete from partner's synced_todos (the task we assigned to them)
+  const { error: syncError } = await supabase
+    .from('synced_todos')
+    .delete()
+    .eq('id', taskId)
+    .eq('user_id', partnerId);
+
+  if (syncError) {
+    console.error('[sync] Failed to delete from synced_todos:', syncError.message);
+  }
+
+  // Also delete from assigned_tasks table
+  const { error: assignError } = await supabase
+    .from('assigned_tasks')
+    .delete()
+    .eq('id', taskId);
+
+  if (assignError) {
+    console.error('[sync] Failed to delete from assigned_tasks:', assignError.message);
+  }
+
+  if (syncError && assignError) {
+    return { error: syncError.message };
+  }
+
+  return { success: true };
+}
+
+export async function updateAssignedTask(
+  taskId: string,
+  partnerId: string,
+  updates: {
+    title?: string;
+    emoji?: string | null;
+    emoji_color?: string | null;
+    due_date?: string;
+    due_time?: string | null;
+    priority?: string | null;
+    estimated_minutes?: number | null;
+    time_of_day?: string | null;
+    subtasks?: any | null;
+  },
+): Promise<{ success?: boolean; error?: string }> {
+  // Update in partner's synced_todos
+  const { error: syncError } = await supabase
+    .from('synced_todos')
+    .update(updates)
+    .eq('id', taskId)
+    .eq('user_id', partnerId);
+
+  if (syncError) {
+    console.error('[sync] Failed to update synced_todos:', syncError.message);
+  }
+
+  // Also update in assigned_tasks table
+  const { error: assignError } = await supabase
+    .from('assigned_tasks')
+    .update(updates)
+    .eq('id', taskId);
+
+  if (assignError) {
+    console.error('[sync] Failed to update assigned_tasks:', assignError.message);
+  }
+
+  if (syncError && assignError) {
+    return { error: syncError.message };
+  }
+
+  return { success: true };
+}
+
+export async function fetchAssignedTask(taskId: string, partnerId: string): Promise<PartnerTodo | null> {
+  const { data, error } = await supabase
+    .from('synced_todos')
+    .select('id, title, completed, completed_at, due_date, due_time, priority, is_work, emoji, emoji_color, estimated_minutes, time_of_day, subtasks, assigned_by_id, assigned_by_name')
+    .eq('id', taskId)
+    .eq('user_id', partnerId)
+    .single();
+
+  if (error || !data) {
+    console.error('[sync] Failed to fetch assigned task:', error?.message);
+    return null;
+  }
+
+  const r = data as any;
+  return {
+    id: r.id,
+    title: r.title,
+    completed: r.completed,
+    completedAt: r.completed_at,
+    dueDate: r.due_date,
+    dueTime: r.due_time,
+    priority: r.priority,
+    isWork: r.is_work,
+    emoji: r.emoji,
+    emojiColor: r.emoji_color,
+    estimatedMinutes: r.estimated_minutes,
+    timeOfDay: r.time_of_day,
+    subtasks: r.subtasks ? (typeof r.subtasks === 'string' ? JSON.parse(r.subtasks) : r.subtasks) : null,
+    assignedById: r.assigned_by_id,
+    assignedByName: r.assigned_by_name,
+  };
+}
+
 // ── Partner interactions (reactions & nudges) ──────────────────────
 
 export async function sendReaction(todoId: string, emoji: string, partnerId?: string): Promise<{ success?: boolean; error?: string }> {

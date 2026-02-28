@@ -1,3 +1,4 @@
+import 'react-native-url-polyfill/auto';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -65,7 +66,7 @@ function RootLayoutNav() {
       <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
       <Stack.Screen name="login" options={{ headerShown: false, animation: 'fade' }} />
       <Stack.Screen name="inbox" options={{ headerShown: false, animation: 'fade' }} />
-      <Stack.Screen name="menu" options={{ headerShown: false, animation: 'slide_from_right' }} />
+      <Stack.Screen name="menu" options={{ headerShown: false, animation: 'fade' }} />
       <Stack.Screen name="add-todo" options={{ presentation: "modal", headerShown: false }} />
       <Stack.Screen name="later" options={{ headerShown: false, animation: 'fade' }} />
       <Stack.Screen name="history" options={{ headerShown: false, animation: 'fade' }} />
