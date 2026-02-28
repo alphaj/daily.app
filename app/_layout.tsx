@@ -20,7 +20,6 @@ import { SyncProvider } from "@/contexts/SyncContext";
 import { FocusProvider } from "@/contexts/FocusContext";
 import { ToastHost } from "@/components/InAppToast";
 
-import { trpc, trpcClient } from "@/lib/trpc";
 
 SplashScreen.preventAutoHideAsync();
 SystemUI.setBackgroundColorAsync('#F2F2F7');
@@ -119,10 +118,8 @@ function AppWrapper() {
 
 export default function RootLayout() {
   return (
-    <trpc.Provider client={trpcClient} queryClient={queryClient}>
-      <QueryClientProvider client={queryClient}>
-        <AppWrapper />
-      </QueryClientProvider>
-    </trpc.Provider>
+    <QueryClientProvider client={queryClient}>
+      <AppWrapper />
+    </QueryClientProvider>
   );
 }
