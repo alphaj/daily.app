@@ -41,8 +41,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.warn('[auth] getSession error, clearing session:', error.message);
+        supabase.auth.signOut().catch(() => {});
+        setSession(null);
+        setProfile(null);
+        setIsLoading(false);
+        return;
+      }
       setSession(session);
       if (session?.user) {
         fetchProfile(session.user.id);
@@ -53,8 +60,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
     });
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'TOKEN_REFRESHED' && !session) {
+        console.warn('[auth] Token refresh failed, signing out');
+        supabase.auth.signOut().catch(() => {});
+        setSession(null);
+        setProfile(null);
+        setIsLoading(false);
+        return;
+      }
+      if (event === 'SIGNED_OUT') {
+        setSession(null);
+        setProfile(null);
+        setIsLoading(false);
+        return;
+      }
       setSession(session);
       if (session?.user) {
         fetchProfile(session.user.id);
