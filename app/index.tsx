@@ -8,10 +8,10 @@ export default function Index() {
   const { session, isLoading: authLoading } = useAuth();
 
   // Still loading — show nothing (splash screen is still visible)
-  if (onboardingLoading || authLoading) return <View style={{ flex: 1 }} />;
+  if (onboardingLoading || authLoading) return <View style={{ flex: 1, backgroundColor: '#F2F2F7' }} />;
 
   // Not ready — let useProtectedRoute in _layout handle the redirect
-  if (!state.hasCompletedOnboarding || !session) return <View style={{ flex: 1 }} />;
+  if (!state.hasCompletedOnboarding || !session) return <View style={{ flex: 1, backgroundColor: '#F2F2F7' }} />;
 
   return <Redirect href="/history" />;
 }

@@ -22,6 +22,7 @@ export const [FocusProvider, useFocus] = createContextHook(() => {
   const [history, setHistory] = useState<FocusSessionRecord[]>([]);
   const [remainingMs, setRemainingMs] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recordedIdsRef = useRef<Set<string>>(new Set());
 
   // Load persisted session
   const sessionQuery = useQuery({
@@ -87,6 +88,10 @@ export const [FocusProvider, useFocus] = createContextHook(() => {
 
   // Complete the session
   const completeSession = useCallback(async (s: FocusSession) => {
+    // Guard against multiple effects completing the same session
+    if (recordedIdsRef.current.has(s.id)) return;
+    recordedIdsRef.current.add(s.id);
+
     const completedAt = new Date().toISOString();
     const actualMs = s.durationMs; // They ran the full duration
 
@@ -255,7 +260,8 @@ export const [FocusProvider, useFocus] = createContextHook(() => {
   const cancelSession = useCallback(async () => {
     if (!session) return;
 
-    if (session.status === 'running' || session.status === 'paused') {
+    if ((session.status === 'running' || session.status === 'paused') && !recordedIdsRef.current.has(session.id)) {
+      recordedIdsRef.current.add(session.id);
       const now = Date.now();
       let actualMs: number;
       if (session.status === 'paused' && session.pausedAt) {

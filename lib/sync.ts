@@ -71,7 +71,10 @@ export async function pushFocusSessions(userId: string): Promise<void> {
   const sessions: FocusSessionRecord[] = JSON.parse(raw);
   if (sessions.length === 0) return;
 
-  const rows = sessions.map((s) => ({
+  // Deduplicate by id, keeping the last occurrence (most recent)
+  const deduped = [...new Map(sessions.map((s) => [s.id, s] as const)).values()];
+
+  const rows = deduped.map((s) => ({
     id: s.id,
     user_id: userId,
     date: s.date,

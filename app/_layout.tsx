@@ -3,7 +3,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import * as SystemUI from "expo-system-ui";
-import React, { useEffect } from "react";
+import React, { useEffect, Component, type ReactNode } from "react";
+import { View, Text, Pressable, StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider, initialWindowMetrics } from "react-native-safe-area-context";
 import { TodoProvider } from "@/contexts/TodoContext";
@@ -25,6 +26,48 @@ SplashScreen.preventAutoHideAsync();
 SystemUI.setBackgroundColorAsync('#F2F2F7');
 
 const queryClient = new QueryClient();
+
+class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error('[ErrorBoundary]', error);
+    // Hide splash so the recovery screen is visible
+    SplashScreen.hideAsync().catch(() => {});
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={errorStyles.container}>
+          <Text style={errorStyles.emoji}>:(</Text>
+          <Text style={errorStyles.title}>Something went wrong</Text>
+          <Text style={errorStyles.subtitle}>The app ran into an unexpected error.</Text>
+          <Pressable
+            style={errorStyles.button}
+            onPress={() => this.setState({ hasError: false })}
+          >
+            <Text style={errorStyles.buttonText}>Try Again</Text>
+          </Pressable>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const errorStyles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#F2F2F7', justifyContent: 'center', alignItems: 'center', padding: 32 },
+  emoji: { fontSize: 48, marginBottom: 16, color: '#8E8E93' },
+  title: { fontSize: 22, fontWeight: '700', color: '#1c1c1e', marginBottom: 8 },
+  subtitle: { fontSize: 16, color: '#8E8E93', textAlign: 'center', marginBottom: 32 },
+  button: { backgroundColor: '#000', borderRadius: 28, paddingVertical: 16, paddingHorizontal: 40 },
+  buttonText: { color: '#fff', fontSize: 17, fontWeight: '600' },
+});
 
 function useProtectedRoute() {
   const segments = useSegments();
@@ -55,9 +98,14 @@ function useProtectedRoute() {
 
 function RootLayoutNav() {
   useProtectedRoute();
+  const { isLoading: onboardingLoading } = useOnboarding();
+  const { isLoading: authLoading } = useAuth();
+
   useEffect(() => {
-    SplashScreen.hideAsync();
-  }, []);
+    if (!onboardingLoading && !authLoading) {
+      SplashScreen.hideAsync();
+    }
+  }, [onboardingLoading, authLoading]);
 
   return (
     <Stack screenOptions={{ headerBackTitle: "Back", contentStyle: { backgroundColor: '#F2F2F7' } }}>
@@ -118,8 +166,10 @@ function AppWrapper() {
 
 export default function RootLayout() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AppWrapper />
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AppWrapper />
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }

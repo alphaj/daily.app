@@ -379,9 +379,9 @@ function ActiveBuddyCard({ partnership }: { partnership: BuddyStatus }) {
 // ── Privacy mode (global, not per-partner) ──────────────────────────
 
 const PRIVACY_MODES: { value: PrivacyMode; label: string; description: string }[] = [
-  { value: 'open', label: 'Open', description: 'Buddies see everything you share' },
-  { value: 'focus', label: 'Focus', description: 'Buddies see you\'re busy, not details' },
-  { value: 'private', label: 'Private', description: 'All shared data hidden temporarily' },
+  { value: 'open', label: 'Open', description: 'Buddies see all shared data' },
+  { value: 'focus', label: 'Focus', description: 'Only shows you\'re busy' },
+  { value: 'private', label: 'Private', description: 'All data hidden' },
 ];
 
 function PrivacyModeSection() {
@@ -408,7 +408,7 @@ function PrivacyModeSection() {
               <Text style={[styles.privacyModeLabel, isActive && styles.privacyModeLabelActive]}>
                 {mode.label}
               </Text>
-              <Text style={[styles.privacyModeDesc, isActive && styles.privacyModeDescActive]} numberOfLines={2}>
+              <Text style={[styles.privacyModeDesc, isActive && styles.privacyModeDescActive]}>
                 {mode.description}
               </Text>
             </Pressable>
@@ -690,7 +690,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F5F7',
     borderRadius: 14,
-    padding: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
     alignItems: 'center',
     borderWidth: 2,
     borderColor: 'transparent',
