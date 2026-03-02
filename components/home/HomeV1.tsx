@@ -1,14 +1,13 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet, Platform } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowRight, ChevronDown, ChevronRight, Check, Plus } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { ChevronDown, ChevronRight, Check, Plus } from 'lucide-react-native';
 import * as Haptics from '@/lib/haptics';
 
 import { TaskSection } from './TaskSection';
 import { TaskCard } from './TaskCard';
 import { BuddyDiscoveryCard } from './BuddyDiscoveryCard';
-import { QuickActionsGrid } from './QuickActionsGrid';
+
 import { useBuddyInteractions } from '@/hooks/useBuddyInteractions';
 import { useTodos } from '@/contexts/TodoContext';
 import type { HomeVariantProps } from './types';
@@ -32,30 +31,24 @@ function IncompleteTasksBanner() {
   return (
     <View style={styles.bannerWrapper}>
       <Pressable
-        style={({ pressed }) => [pressed && { opacity: 0.92, transform: [{ scale: 0.98 }] }]}
+        style={({ pressed }) => [styles.bannerCard, pressed && { opacity: 0.7 }]}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           router.push('/incomplete');
         }}
       >
-        <LinearGradient
-          colors={['#FFF6ED', '#FFEBD4']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.bannerCard}
-        >
-          <View style={styles.bannerIconCircle}>
-            <Text style={styles.bannerEmoji}>🔥</Text>
-          </View>
-          <View style={styles.bannerTextCol}>
-            <Text style={styles.bannerTitle}>
-              <Text style={styles.bannerCountInline}>{totalIncomplete}</Text>
-              {' '}incomplete task{totalIncomplete !== 1 ? 's' : ''}
-            </Text>
-            <Text style={styles.bannerSubtitle}>Tap to review & reschedule</Text>
-          </View>
-          <ArrowRight size={16} color="#C2590A" strokeWidth={2} />
-        </LinearGradient>
+        <View style={styles.bannerBadge}>
+          <Text style={styles.bannerBadgeText}>{totalIncomplete}</Text>
+        </View>
+        <View style={styles.bannerTextCol}>
+          <Text style={styles.bannerTitle}>
+            Overdue task{totalIncomplete !== 1 ? 's' : ''}
+          </Text>
+          <Text style={styles.bannerSubtitle}>
+            From {dayCount} past day{dayCount !== 1 ? 's' : ''}
+          </Text>
+        </View>
+        <ChevronRight size={16} color="#C7C7CC" strokeWidth={2} />
       </Pressable>
     </View>
   );
@@ -143,7 +136,6 @@ export function HomeV1(props: HomeVariantProps) {
       showsVerticalScrollIndicator={false}
       contentContainerStyle={styles.contentContainer}
     >
-      <QuickActionsGrid isToday={isToday} />
       <BuddyDiscoveryCard />
       {isToday && <IncompleteTasksBanner />}
 
@@ -212,7 +204,7 @@ export function HomeV1(props: HomeVariantProps) {
           >
             <View style={styles.donePill}>
               <Check size={12} color="#8E8E93" strokeWidth={2.5} />
-              <Text style={styles.doneLabel}>DONE ({completedTodos.length})</Text>
+              <Text style={styles.doneLabel}>Done ({completedTodos.length})</Text>
               {doneExpanded ? (
                 <ChevronDown size={14} color="#8E8E93" strokeWidth={2.5} />
               ) : (
@@ -264,31 +256,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    borderRadius: 16,
-    paddingVertical: 12,
+    borderRadius: 14,
+    paddingVertical: 14,
     paddingHorizontal: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#E8960A',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.10,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: 'rgba(60,60,67,0.06)',
   },
-  bannerIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,149,0,0.15)',
+  bannerBadge: {
+    minWidth: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: '#FF9F0A',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 6,
   },
-  bannerEmoji: {
-    fontSize: 20,
+  bannerBadgeText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   bannerTextCol: {
     flex: 1,
@@ -296,15 +283,12 @@ const styles = StyleSheet.create({
   bannerTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#C2590A',
+    color: '#1C1C1E',
     letterSpacing: -0.2,
   },
-  bannerCountInline: {
-    fontWeight: '800',
-  },
   bannerSubtitle: {
-    fontSize: 12,
-    color: '#9E6A3A',
+    fontSize: 13,
+    color: '#8E8E93',
     marginTop: 1,
   },
   allDoneState: {
@@ -387,10 +371,10 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   doneLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#8E8E93',
-    letterSpacing: 0.8,
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#999',
+    letterSpacing: 0.3,
   },
   doneBody: {
     marginTop: 12,

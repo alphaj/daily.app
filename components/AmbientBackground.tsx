@@ -91,6 +91,5 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 50,
         elevation: 10,
-        filter: 'blur(60px)', // Web compatibility
     }
 });

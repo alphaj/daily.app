@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import * as SystemUI from "expo-system-ui";
-import React, { useEffect, Component, type ReactNode } from "react";
+import React, { useEffect, useRef, Component, type ReactNode } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -73,14 +73,27 @@ const errorStyles = StyleSheet.create({
 function useProtectedRoute() {
   const segments = useSegments();
   const router = useRouter();
-  const { state, isLoading: onboardingLoading } = useOnboarding();
+  const { state, isLoading: onboardingLoading, completeOnboarding } = useOnboarding();
   const { session, isLoading: authLoading } = useAuth();
+  const recoveryTriggered = useRef(false);
 
   useEffect(() => {
     if (onboardingLoading || authLoading) return;
 
     const inOnboarding = segments[0] === "(onboarding)";
     const inLogin = segments[0] === "login";
+
+    if (session && !state.hasCompletedOnboarding && !inOnboarding && !inLogin) {
+      // Session exists but onboarding state was lost (e.g. app deleted + reinstalled
+      // clears AsyncStorage but Keychain preserves the Supabase session).
+      // Auto-complete onboarding — the state update triggers a re-render which
+      // causes index.tsx to render <Redirect href="/history" />.
+      if (!recoveryTriggered.current) {
+        recoveryTriggered.current = true;
+        completeOnboarding();
+      }
+      return;
+    }
 
     if (session && state.hasCompletedOnboarding && (inOnboarding || inLogin)) {
       // Fully onboarded + authenticated user still on onboarding/login — send to home
@@ -94,19 +107,31 @@ function useProtectedRoute() {
         router.replace("/login");
       }
     }
-  }, [segments, state.hasCompletedOnboarding, session, onboardingLoading, authLoading, router]);
+  }, [segments, state.hasCompletedOnboarding, session, onboardingLoading, authLoading, router, completeOnboarding]);
 }
+
+const SPLASH_TIMEOUT_MS = 5000;
 
 function RootLayoutNav() {
   useProtectedRoute();
   const { isLoading: onboardingLoading } = useOnboarding();
   const { isLoading: authLoading } = useAuth();
 
+  // Normal splash hide: both contexts have finished loading
   useEffect(() => {
     if (!onboardingLoading && !authLoading) {
       SplashScreen.hideAsync();
     }
   }, [onboardingLoading, authLoading]);
+
+  // Safety timeout: if loading takes too long, hide splash anyway to avoid
+  // permanently stuck screen (e.g. SecureStore or AsyncStorage hanging)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      SplashScreen.hideAsync();
+    }, SPLASH_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <Stack screenOptions={{ headerBackTitle: "Back", contentStyle: { backgroundColor: '#F2F2F7' } }}>

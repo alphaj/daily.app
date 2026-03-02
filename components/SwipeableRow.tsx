@@ -148,5 +148,7 @@ const styles = StyleSheet.create({
     },
     swipeableContainer: {
         backgroundColor: 'transparent',
+        borderRadius: 16,
+        overflow: 'hidden',
     }
 });

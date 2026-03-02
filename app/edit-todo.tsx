@@ -220,7 +220,7 @@ export default function EditTodoScreen() {
 
                         {/* When Section */}
                         <View style={s.section}>
-                            <Text style={s.sectionLabel}>WHEN</Text>
+                            <Text style={s.sectionLabel}>When</Text>
                             <View style={s.pillRow}>
                                 <Pressable
                                     style={[s.pill, isDateToday && s.pillActive]}
@@ -265,7 +265,7 @@ export default function EditTodoScreen() {
 
                         {/* Time of Day Section */}
                         <View style={s.section}>
-                            <Text style={s.sectionLabel}>TIME OF DAY</Text>
+                            <Text style={s.sectionLabel}>Time of day</Text>
                             <View style={s.pillRow}>
                                 {TIME_OF_DAY_OPTIONS.map(opt => {
                                     const active = timeOfDay === opt.value;
@@ -288,7 +288,7 @@ export default function EditTodoScreen() {
 
                         {/* Duration Section */}
                         <View style={s.section}>
-                            <Text style={s.sectionLabel}>DURATION</Text>
+                            <Text style={s.sectionLabel}>Duration</Text>
                             <View style={s.pillRow}>
                                 {DURATION_OPTIONS.map(opt => {
                                     const active = estimatedMinutes === opt.value;
@@ -310,7 +310,7 @@ export default function EditTodoScreen() {
 
                         {/* Repeat Section */}
                         <View style={s.section}>
-                            <Text style={s.sectionLabel}>REPEAT</Text>
+                            <Text style={s.sectionLabel}>Repeat</Text>
                             <View style={s.pillRow}>
                                 {REPEAT_OPTIONS.map(opt => {
                                     const active = repeat === opt.value;
@@ -333,7 +333,7 @@ export default function EditTodoScreen() {
                         {/* Private Section */}
                         {hasPartner && (
                             <View style={s.section}>
-                                <Text style={s.sectionLabel}>VISIBILITY</Text>
+                                <Text style={s.sectionLabel}>Visibility</Text>
                                 <View style={s.pillRow}>
                                     <Pressable
                                         style={[s.pill, !isPrivate && s.pillActive]}
@@ -351,8 +351,8 @@ export default function EditTodoScreen() {
                                             setIsPrivate(true);
                                         }}
                                     >
-                                        <Lock size={14} color={isPrivate ? '#fff' : '#8E8E93'} />
-                                        <Text style={[s.pillText, isPrivate && s.pillTextActive]}>Private</Text>
+                                        <Lock size={14} color={isPrivate ? '#FF9500' : '#8E8E93'} />
+                                        <Text style={[s.pillText, isPrivate && s.pillTextWarn]}>Private</Text>
                                     </Pressable>
                                 </View>
                             </View>
@@ -360,7 +360,7 @@ export default function EditTodoScreen() {
 
                         {/* Checklist Section */}
                         <View style={s.section}>
-                            <Text style={s.sectionLabel}>CHECKLIST</Text>
+                            <Text style={s.sectionLabel}>Checklist</Text>
                             <View style={s.checklistCard}>
                                 {subtasks.map((st, i) => (
                                     <View key={st.id}>
@@ -625,19 +625,19 @@ const s = StyleSheet.create({
 
     // Sections
     section: {
-        marginBottom: 28,
+        marginBottom: 32,
     },
     sectionLabel: {
-        fontSize: 12,
-        fontWeight: '700',
-        color: '#8E8E93',
-        letterSpacing: 1,
+        fontSize: 13,
+        fontWeight: '500',
+        color: '#999',
+        letterSpacing: 0.3,
         marginBottom: 10,
     },
     pillRow: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 8,
+        gap: 10,
     },
     pill: {
         flexDirection: 'row',
@@ -645,17 +645,21 @@ const s = StyleSheet.create({
         gap: 5,
         paddingHorizontal: 16,
         paddingVertical: 10,
-        borderRadius: 10,
-        backgroundColor: '#F5F5F5',
+        borderRadius: 100,
+        backgroundColor: 'transparent',
+        borderWidth: 1,
+        borderColor: '#E0E0E0',
     },
     pillCompact: {
         paddingHorizontal: 14,
     },
     pillActive: {
-        backgroundColor: '#1C1C1E',
+        backgroundColor: 'rgba(0, 122, 255, 0.07)',
+        borderColor: 'rgba(0, 122, 255, 0.28)',
     },
     pillWarn: {
-        backgroundColor: '#FF9500',
+        backgroundColor: 'rgba(255, 149, 0, 0.07)',
+        borderColor: 'rgba(255, 149, 0, 0.28)',
     },
     pillIcon: {
         fontSize: 14,
@@ -666,7 +670,10 @@ const s = StyleSheet.create({
         color: '#3C3C43',
     },
     pillTextActive: {
-        color: '#fff',
+        color: '#007AFF',
+    },
+    pillTextWarn: {
+        color: '#FF9500',
     },
 
     // Checklist

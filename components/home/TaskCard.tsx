@@ -11,7 +11,7 @@ import type { Todo, Subtask, TimeOfDay } from '@/types/todo';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
 const SECTION_TINTS: Record<TimeOfDay, { card: string; emoji: string; border: string }> = {
-  anytime:   { card: '#F9F9FB',                emoji: 'rgba(120,120,128,0.08)', border: 'transparent' },
+  anytime:   { card: '#F9F9FB',                emoji: 'rgba(120,120,128,0.08)', border: 'rgba(0,0,0,0.04)' },
   morning:   { card: 'rgba(255,204,0,0.06)',   emoji: 'rgba(255,204,0,0.14)',   border: 'rgba(255,204,0,0.15)' },
   afternoon: { card: 'rgba(255,149,0,0.06)',   emoji: 'rgba(255,149,0,0.14)',   border: 'rgba(255,149,0,0.15)' },
   evening:   { card: 'rgba(88,86,214,0.06)',   emoji: 'rgba(88,86,214,0.14)',   border: 'rgba(88,86,214,0.15)' },
@@ -200,7 +200,7 @@ export const TaskCard = memo(function TaskCard({
     <Animated.View style={exitStyle}>
     <SwipeableRow onDelete={() => onDelete(todo.id)}>
       <Animated.View style={[pressStyle, styles.cardShadow, todo.completed && styles.cardCompleted, todo.isDefault && !todo.completed && styles.cardDefault, isOverdue && !todo.completed && styles.cardOverdue]}>
-      <View style={[styles.card, { backgroundColor: tint.card, borderWidth: tint.border !== 'transparent' ? 0.5 : 0, borderColor: tint.border }, todo.isDefault && !todo.completed && styles.cardDefaultInner, isOverdue && !todo.completed && styles.cardOverdueInner]}>
+      <View style={[styles.card, { backgroundColor: tint.card, borderWidth: 1, borderColor: tint.border }, todo.isDefault && !todo.completed && styles.cardDefaultInner, isOverdue && !todo.completed && styles.cardOverdueInner]}>
         <Pressable
           style={styles.cardContent}
           onPress={handleToggle}
@@ -471,8 +471,8 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   checkboxChecked: {
-    backgroundColor: '#1C1C1E',
-    borderColor: '#1C1C1E',
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
   },
   // Subtask indicator
   subtaskIndicator: {

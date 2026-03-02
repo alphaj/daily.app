@@ -128,7 +128,7 @@ export function AddTodoThings({ form }: { form: AddTodoFormState }) {
 
                             {/* When Section */}
                             <View style={s.section}>
-                                <Text style={s.sectionLabel}>WHEN</Text>
+                                <Text style={s.sectionLabel}>When</Text>
                                 <View style={s.pillRow}>
                                     <Pressable
                                         style={[s.pill, isDateToday && s.pillActive]}
@@ -173,7 +173,7 @@ export function AddTodoThings({ form }: { form: AddTodoFormState }) {
 
                             {/* Time of Day Section */}
                             <View style={s.section}>
-                                <Text style={s.sectionLabel}>TIME OF DAY</Text>
+                                <Text style={s.sectionLabel}>Time of day</Text>
                                 <View style={s.pillRow}>
                                     {TIME_OF_DAY_OPTIONS.map(opt => {
                                         const active = form.timeOfDay === opt.value;
@@ -196,7 +196,7 @@ export function AddTodoThings({ form }: { form: AddTodoFormState }) {
 
                             {/* Duration Section */}
                             <View style={s.section}>
-                                <Text style={s.sectionLabel}>DURATION</Text>
+                                <Text style={s.sectionLabel}>Duration</Text>
                                 <View style={s.pillRow}>
                                     {DURATION_OPTIONS.map(opt => {
                                         const active = form.estimatedMinutes === opt.value;
@@ -218,7 +218,7 @@ export function AddTodoThings({ form }: { form: AddTodoFormState }) {
 
                             {/* Repeat Section */}
                             <View style={s.section}>
-                                <Text style={s.sectionLabel}>REPEAT</Text>
+                                <Text style={s.sectionLabel}>Repeat</Text>
                                 <View style={s.pillRow}>
                                     {REPEAT_OPTIONS.map(opt => {
                                         const active = form.repeat === opt.value;
@@ -241,7 +241,7 @@ export function AddTodoThings({ form }: { form: AddTodoFormState }) {
                             {/* Partner Section */}
                             {form.hasPartner && (
                                 <View style={s.section}>
-                                    <Text style={s.sectionLabel}>ASSIGN</Text>
+                                    <Text style={s.sectionLabel}>Assign</Text>
                                     <View style={s.pillRow}>
                                         {form.activeBuddies.map((p) => {
                                             const isSelected = form.assignToPartnerId === p.partner_id;
@@ -259,7 +259,7 @@ export function AddTodoThings({ form }: { form: AddTodoFormState }) {
                                                         }
                                                     }}
                                                 >
-                                                    <UserPlus size={14} color={isSelected ? '#fff' : '#8E8E93'} />
+                                                    <UserPlus size={14} color={isSelected ? '#007AFF' : '#8E8E93'} />
                                                     <Text style={[s.pillText, isSelected && s.pillTextActive]}>
                                                         {p.partner_name?.split(' ')[0] ?? 'Partner'}
                                                     </Text>
@@ -274,8 +274,8 @@ export function AddTodoThings({ form }: { form: AddTodoFormState }) {
                                                     form.setIsPrivate(!form.isPrivate);
                                                 }}
                                             >
-                                                <Lock size={14} color={form.isPrivate ? '#fff' : '#8E8E93'} />
-                                                <Text style={[s.pillText, form.isPrivate && s.pillTextActive]}>
+                                                <Lock size={14} color={form.isPrivate ? '#FF9500' : '#8E8E93'} />
+                                                <Text style={[s.pillText, form.isPrivate && s.pillTextWarn]}>
                                                     {form.isPrivate ? 'Private' : 'Shared'}
                                                 </Text>
                                             </Pressable>
@@ -286,7 +286,7 @@ export function AddTodoThings({ form }: { form: AddTodoFormState }) {
 
                             {/* Checklist Section */}
                             <View style={s.section}>
-                                <Text style={s.sectionLabel}>CHECKLIST</Text>
+                                <Text style={s.sectionLabel}>Checklist</Text>
                                 <View style={s.checklistCard}>
                                     {form.subtasks.map((st, i) => (
                                         <View key={st.id}>
@@ -675,19 +675,19 @@ const s = StyleSheet.create({
 
     // Sections
     section: {
-        marginBottom: 28,
+        marginBottom: 32,
     },
     sectionLabel: {
-        fontSize: 12,
-        fontWeight: '700',
-        color: '#8E8E93',
-        letterSpacing: 1,
+        fontSize: 13,
+        fontWeight: '500',
+        color: '#999',
+        letterSpacing: 0.3,
         marginBottom: 10,
     },
     pillRow: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 8,
+        gap: 10,
     },
     pill: {
         flexDirection: 'row',
@@ -695,20 +695,25 @@ const s = StyleSheet.create({
         gap: 5,
         paddingHorizontal: 16,
         paddingVertical: 10,
-        borderRadius: 10,
-        backgroundColor: '#F5F5F5',
+        borderRadius: 100,
+        backgroundColor: 'transparent',
+        borderWidth: 1,
+        borderColor: '#E0E0E0',
     },
     pillCompact: {
         paddingHorizontal: 14,
     },
     pillActive: {
-        backgroundColor: '#1C1C1E',
+        backgroundColor: 'rgba(0, 122, 255, 0.07)',
+        borderColor: 'rgba(0, 122, 255, 0.28)',
     },
     pillAccent: {
-        backgroundColor: '#007AFF',
+        backgroundColor: 'rgba(0, 122, 255, 0.07)',
+        borderColor: 'rgba(0, 122, 255, 0.28)',
     },
     pillWarn: {
-        backgroundColor: '#FF9500',
+        backgroundColor: 'rgba(255, 149, 0, 0.07)',
+        borderColor: 'rgba(255, 149, 0, 0.28)',
     },
     pillIcon: {
         fontSize: 14,
@@ -719,7 +724,10 @@ const s = StyleSheet.create({
         color: '#3C3C43',
     },
     pillTextActive: {
-        color: '#fff',
+        color: '#007AFF',
+    },
+    pillTextWarn: {
+        color: '#FF9500',
     },
 
     // Checklist

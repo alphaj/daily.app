@@ -1,12 +1,13 @@
 import React, { memo, useMemo, useRef, useCallback, useEffect } from 'react';
 import { View, Text, Pressable, StyleSheet, FlatList, Dimensions } from 'react-native';
+import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { Fonts } from '@/lib/typography';
 import * as Haptics from '@/lib/haptics';
 import { format, addDays, addWeeks, startOfWeek, isSameDay, differenceInCalendarWeeks } from 'date-fns';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const PEEK_WIDTH = 24;
-const ITEM_WIDTH = SCREEN_WIDTH - PEEK_WIDTH * 2;
+const ARROW_WIDTH = 24;
+const ITEM_WIDTH = SCREEN_WIDTH - ARROW_WIDTH * 2;
 const TOTAL_WEEKS = 105;
 const CENTER_INDEX = 52;
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -179,6 +180,22 @@ export const HomeHeader = memo(function HomeHeader({
 
   const keyExtractor = useCallback((item: Date) => item.toISOString(), []);
 
+  const scrollToWeek = useCallback(
+    (direction: 'prev' | 'next') => {
+      const newIndex = scrollTargetIndex.current + (direction === 'next' ? 1 : -1);
+      if (newIndex >= 0 && newIndex < TOTAL_WEEKS) {
+        scrollTargetIndex.current = newIndex;
+        flatListRef.current?.scrollToOffset({ offset: newIndex * ITEM_WIDTH, animated: true });
+        const weekStart = weeks[newIndex];
+        const dayOfWeek = selectedDate.getDay();
+        const newDate = addDays(weekStart, dayOfWeek);
+        Haptics.selectionAsync();
+        onSelectDate(newDate);
+      }
+    },
+    [weeks, selectedDate, onSelectDate]
+  );
+
   return (
     <View style={styles.container}>
       {/* Date + progress */}
@@ -196,20 +213,34 @@ export const HomeHeader = memo(function HomeHeader({
       </View>
 
       <View style={styles.weekStripContainer}>
+        <Pressable
+          style={({ pressed }) => [styles.arrowButton, pressed && styles.arrowButtonPressed]}
+          onPress={() => scrollToWeek('prev')}
+          hitSlop={4}
+        >
+          <ChevronLeft size={14} color="#C7C7CC" strokeWidth={2.5} />
+        </Pressable>
         <FlatList
           ref={flatListRef}
           data={weeks}
           renderItem={renderWeek}
           keyExtractor={keyExtractor}
           horizontal
+          style={styles.weekList}
           snapToInterval={ITEM_WIDTH}
           decelerationRate="fast"
           showsHorizontalScrollIndicator={false}
           getItemLayout={getItemLayout}
           initialScrollIndex={initialIndex}
-          contentContainerStyle={{ paddingHorizontal: PEEK_WIDTH }}
           onMomentumScrollEnd={handleScrollEnd}
         />
+        <Pressable
+          style={({ pressed }) => [styles.arrowButton, pressed && styles.arrowButtonPressed]}
+          onPress={() => scrollToWeek('next')}
+          hitSlop={4}
+        >
+          <ChevronRight size={14} color="#C7C7CC" strokeWidth={2.5} />
+        </Pressable>
       </View>
     </View>
   );
@@ -263,6 +294,20 @@ const styles = StyleSheet.create({
   },
   weekStripContainer: {
     height: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  arrowButton: {
+    width: ARROW_WIDTH,
+    height: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  arrowButtonPressed: {
+    opacity: 0.4,
+  },
+  weekList: {
+    flex: 1,
   },
   weekItem: {
     width: ITEM_WIDTH,
@@ -286,10 +331,10 @@ const styles = StyleSheet.create({
   dayCircleToday: {
     backgroundColor: '#F2F2F7',
     borderWidth: 2,
-    borderColor: '#1C1C1E',
+    borderColor: '#007AFF',
   },
   dayCircleSelected: {
-    backgroundColor: '#1C1C1E',
+    backgroundColor: '#007AFF',
   },
   dayNumber: {
     fontSize: 16,
@@ -310,7 +355,7 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
   },
   dayLabelSelected: {
-    color: '#1C1C1E',
+    color: '#007AFF',
     fontWeight: '600',
   },
 });

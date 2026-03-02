@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useRouter, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CalendarRange, CircleDashed, Heart, User, Plus } from 'lucide-react-native';
@@ -85,7 +86,13 @@ export function BottomNavBar(_props: BottomNavBarProps) {
     return (
         <View style={[styles.outerWrapper, { bottom: Math.max(insets.bottom, 12) }]}>
             <View style={styles.shadowContainer}>
-                <View style={styles.container}>
+                <View style={styles.glassContainer}>
+                    <BlurView
+                        tint="extraLight"
+                        intensity={50}
+                        style={StyleSheet.absoluteFill}
+                    />
+                    <View style={styles.glassOverlay} />
                     <View style={styles.navContent}>
                         {renderNavItem(navItems[0])}
                         {renderNavItem(navItems[1])}
@@ -112,22 +119,28 @@ const styles = StyleSheet.create({
         zIndex: 100,
     },
     shadowContainer: {
+        borderRadius: 32,
         ...Platform.select({
             ios: {
                 shadowColor: '#000',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.10,
-                shadowRadius: 16,
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.08,
+                shadowRadius: 20,
             },
             android: {
                 elevation: 8,
             },
         }),
     },
-    container: {
+    glassContainer: {
         borderRadius: 32,
         overflow: 'hidden',
-        backgroundColor: 'rgba(255, 255, 255, 0.92)',
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: 'rgba(255, 255, 255, 0.45)',
+    },
+    glassOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(255, 255, 255, 0.25)',
     },
     navContent: {
         flexDirection: 'row',
@@ -154,7 +167,7 @@ const styles = StyleSheet.create({
     activePillOuter: {
         borderRadius: 22,
         overflow: 'hidden',
-        backgroundColor: 'rgba(120, 120, 128, 0.08)',
+        backgroundColor: 'rgba(120, 120, 128, 0.12)',
     },
     activePillContent: {
         flexDirection: 'row',
@@ -190,6 +203,6 @@ const styles = StyleSheet.create({
         borderRadius: 5,
         backgroundColor: '#FF3B30',
         borderWidth: 2,
-        borderColor: 'rgba(255, 255, 255, 0.92)',
+        borderColor: 'rgba(255, 255, 255, 0.6)',
     },
 });

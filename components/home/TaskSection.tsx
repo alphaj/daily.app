@@ -160,9 +160,9 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   sectionLabel: {
-    fontSize: 18,
-    fontWeight: '700',
-    letterSpacing: -0.3,
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: -0.2,
   },
   sectionCount: {
     fontSize: 14,

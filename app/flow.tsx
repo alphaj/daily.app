@@ -54,11 +54,11 @@ export default function FlowScreen() {
 
   const { toggleTodo } = useTodos();
 
-  // 0 = idle, 1 = in-cocoon (running/paused), 2 = completed
-  const cocoon = useSharedValue(0);
-
   const isInCocoon = status === 'running' || status === 'paused';
   const isCompleted = status === 'completed';
+
+  // 0 = idle, 1 = in-cocoon (running/paused), 2 = completed
+  const cocoon = useSharedValue(isCompleted ? 2 : isInCocoon ? 1 : 0);
 
   useEffect(() => {
     if (isInCocoon) {
