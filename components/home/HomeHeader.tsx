@@ -1,6 +1,7 @@
 import React, { memo, useMemo, useRef, useCallback, useEffect } from 'react';
 import { View, Text, Pressable, StyleSheet, FlatList, Dimensions } from 'react-native';
-import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, CircleDashed } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 import { Fonts } from '@/lib/typography';
 import * as Haptics from '@/lib/haptics';
 import { format, addDays, addWeeks, startOfWeek, isSameDay, differenceInCalendarWeeks } from 'date-fns';
@@ -121,6 +122,7 @@ export const HomeHeader = memo(function HomeHeader({
   tasksCompleted = 0,
   tasksTotal = 0,
 }: HomeHeaderProps) {
+  const router = useRouter();
   const dateLabel = format(selectedDate, 'EEEE, MMM d');
   const showProgress = tasksTotal > 0;
   const allDone = tasksCompleted === tasksTotal && tasksTotal > 0;
@@ -198,7 +200,7 @@ export const HomeHeader = memo(function HomeHeader({
 
   return (
     <View style={styles.container}>
-      {/* Date + progress */}
+      {/* Date + progress + focus */}
       <View style={styles.topRow}>
         <View style={styles.dateLine}>
           <Text style={styles.dateLabel}>{dateLabel}</Text>
@@ -210,6 +212,16 @@ export const HomeHeader = memo(function HomeHeader({
             </View>
           )}
         </View>
+        <Pressable
+          style={({ pressed }) => [styles.focusButton, pressed && styles.focusButtonPressed]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push('/flow' as any);
+          }}
+          hitSlop={8}
+        >
+          <CircleDashed size={20} color="#1C1C1E" strokeWidth={1.8} />
+        </Pressable>
       </View>
 
       <View style={styles.weekStripContainer}>
@@ -266,6 +278,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     flex: 1,
+  },
+  focusButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(120, 120, 128, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  focusButtonPressed: {
+    opacity: 0.5,
   },
   dateLabel: {
     fontSize: 28,

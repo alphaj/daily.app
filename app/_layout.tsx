@@ -144,6 +144,7 @@ function RootLayoutNav() {
       <Stack.Screen name="add-todo" options={{ presentation: "modal", headerShown: false }} />
 
       <Stack.Screen name="history" options={{ headerShown: false, animation: 'fade', animationDuration: 100 }} />
+      <Stack.Screen name="schedule" options={{ headerShown: false, animation: 'fade', animationDuration: 100 }} />
 
       <Stack.Screen name="edit-todo" options={{ presentation: "modal", headerShown: false }} />
 
