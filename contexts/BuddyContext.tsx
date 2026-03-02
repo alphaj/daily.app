@@ -15,12 +15,7 @@ export interface BuddyStatus {
 
 export interface SharingPreferences {
   share_todos: boolean;
-
   share_focus: boolean;
-  share_inbox: boolean;
-  share_notes: boolean;
-  share_work_items: boolean;
-
 }
 
 interface BuddyContextType {
@@ -105,13 +100,7 @@ export function BuddyProvider({ children }: { children: ReactNode }) {
           for (const row of prefs) {
             map[row.partnership_id] = {
               share_todos: row.share_todos,
-
               share_focus: row.share_focus,
-              share_inbox: row.share_inbox,
-              share_notes: row.share_notes,
-              share_work_items: row.share_work_items,
-
-
             };
           }
           setSharingPrefsMap(map);

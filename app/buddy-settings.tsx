@@ -453,9 +453,6 @@ function PendingBuddyCard({
 const SHARING_OPTIONS: { key: keyof SharingPreferences; label: string; description: string }[] = [
   { key: 'share_todos', label: 'Tasks', description: 'Your daily tasks and completion status' },
   { key: 'share_focus', label: 'Focus Sessions', description: 'When you\'re focusing and for how long' },
-  { key: 'share_inbox', label: 'Brain Dump', description: 'Your captured thoughts and ideas' },
-  { key: 'share_notes', label: 'Notes', description: 'Your daily notes' },
-  { key: 'share_work_items', label: 'Work Tasks', description: 'Tasks marked as work-related' },
 ];
 
 function ActiveBuddyCard({
