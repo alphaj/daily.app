@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useGoBack } from '@/lib/useGoBack';
 import { ArrowLeft, Check } from 'lucide-react-native';
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
     Text,
@@ -13,8 +13,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from '@/lib/haptics';
 
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, withDelay } from 'react-native-reanimated';
 import { AmbientBackground } from '@/components/AmbientBackground';
-import { Logo } from '@/components/Logo';
 import { usePreferences } from '@/contexts/PreferencesContext';
 
 function SelectRow({ title, selected, onPress, isLast }: {
@@ -39,19 +39,34 @@ export default function SettingsPreferencesScreen() {
     const goBack = useGoBack();
     const { preferences, updatePreferences } = usePreferences();
 
+    const savedOpacity = useSharedValue(0);
+    const savedStyle = useAnimatedStyle(() => ({
+        opacity: savedOpacity.value,
+    }));
+
+    const flashSaved = () => {
+        savedOpacity.value = withTiming(1, { duration: 150 });
+        savedOpacity.value = withDelay(1200, withTiming(0, { duration: 300 }));
+    };
+
+    const updateWithFlash = (update: Parameters<typeof updatePreferences>[0]) => {
+        updatePreferences(update);
+        flashSaved();
+    };
+
     return (
         <View style={styles.container}>
             <AmbientBackground />
             <SafeAreaView style={styles.safeArea} edges={['top']}>
-                <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
-                    <Logo />
-                </View>
                 <View style={styles.header}>
                     <Pressable style={styles.backButton} onPress={goBack} hitSlop={20}>
                         <ArrowLeft size={20} color="#000" strokeWidth={2.5} />
                     </Pressable>
                     <Text style={styles.headerTitle}>Preferences</Text>
-                    <View style={{ width: 36 }} />
+                    <Animated.View style={[styles.savedFlash, savedStyle]}>
+                        <Check size={14} color="#34C759" strokeWidth={2.5} />
+                        <Text style={styles.savedFlashText}>Saved</Text>
+                    </Animated.View>
                 </View>
 
                 <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -63,7 +78,7 @@ export default function SettingsPreferencesScreen() {
                                 value={preferences.hapticsEnabled}
                                 onValueChange={(v) => {
                                     Haptics.selectionAsync();
-                                    updatePreferences({ hapticsEnabled: v });
+                                    updateWithFlash({ hapticsEnabled: v });
                                 }}
                                 trackColor={{ false: '#E5E5EA', true: '#000' }}
                                 thumbColor="#fff"
@@ -77,12 +92,12 @@ export default function SettingsPreferencesScreen() {
                         <SelectRow
                             title="Sunday"
                             selected={preferences.startOfWeek === 'sunday'}
-                            onPress={() => updatePreferences({ startOfWeek: 'sunday' })}
+                            onPress={() => updateWithFlash({ startOfWeek: 'sunday' })}
                         />
                         <SelectRow
                             title="Monday"
                             selected={preferences.startOfWeek === 'monday'}
-                            onPress={() => updatePreferences({ startOfWeek: 'monday' })}
+                            onPress={() => updateWithFlash({ startOfWeek: 'monday' })}
                             isLast
                         />
                     </View>
@@ -91,12 +106,12 @@ export default function SettingsPreferencesScreen() {
                         <SelectRow
                             title="12-hour"
                             selected={preferences.timeFormat === '12h'}
-                            onPress={() => updatePreferences({ timeFormat: '12h' })}
+                            onPress={() => updateWithFlash({ timeFormat: '12h' })}
                         />
                         <SelectRow
                             title="24-hour"
                             selected={preferences.timeFormat === '24h'}
-                            onPress={() => updatePreferences({ timeFormat: '24h' })}
+                            onPress={() => updateWithFlash({ timeFormat: '24h' })}
                             isLast
                         />
                     </View>
@@ -160,4 +175,16 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
     },
     toggleTitle: { fontSize: 16, fontWeight: '500', color: '#000' },
+    savedFlash: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        width: 36,
+        justifyContent: 'center',
+    },
+    savedFlashText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#34C759',
+    },
 });

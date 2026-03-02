@@ -20,7 +20,6 @@ import * as Haptics from '@/lib/haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { AmbientBackground } from '@/components/AmbientBackground';
-import { Logo } from '@/components/Logo';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 
 const FAQ_ITEMS = [
@@ -118,9 +117,6 @@ export default function SettingsHelpScreen() {
         <View style={styles.container}>
             <AmbientBackground />
             <SafeAreaView style={styles.safeArea} edges={['top']}>
-                <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
-                    <Logo />
-                </View>
                 <View style={styles.header}>
                     <Pressable style={styles.backButton} onPress={goBack} hitSlop={20}>
                         <ArrowLeft size={20} color="#000" strokeWidth={2.5} />

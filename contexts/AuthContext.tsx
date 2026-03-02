@@ -31,6 +31,7 @@ interface AuthContextType {
   uploadAvatar: (source: 'camera' | 'gallery') => Promise<{ error: string | null }>;
   removeAvatar: () => Promise<{ error: string | null }>;
   updateName: (name: string) => Promise<{ error: string | null }>;
+  resetPassword: (email: string) => Promise<{ error: string | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -251,6 +252,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const resetPassword = async (email: string): Promise<{ error: string | null }> => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      if (error) return { error: error.message };
+      return { error: null };
+    } catch (err: any) {
+      return { error: err.message ?? 'Failed to send reset email' };
+    }
+  };
+
   const regenerateBuddyCode = async (): Promise<{ error: string | null; partnerCode: string | null }> => {
     try {
       const { data, error } = await supabase.rpc('regenerate_partner_code');
@@ -284,6 +295,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         uploadAvatar,
         removeAvatar,
         updateName,
+        resetPassword,
       }}
     >
       {children}

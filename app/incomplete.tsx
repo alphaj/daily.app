@@ -1,6 +1,5 @@
-import { useRouter } from 'expo-router';
 import { useGoBack } from '@/lib/useGoBack';
-import { ArrowLeft, Check, CircleAlert } from 'lucide-react-native';
+import { ArrowLeft, Check, CircleAlert, CalendarArrowUp } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import {
   View,
@@ -14,7 +13,6 @@ import * as Haptics from '@/lib/haptics';
 import { useTodos } from '@/contexts/TodoContext';
 import { AmbientBackground } from '@/components/AmbientBackground';
 import { BottomNavBar } from '@/components/BottomNavBar';
-import { Logo } from '@/components/Logo';
 import { format } from 'date-fns';
 import type { Todo } from '@/types/todo';
 
@@ -22,15 +20,9 @@ function getSeverityColor(incompleteCount: number): string {
   return incompleteCount >= 3 ? '#FF3B30' : '#FFCC00';
 }
 
-function TaskRow({ todo, onToggle }: { todo: Todo; onToggle: (id: string) => void }) {
+function TaskRow({ todo, onToggle, onRescheduleToday }: { todo: Todo; onToggle: (id: string) => void; onRescheduleToday: (id: string) => void }) {
   return (
-    <Pressable
-      style={({ pressed }) => [styles.taskRow, pressed && styles.taskRowPressed]}
-      onPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        onToggle(todo.id);
-      }}
-    >
+    <View style={styles.taskRow}>
       <View style={[styles.taskEmoji, todo.emojiColor ? { backgroundColor: todo.emojiColor } : undefined]}>
         <Text style={styles.taskEmojiText}>{todo.emoji || '📋'}</Text>
       </View>
@@ -46,16 +38,39 @@ function TaskRow({ todo, onToggle }: { todo: Todo; onToggle: (id: string) => voi
           </Text>
         )}
       </View>
-      <View style={styles.checkbox}>
-        <View style={styles.checkboxInner} />
+      <View style={styles.taskActions}>
+        <Pressable
+          style={({ pressed }) => [styles.rescheduleBtn, pressed && styles.rescheduleBtnPressed]}
+          onPress={() => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            onRescheduleToday(todo.id);
+          }}
+          hitSlop={4}
+        >
+          <CalendarArrowUp size={13} color="#007AFF" strokeWidth={2.5} />
+          <Text style={styles.rescheduleBtnText}>Today</Text>
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [styles.checkbox, pressed && { opacity: 0.6 }]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            onToggle(todo.id);
+          }}
+          hitSlop={4}
+        />
       </View>
-    </Pressable>
+    </View>
   );
 }
 
 export default function IncompleteScreen() {
   const goBack = useGoBack();
-  const { incompleteDateMap, getIncompleteTodosForDate, toggleTodo } = useTodos();
+  const { incompleteDateMap, getIncompleteTodosForDate, toggleTodo, rescheduleTodo } = useTodos();
+
+  const handleRescheduleToday = (id: string) => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    rescheduleTodo(id, todayStr);
+  };
 
   const sortedDates = useMemo(() => {
     return Object.keys(incompleteDateMap).sort((a, b) => b.localeCompare(a));
@@ -69,9 +84,6 @@ export default function IncompleteScreen() {
     <View style={styles.container}>
       <AmbientBackground />
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
-          <Logo />
-        </View>
         {/* Header */}
         <View style={styles.header}>
           <Pressable
@@ -79,9 +91,9 @@ export default function IncompleteScreen() {
             onPress={goBack}
             hitSlop={20}
           >
-            <ArrowLeft size={20} color="#000" strokeWidth={2.5} />
+            <ArrowLeft size={20} color="#1C1C1E" strokeWidth={2.5} />
           </Pressable>
-          <Text style={styles.headerTitle}>Incomplete Tasks</Text>
+          <Text style={styles.headerTitle}>Incomplete</Text>
           <View style={{ width: 36 }} />
         </View>
 
@@ -113,22 +125,35 @@ export default function IncompleteScreen() {
                 const color = getSeverityColor(counts.incomplete);
                 const dateObj = new Date(dateKey + 'T12:00:00');
 
+                const handleMoveAllToday = () => {
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  const todayStr = new Date().toISOString().split('T')[0];
+                  tasks.forEach((todo) => rescheduleTodo(todo.id, todayStr));
+                };
+
                 return (
                   <View key={dateKey} style={styles.dateSection}>
                     <View style={styles.dateHeader}>
-                      <View style={[styles.dateIndicator, { backgroundColor: color }]} />
-                      <View style={styles.dateInfo}>
-                        <Text style={styles.dateLabel}>
-                          {format(dateObj, 'EEEE, MMMM d')}
-                        </Text>
-                        <Text style={styles.dateCount}>
-                          {counts.incomplete} incomplete task{counts.incomplete !== 1 ? 's' : ''}
-                        </Text>
+                      <View style={styles.dateHeaderLeft}>
+                        <View style={[styles.datePill, { backgroundColor: counts.incomplete >= 3 ? 'rgba(255,59,48,0.08)' : 'rgba(255,204,0,0.10)' }]}>
+                          <View style={[styles.dateIndicator, { backgroundColor: color }]} />
+                          <Text style={[styles.datePillLabel, { color: counts.incomplete >= 3 ? '#D70015' : '#8B7000' }]}>
+                            {format(dateObj, 'EEE, MMM d').toUpperCase()} ({counts.incomplete})
+                          </Text>
+                        </View>
                       </View>
+                      <Pressable
+                        style={({ pressed }) => [styles.moveAllBtn, pressed && styles.moveAllBtnPressed]}
+                        onPress={handleMoveAllToday}
+                        hitSlop={8}
+                      >
+                        <CalendarArrowUp size={12} color="#007AFF" strokeWidth={2.5} />
+                        <Text style={styles.moveAllBtnText}>All to today</Text>
+                      </Pressable>
                     </View>
                     <View style={styles.taskList}>
                       {tasks.map((todo) => (
-                        <TaskRow key={todo.id} todo={todo} onToggle={toggleTodo} />
+                        <TaskRow key={todo.id} todo={todo} onToggle={toggleTodo} onRescheduleToday={handleRescheduleToday} />
                       ))}
                     </View>
                   </View>
@@ -152,8 +177,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -163,18 +188,18 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.8)',
+    backgroundColor: 'rgba(255,255,255,0.85)',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
   },
   headerTitle: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#000',
+    color: '#1C1C1E',
     position: 'absolute',
     left: 0,
     right: 0,
@@ -185,9 +210,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: 16,
-    paddingBottom: 100,
-    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 120,
+    paddingHorizontal: 20,
     gap: 16,
   },
   summaryCard: {
@@ -195,8 +220,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     backgroundColor: 'rgba(255,149,0,0.08)',
-    borderRadius: 12,
-    paddingVertical: 12,
+    borderRadius: 16,
+    paddingVertical: 14,
     paddingHorizontal: 16,
   },
   summaryText: {
@@ -206,67 +231,90 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   dateSection: {
-    backgroundColor: 'rgba(255,255,255,0.7)',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
   },
   dateHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    gap: 12,
   },
-  dateIndicator: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  dateInfo: {
+  dateHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
   },
-  dateLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    letterSpacing: -0.3,
+  datePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
   },
-  dateCount: {
-    fontSize: 13,
-    color: '#8E8E93',
-    marginTop: 1,
+  datePillLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+  },
+  dateIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  moveAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 122, 255, 0.08)',
+  },
+  moveAllBtnPressed: {
+    backgroundColor: 'rgba(0, 122, 255, 0.16)',
+  },
+  moveAllBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#007AFF',
   },
   taskList: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(60,60,67,0.1)',
+    borderTopColor: 'rgba(60,60,67,0.08)',
   },
   taskRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 16,
     gap: 12,
   },
-  taskRowPressed: {
-    backgroundColor: 'rgba(0,0,0,0.03)',
-  },
   taskEmoji: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#F2F2F7',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(120,120,128,0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   taskEmojiText: {
-    fontSize: 18,
+    fontSize: 20,
   },
   taskContent: {
     flex: 1,
   },
   taskTitle: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#1C1C1E',
     letterSpacing: -0.2,
   },
@@ -277,18 +325,34 @@ const styles = StyleSheet.create({
     marginTop: 2,
     textTransform: 'capitalize',
   },
-  checkbox: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    borderWidth: 2,
-    borderColor: '#C7C7CC',
+  taskActions: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 10,
   },
-  checkboxInner: {
-    width: 0,
-    height: 0,
+  rescheduleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 122, 255, 0.08)',
+  },
+  rescheduleBtnPressed: {
+    backgroundColor: 'rgba(0, 122, 255, 0.16)',
+  },
+  rescheduleBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#007AFF',
+  },
+  checkbox: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#D1D1D6',
   },
   emptyState: {
     alignItems: 'center',
@@ -307,8 +371,9 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#1C1C1E',
+    letterSpacing: -0.3,
   },
   emptySubtitle: {
     fontSize: 15,

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,8 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Settings, UserPlus, Check, X, Clock } from 'lucide-react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Settings, UserPlus, Check, X, Clock, Send } from 'lucide-react-native';
 import * as Haptics from '@/lib/haptics';
 
 import { useBuddy, BuddyStatus } from '@/contexts/BuddyContext';
@@ -18,7 +19,7 @@ import { AmbientBackground } from '@/components/AmbientBackground';
 import { Avatar } from '@/components/Avatar';
 import { BottomNavBar } from '@/components/BottomNavBar';
 import { Fonts } from '@/lib/typography';
-import { Logo } from '@/components/Logo';
+
 
 // ── Partner Card ────────────────────────────────────────────────────
 
@@ -55,8 +56,32 @@ function BuddyCard({ partner }: { partner: BuddyStatus }) {
 // ── Pending Request Card ────────────────────────────────────────────
 
 function PendingRequestCard({ partner }: { partner: BuddyStatus }) {
-  const { respondToBuddy } = useBuddy();
+  const { respondToBuddy, nudgePendingRequest } = useBuddy();
   const [isResponding, setIsResponding] = React.useState(false);
+  const [isNudging, setIsNudging] = useState(false);
+  const [nudgedToday, setNudgedToday] = useState(false);
+
+  useEffect(() => {
+    if (!partner.is_inviter || !partner.partnership_id) return;
+    AsyncStorage.getItem(`nudge_last_${partner.partnership_id}`).then((val) => {
+      if (val && Date.now() - parseInt(val, 10) < 24 * 60 * 60 * 1000) {
+        setNudgedToday(true);
+      }
+    });
+  }, [partner.is_inviter, partner.partnership_id]);
+
+  const handleNudge = async () => {
+    if (!partner.partnership_id || nudgedToday || isNudging) return;
+    setIsNudging(true);
+    const { error } = await nudgePendingRequest(partner.partnership_id);
+    setIsNudging(false);
+    if (error === 'already_nudged') {
+      setNudgedToday(true);
+    } else if (!error) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setNudgedToday(true);
+    }
+  };
 
   const handleRespond = async (accept: boolean) => {
     if (!partner.partnership_id) return;
@@ -82,6 +107,21 @@ function PendingRequestCard({ partner }: { partner: BuddyStatus }) {
             <Text style={styles.pendingBadgeText}>Waiting for response</Text>
           </View>
         </View>
+        {isNudging ? (
+          <ActivityIndicator size="small" color="#007AFF" />
+        ) : (
+          <Pressable
+            style={[styles.nudgeBtn, nudgedToday && styles.nudgeBtnDisabled]}
+            onPress={handleNudge}
+            disabled={nudgedToday}
+            hitSlop={8}
+          >
+            <Send size={14} color={nudgedToday ? '#C7C7CC' : '#007AFF'} strokeWidth={2} />
+            <Text style={[styles.nudgeBtnText, nudgedToday && styles.nudgeBtnTextDisabled]}>
+              {nudgedToday ? 'Nudged' : 'Nudge'}
+            </Text>
+          </Pressable>
+        )}
       </View>
     );
   }
@@ -178,9 +218,9 @@ export default function BuddyListScreen() {
     <View style={styles.container}>
       <AmbientBackground />
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        {/* Header — matches Home layout */}
+        {/* Header */}
         <View style={styles.topRow}>
-          <Logo />
+          <Text style={styles.headerTitle}>Buddies</Text>
           <Pressable
             style={styles.settingsButton}
             onPress={() => {
@@ -192,8 +232,6 @@ export default function BuddyListScreen() {
             <Settings size={22} color="#000" strokeWidth={1.8} />
           </Pressable>
         </View>
-        <Text style={styles.headerTitle}>Buddies</Text>
-        <View style={{ height: 16 }} />
 
         {isLoading ? (
           <View style={styles.loadingContainer}>
@@ -259,15 +297,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 8,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   headerTitle: {
-    fontSize: 34,
+    fontSize: 28,
     fontFamily: Fonts.heading,
     fontWeight: '700',
     color: '#1C1C1E',
     letterSpacing: -0.5,
-    textAlign: 'center',
   },
   settingsButton: {
     width: 40,
@@ -383,6 +420,28 @@ const styles = StyleSheet.create({
     backgroundColor: '#007AFF',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  // ── Nudge button ──
+  nudgeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,122,255,0.1)',
+  },
+  nudgeBtnDisabled: {
+    backgroundColor: 'rgba(0,0,0,0.04)',
+  },
+  nudgeBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#007AFF',
+  },
+  nudgeBtnTextDisabled: {
+    color: '#C7C7CC',
   },
 
   // ── Add another ──

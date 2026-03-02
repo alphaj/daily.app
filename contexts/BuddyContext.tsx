@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -38,6 +39,7 @@ interface BuddyContextType {
   requestBuddy: (code: string) => Promise<{ error: string | null; partnerName: string | null }>;
   respondToBuddy: (partnershipId: string, accept: boolean) => Promise<{ error: string | null }>;
   dissolveBuddy: (partnershipId: string) => Promise<{ error: string | null }>;
+  nudgePendingRequest: (partnershipId: string) => Promise<{ error: string | null }>;
   updateSharingPrefs: (partnershipId: string, prefs: Partial<SharingPreferences>) => Promise<{ error: string | null }>;
   refresh: () => Promise<void>;
 }
@@ -244,6 +246,39 @@ export function BuddyProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const nudgePendingRequest = async (partnershipId: string): Promise<{ error: string | null }> => {
+    try {
+      const key = `nudge_last_${partnershipId}`;
+      const lastNudge = await AsyncStorage.getItem(key);
+      if (lastNudge && Date.now() - parseInt(lastNudge, 10) < 24 * 60 * 60 * 1000) {
+        return { error: 'already_nudged' };
+      }
+
+      const { data: row } = await supabase
+        .from('partnerships')
+        .select('invitee_id')
+        .eq('id', partnershipId)
+        .single();
+
+      if (!row?.invitee_id) {
+        return { error: 'Partnership not found' };
+      }
+
+      await supabase.functions.invoke('send-push-notification', {
+        body: {
+          recipient_id: row.invitee_id,
+          title: 'Reminder',
+          body: `${profile?.name ?? 'Someone'} is waiting for your response on Daily!`,
+        },
+      });
+
+      await AsyncStorage.setItem(key, Date.now().toString());
+      return { error: null };
+    } catch (err: any) {
+      return { error: err.message ?? 'Failed to send nudge' };
+    }
+  };
+
   const updateSharingPrefs = async (partnershipId: string, prefs: Partial<SharingPreferences>): Promise<{ error: string | null }> => {
     if (!session) {
       return { error: 'No session' };
@@ -283,6 +318,7 @@ export function BuddyProvider({ children }: { children: ReactNode }) {
         requestBuddy,
         respondToBuddy,
         dissolveBuddy,
+        nudgePendingRequest,
         updateSharingPrefs,
         refresh: fetchStatus,
       }}

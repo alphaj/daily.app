@@ -5,6 +5,7 @@ import * as SplashScreen from "expo-splash-screen";
 import * as SystemUI from "expo-system-ui";
 import React, { useEffect, Component, type ReactNode } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
+import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider, initialWindowMetrics } from "react-native-safe-area-context";
 import { TodoProvider } from "@/contexts/TodoContext";
@@ -147,6 +148,7 @@ function AppWrapper() {
                       <OnboardingProvider>
                         <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#F2F2F7' }}>
                           <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+                            <StatusBar style="dark" />
                             <RootLayoutNav />
                             <ToastHost />
                           </SafeAreaProvider>

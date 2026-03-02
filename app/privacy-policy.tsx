@@ -10,7 +10,6 @@ import {
     ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Logo } from '@/components/Logo';
 
 export default function PrivacyPolicyScreen() {
     const router = useRouter();
@@ -25,7 +24,6 @@ export default function PrivacyPolicyScreen() {
                 </Pressable>
 
                 <View style={styles.headerCenter}>
-                    <Logo />
                     <Text style={styles.headerTitle}>Privacy Policy</Text>
                 </View>
 

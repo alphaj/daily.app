@@ -1,8 +1,6 @@
 import React, { memo, useMemo, useRef, useCallback, useEffect } from 'react';
 import { View, Text, Pressable, StyleSheet, FlatList, Dimensions } from 'react-native';
 import { Fonts } from '@/lib/typography';
-import { Plus } from 'lucide-react-native';
-import { Logo } from '@/components/Logo';
 import * as Haptics from '@/lib/haptics';
 import { format, addDays, addWeeks, startOfWeek, isSameDay, differenceInCalendarWeeks } from 'date-fns';
 
@@ -16,8 +14,9 @@ const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 interface HomeHeaderProps {
   selectedDate: Date;
   onSelectDate: (date: Date) => void;
-  onAddPress: () => void;
   incompleteDateMap?: Record<string, { incomplete: number; total: number }>;
+  tasksCompleted?: number;
+  tasksTotal?: number;
 }
 
 function generateWeeks(): Date[] {
@@ -117,11 +116,13 @@ const WeekItem = memo(
 export const HomeHeader = memo(function HomeHeader({
   selectedDate,
   onSelectDate,
-  onAddPress,
   incompleteDateMap,
+  tasksCompleted = 0,
+  tasksTotal = 0,
 }: HomeHeaderProps) {
-  const dayName = format(selectedDate, 'EEEE');
-  const dateString = format(selectedDate, 'MMMM do, yyyy');
+  const dateLabel = format(selectedDate, 'EEEE, MMM d');
+  const showProgress = tasksTotal > 0;
+  const allDone = tasksCompleted === tasksTotal && tasksTotal > 0;
 
   const flatListRef = useRef<FlatList>(null);
   const weeks = useMemo(() => generateWeeks(), []);
@@ -180,25 +181,19 @@ export const HomeHeader = memo(function HomeHeader({
 
   return (
     <View style={styles.container}>
-      {/* Top row: logo + actions */}
+      {/* Date + progress */}
       <View style={styles.topRow}>
-        <Logo />
-        <View style={styles.topRight}>
-          <Pressable
-            style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              onAddPress();
-            }}
-            hitSlop={8}
-          >
-            <Plus size={22} color="#1C1C1E" strokeWidth={2} />
-          </Pressable>
+        <View style={styles.dateLine}>
+          <Text style={styles.dateLabel}>{dateLabel}</Text>
+          {showProgress && (
+            <View style={[styles.progressPill, allDone && styles.progressPillDone]}>
+              <Text style={[styles.progressText, allDone && styles.progressTextDone]}>
+                {tasksCompleted}/{tasksTotal}
+              </Text>
+            </View>
+          )}
         </View>
       </View>
-
-      <Text style={styles.dayName}>{dayName}</Text>
-      <Text style={styles.dateText}>{dateString}</Text>
 
       <View style={styles.weekStripContainer}>
         <FlatList
@@ -225,7 +220,7 @@ const DAY_CIRCLE_SIZE = 40;
 const styles = StyleSheet.create({
   container: {
     paddingTop: 8,
-    paddingBottom: 12,
+    paddingBottom: 4,
     backgroundColor: 'transparent',
   },
   topRow: {
@@ -233,38 +228,38 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  topRight: {
+  dateLine: {
     flexDirection: 'row',
-    gap: 10,
-  },
-  actionButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F2F2F7',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 10,
+    flex: 1,
   },
-  pressed: {
-    opacity: 0.6,
-  },
-  dayName: {
-    fontSize: 34,
+  dateLabel: {
+    fontSize: 28,
     fontFamily: Fonts.heading,
     fontWeight: '700',
     color: '#1C1C1E',
-    textAlign: 'center',
     letterSpacing: -0.5,
   },
-  dateText: {
-    fontSize: 15,
-    fontWeight: '400',
+  progressPill: {
+    backgroundColor: 'rgba(142, 142, 147, 0.1)',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  progressPillDone: {
+    backgroundColor: 'rgba(52, 199, 89, 0.12)',
+  },
+  progressText: {
+    fontSize: 13,
+    fontWeight: '600',
     color: '#8E8E93',
-    textAlign: 'center',
-    marginTop: 2,
-    marginBottom: 16,
+    fontVariant: ['tabular-nums'],
+  },
+  progressTextDone: {
+    color: '#34C759',
   },
   weekStripContainer: {
     height: 64,

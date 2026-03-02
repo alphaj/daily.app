@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
 import { AmbientBackground } from '@/components/AmbientBackground';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from '@/lib/haptics';
-import { Pause, Play, RotateCcw } from 'lucide-react-native';
+import { Pause, Play, RotateCcw, CheckCircle2 } from 'lucide-react-native';
 import { format } from 'date-fns';
 import Animated, {
   useSharedValue,
@@ -15,12 +15,12 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { Fonts } from '@/lib/typography';
-import { Logo } from '@/components/Logo';
 import { useFocus } from '@/contexts/FocusContext';
 import { FocusProgressRing } from '@/components/focus/FocusProgressRing';
 import { FocusTaskCarousel } from '@/components/focus/FocusTaskCarousel';
 import { FocusOverlay } from '@/components/focus/FocusOverlay';
 import { BottomNavBar } from '@/components/BottomNavBar';
+import { useTodos } from '@/contexts/TodoContext';
 
 const DURATION_PRESETS = [25, 30, 45, 60, 90];
 
@@ -50,7 +50,9 @@ export default function FlowScreen() {
     title: string;
     emoji?: string;
   } | null>(null);
+  const [taskMarkedDone, setTaskMarkedDone] = useState(false);
 
+  const { toggleTodo } = useTodos();
 
   // 0 = idle, 1 = in-cocoon (running/paused), 2 = completed
   const cocoon = useSharedValue(0);
@@ -89,9 +91,11 @@ export default function FlowScreen() {
     };
   });
 
-  // -- Running layer: invisible at cocoon=0, fades/scales in at 1 --
+  // -- Running layer: invisible at cocoon=0, fades/scales in at 1, fades out toward 2 --
   const runningStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(cocoon.value, [0.4, 1], [0, 1], 'clamp');
+    const fadeIn = interpolate(cocoon.value, [0.4, 1], [0, 1], 'clamp');
+    const fadeOut = interpolate(cocoon.value, [1, 1.5], [1, 0], 'clamp');
+    const opacity = Math.min(fadeIn, fadeOut);
     const scale = interpolate(cocoon.value, [0, 1], [1.06, 1], 'clamp');
     const translateY = interpolate(cocoon.value, [0, 1], [-15, 0], 'clamp');
     return {
@@ -101,7 +105,7 @@ export default function FlowScreen() {
     };
   });
 
-  // -- Completed layer: invisible until cocoon=2 --
+  // -- Completed layer: invisible until cocoon=2, has solid background --
   const completedStyle = useAnimatedStyle(() => {
     const opacity = interpolate(cocoon.value, [1.3, 2], [0, 1], 'clamp');
     const scale = interpolate(cocoon.value, [1.3, 2], [0.95, 1], 'clamp');
@@ -109,6 +113,7 @@ export default function FlowScreen() {
       opacity,
       transform: [{ scale }],
       pointerEvents: opacity > 0.1 ? 'auto' : 'none',
+      backgroundColor: '#F2F2F7',
     };
   });
 
@@ -131,7 +136,18 @@ export default function FlowScreen() {
 
   const handleCancel = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    requestAnimationFrame(() => cancelSession());
+    Alert.alert(
+      'End session?',
+      'Your progress for this session will be lost.',
+      [
+        { text: 'Keep going', style: 'cancel' },
+        {
+          text: 'End',
+          style: 'destructive',
+          onPress: () => requestAnimationFrame(() => cancelSession()),
+        },
+      ],
+    );
   };
 
   const handleNewSession = () => {
@@ -139,6 +155,7 @@ export default function FlowScreen() {
     requestAnimationFrame(() => {
       resetSession();
       setSelectedTask(null);
+      setTaskMarkedDone(false);
     });
   };
 
@@ -155,16 +172,12 @@ export default function FlowScreen() {
       <View style={styles.safeArea}>
         {/* ===== PERSISTENT TITLE — stays perfectly still during transitions ===== */}
         <View style={[styles.persistentHeader, { paddingTop: insets.top + 8 }]} pointerEvents="none">
-          <View style={styles.logoRow}>
-            <Logo />
-          </View>
           <Text style={styles.title}>Focus</Text>
         </View>
 
         {/* ===== IDLE LAYER ===== */}
         <Animated.View style={[styles.layer, idleStyle]}>
           <View style={[styles.headerSpacer, { paddingTop: insets.top + 8 }]}>
-            <View style={styles.logoPlaceholder} />
             <View style={styles.titlePlaceholder} />
           </View>
 
@@ -176,11 +189,16 @@ export default function FlowScreen() {
               onPress={handleStart}
             />
 
+            <Text style={styles.tapHint}>Tap the ring to start</Text>
+
             <FocusTaskCarousel
               selectedTodoId={selectedTask?.todoId ?? null}
               onSelectTodo={(todo) => {
                 if (todo) {
                   setSelectedTask({ todoId: todo.id, title: todo.title, emoji: todo.emoji });
+                  if (todo.estimatedMinutes) {
+                    setSelectedDuration(todo.estimatedMinutes);
+                  }
                 } else {
                   setSelectedTask(null);
                 }
@@ -221,7 +239,6 @@ export default function FlowScreen() {
         {/* ===== RUNNING / PAUSED LAYER ===== */}
         <Animated.View style={[styles.layer, runningStyle]}>
           <View style={[styles.headerSpacer, { paddingTop: insets.top + 8 }]}>
-            <View style={styles.logoPlaceholder} />
             <View style={styles.titlePlaceholder} />
           </View>
 
@@ -262,7 +279,6 @@ export default function FlowScreen() {
         {/* ===== COMPLETED LAYER ===== */}
         <Animated.View style={[styles.layer, completedStyle]}>
           <View style={[styles.headerSpacer, { paddingTop: insets.top + 8 }]}>
-            <View style={styles.logoPlaceholder} />
             <View style={styles.titlePlaceholder} />
           </View>
 
@@ -278,6 +294,23 @@ export default function FlowScreen() {
               <Text style={styles.completedSubtitle}>
                 {Math.round(session.durationMs / 60000)} minutes of focus
               </Text>
+            )}
+
+            {session?.todoId && !taskMarkedDone && (
+              <Pressable
+                style={styles.markDoneButton}
+                onPress={() => {
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  toggleTodo(session.todoId!);
+                  setTaskMarkedDone(true);
+                }}
+              >
+                <CheckCircle2 size={18} color="#34C759" strokeWidth={2} />
+                <Text style={styles.markDoneText}>Mark task done</Text>
+              </Pressable>
+            )}
+            {taskMarkedDone && (
+              <Text style={styles.taskDoneLabel}>Task marked complete</Text>
             )}
 
             <Pressable style={styles.newSessionButton} onPress={handleNewSession}>
@@ -308,34 +341,27 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
-  logoRow: {
-    paddingHorizontal: 20,
-    marginBottom: 16,
-    height: 40,
-    justifyContent: 'center',
-  },
   persistentHeader: {
     position: 'absolute',
     left: 0,
     right: 0,
     zIndex: 10,
+    paddingHorizontal: 20,
   },
   headerSpacer: {
     // invisible spacer matching the persistent header height
   },
-  logoPlaceholder: {
-    height: 40, // matches logoRow height
-    marginBottom: 16,
-  },
   titlePlaceholder: {
-    height: 41, // matches title line height
+    height: 34, // matches title line height
+    marginBottom: 12,
   },
   title: {
-    fontSize: 34,
+    fontSize: 28,
     fontFamily: Fonts.heading,
     fontWeight: '700',
     color: '#1C1C1E',
-    textAlign: 'center',
+    letterSpacing: -0.5,
+    marginBottom: 12,
   },
   endCircle: {
     width: 80,
@@ -393,6 +419,13 @@ const styles = StyleSheet.create({
     gap: 40,
     marginTop: 8,
   },
+  tapHint: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#C7C7CC',
+    letterSpacing: -0.1,
+    marginTop: -8,
+  },
   presetRow: {
     flexDirection: 'row',
     gap: 10,
@@ -436,6 +469,25 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#8E8E93',
     marginBottom: 24,
+  },
+  markDoneButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(52, 199, 89, 0.12)',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 28,
+  },
+  markDoneText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#34C759',
+  },
+  taskDoneLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#34C759',
   },
   newSessionButton: {
     flexDirection: 'row',

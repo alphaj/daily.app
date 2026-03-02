@@ -5,12 +5,21 @@ import { Check, ChevronDown, ChevronUp } from 'lucide-react-native';
 import * as Haptics from '@/lib/haptics';
 import SwipeableRow from '@/components/SwipeableRow';
 import { TaskContextMenuD as TaskContextMenu } from '@/components/TaskContextMenuD';
-import type { Todo, Subtask } from '@/types/todo';
+import { differenceInCalendarDays, parseISO } from 'date-fns';
+import type { Todo, Subtask, TimeOfDay } from '@/types/todo';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
+const SECTION_TINTS: Record<TimeOfDay, { card: string; emoji: string; border: string }> = {
+  anytime:   { card: '#F9F9FB',                emoji: 'rgba(120,120,128,0.08)', border: 'transparent' },
+  morning:   { card: 'rgba(255,204,0,0.06)',   emoji: 'rgba(255,204,0,0.14)',   border: 'rgba(255,204,0,0.15)' },
+  afternoon: { card: 'rgba(255,149,0,0.06)',   emoji: 'rgba(255,149,0,0.14)',   border: 'rgba(255,149,0,0.15)' },
+  evening:   { card: 'rgba(88,86,214,0.06)',   emoji: 'rgba(88,86,214,0.14)',   border: 'rgba(88,86,214,0.15)' },
+};
+
 interface TaskCardProps {
   todo: Todo;
+  timeOfDay?: TimeOfDay;
   isOverdue?: boolean;
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
@@ -26,6 +35,7 @@ interface TaskCardProps {
 
 export const TaskCard = memo(function TaskCard({
   todo,
+  timeOfDay = 'anytime',
   isOverdue,
   onToggle,
   onDelete,
@@ -167,17 +177,30 @@ export const TaskCard = memo(function TaskCard({
     );
   }, [handleSubtaskMenuAction]);
 
+  const tint = SECTION_TINTS[timeOfDay];
+
   const durationLabel = todo.estimatedMinutes
     ? todo.estimatedMinutes >= 60
       ? `${Math.floor(todo.estimatedMinutes / 60)}h${todo.estimatedMinutes % 60 > 0 ? ` ${todo.estimatedMinutes % 60}m` : ''}`
       : `${todo.estimatedMinutes}m`
     : null;
 
+  const daysOverdue = isOverdue && !todo.completed && todo.dueDate
+    ? differenceInCalendarDays(new Date(), parseISO(todo.dueDate))
+    : 0;
+  const overdueLabel = daysOverdue === 1
+    ? '1 day overdue'
+    : daysOverdue < 7
+      ? `${daysOverdue} days overdue`
+      : daysOverdue < 14
+        ? '1 week overdue'
+        : `${Math.floor(daysOverdue / 7)} weeks overdue`;
+
   return (
     <Animated.View style={exitStyle}>
     <SwipeableRow onDelete={() => onDelete(todo.id)}>
       <Animated.View style={[pressStyle, styles.cardShadow, todo.completed && styles.cardCompleted, todo.isDefault && !todo.completed && styles.cardDefault, isOverdue && !todo.completed && styles.cardOverdue]}>
-      <View style={[styles.card, todo.isDefault && !todo.completed && styles.cardDefaultInner]}>
+      <View style={[styles.card, { backgroundColor: tint.card, borderWidth: tint.border !== 'transparent' ? 0.5 : 0, borderColor: tint.border }, todo.isDefault && !todo.completed && styles.cardDefaultInner, isOverdue && !todo.completed && styles.cardOverdueInner]}>
         <Pressable
           style={styles.cardContent}
           onPress={handleToggle}
@@ -187,19 +210,26 @@ export const TaskCard = memo(function TaskCard({
         >
           {/* Emoji circle */}
           {todo.emoji ? (
-            <View style={[styles.emojiCircle, todo.emojiColor ? { backgroundColor: todo.emojiColor } : undefined]}>
+            <View style={[styles.emojiCircle, { backgroundColor: isOverdue && !todo.completed ? 'rgba(255,149,0,0.12)' : (todo.emojiColor || tint.emoji) }]}>
               <Text style={styles.emoji}>{todo.emoji}</Text>
             </View>
           ) : null}
 
           {/* Text column */}
           <View style={styles.textColumn}>
-            <Text
-              style={[styles.title, todo.completed && styles.titleCompleted]}
-              numberOfLines={1}
-            >
-              {todo.title}
-            </Text>
+            <View style={styles.titleRow}>
+              <Text
+                style={[styles.title, todo.completed && styles.titleCompleted, isOverdue && !todo.completed && styles.titleOverdue]}
+                numberOfLines={2}
+              >
+                {todo.title}
+              </Text>
+              {isOverdue && !todo.completed && (
+                <View style={styles.overdueChip}>
+                  <Text style={styles.overdueChipText}>{daysOverdue}d</Text>
+                </View>
+              )}
+            </View>
             {durationLabel && (
               <Text style={styles.duration}>{durationLabel}</Text>
             )}
@@ -209,11 +239,6 @@ export const TaskCard = memo(function TaskCard({
             {todo.isDefault && !todo.completed && (
               <View style={styles.defaultBadge}>
                 <Text style={styles.defaultBadgeText}>Suggested</Text>
-              </View>
-            )}
-            {isOverdue && !todo.completed && (
-              <View style={styles.overdueBadge}>
-                <Text style={styles.overdueBadgeText}>Overdue · {todo.dueDate}</Text>
               </View>
             )}
           </View>
@@ -295,7 +320,8 @@ export const TaskCard = memo(function TaskCard({
       visible={menuVisible}
       onClose={() => setMenuVisible(false)}
       onCopy={handleCopy}
-      onReschedule={handleReschedule}
+      onReschedule={handleEdit}
+      onRescheduleTomorrow={handleReschedule}
       onEdit={handleEdit}
       onDelete={handleDelete}
     />
@@ -305,14 +331,14 @@ export const TaskCard = memo(function TaskCard({
 
 const styles = StyleSheet.create({
   cardShadow: {
-    marginBottom: 8,
-    borderRadius: 12,
+    marginBottom: 10,
+    borderRadius: 16,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.04,
-        shadowRadius: 3,
+        shadowRadius: 4,
       },
       android: {
         elevation: 2,
@@ -320,7 +346,7 @@ const styles = StyleSheet.create({
     }),
   },
   card: {
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: '#FFFFFF',
   },
@@ -332,47 +358,77 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   cardOverdue: {
-    borderWidth: 1.5,
-    borderColor: '#FF9500',
-    borderStyle: 'dashed',
-    borderRadius: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#D4874A',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   cardDefaultInner: {
     backgroundColor: '#FAFAFA',
     borderWidth: 1.5,
-    borderColor: '#E0E0E0',
+    borderColor: '#E5E5EA',
     borderStyle: 'dashed',
+  },
+  cardOverdueInner: {
+    backgroundColor: '#FFF9F5',
   },
   cardContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
+    padding: 16,
   },
   emojiCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(120,120,128,0.08)',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
   emoji: {
-    fontSize: 22,
+    fontSize: 26,
   },
   textColumn: {
     flex: 1,
     justifyContent: 'center',
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   title: {
     fontSize: 16,
     fontWeight: '600',
     color: '#1C1C1E',
     letterSpacing: -0.2,
+    flexShrink: 1,
   },
   titleCompleted: {
     textDecorationLine: 'line-through',
     color: '#AEAEB2',
+  },
+  titleOverdue: {
+    color: '#1C1C1E',
+  },
+  overdueChip: {
+    backgroundColor: '#FF9500',
+    borderRadius: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  overdueChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
   },
   duration: {
     fontSize: 13,
@@ -400,30 +456,16 @@ const styles = StyleSheet.create({
     color: '#7C6EBF',
     letterSpacing: 0.3,
   },
-  overdueBadge: {
-    marginTop: 4,
-    backgroundColor: '#FFF3E0',
-    borderRadius: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    alignSelf: 'flex-start',
-  },
-  overdueBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#E65100',
-    letterSpacing: 0.3,
-  },
   buddyReaction: {
     fontSize: 18,
     marginLeft: 6,
   },
   checkbox: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     borderWidth: 2,
-    borderColor: '#C7C7CC',
+    borderColor: '#D1D1D6',
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 12,

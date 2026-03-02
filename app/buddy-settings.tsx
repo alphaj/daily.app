@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -22,7 +22,9 @@ import {
   UserCheck,
   Clock,
   Unlink,
+  Send,
 } from 'lucide-react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from '@/lib/haptics';
 import * as Clipboard from 'expo-clipboard';
 
@@ -31,10 +33,9 @@ import { useBuddy, SharingPreferences, BuddyStatus } from '@/contexts/BuddyConte
 import { AmbientBackground } from '@/components/AmbientBackground';
 import { Avatar } from '@/components/Avatar';
 import { Fonts } from '@/lib/typography';
-import { Logo } from '@/components/Logo';
 
 // ── Connect form (always visible at the top) ────────────────────────
-function ConnectSection() {
+function ConnectSection({ autoFocusInput }: { autoFocusInput?: boolean }) {
   const { profile, regenerateBuddyCode } = useAuth();
   const { requestBuddy } = useBuddy();
   const [copied, setCopied] = useState(false);
@@ -159,6 +160,7 @@ function ConnectSection() {
           maxLength={6}
           autoCapitalize="characters"
           autoCorrect={false}
+          autoFocus={autoFocusInput}
         />
 
         {connectError ? <Text style={styles.errorText}>{connectError}</Text> : null}
@@ -202,8 +204,32 @@ function ConnectSection() {
 // ── Pending partnership card ─────────────────────────────────────────
 
 function PendingBuddyCard({ partnership }: { partnership: BuddyStatus }) {
-  const { respondToBuddy } = useBuddy();
+  const { respondToBuddy, nudgePendingRequest } = useBuddy();
   const [isResponding, setIsResponding] = useState(false);
+  const [isNudging, setIsNudging] = useState(false);
+  const [nudgedToday, setNudgedToday] = useState(false);
+
+  useEffect(() => {
+    if (!partnership.is_inviter || !partnership.partnership_id) return;
+    AsyncStorage.getItem(`nudge_last_${partnership.partnership_id}`).then((val) => {
+      if (val && Date.now() - parseInt(val, 10) < 24 * 60 * 60 * 1000) {
+        setNudgedToday(true);
+      }
+    });
+  }, [partnership.is_inviter, partnership.partnership_id]);
+
+  const handleNudge = async () => {
+    if (!partnership.partnership_id || nudgedToday || isNudging) return;
+    setIsNudging(true);
+    const { error } = await nudgePendingRequest(partnership.partnership_id);
+    setIsNudging(false);
+    if (error === 'already_nudged') {
+      setNudgedToday(true);
+    } else if (!error) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setNudgedToday(true);
+    }
+  };
 
   const handleRespond = async (accept: boolean) => {
     if (!partnership.partnership_id) return;
@@ -229,6 +255,21 @@ function PendingBuddyCard({ partnership }: { partnership: BuddyStatus }) {
           <Text style={styles.statusCardName}>{partnership.partner_name}</Text>
           <Text style={styles.statusCardSubtext}>Waiting for response</Text>
         </View>
+        {isNudging ? (
+          <ActivityIndicator size="small" color="#007AFF" />
+        ) : (
+          <Pressable
+            style={[styles.nudgeBtn, nudgedToday && styles.nudgeBtnDisabled]}
+            onPress={handleNudge}
+            disabled={nudgedToday}
+            hitSlop={8}
+          >
+            <Send size={14} color={nudgedToday ? '#C7C7CC' : '#007AFF'} strokeWidth={2} />
+            <Text style={[styles.nudgeBtnText, nudgedToday && styles.nudgeBtnTextDisabled]}>
+              {nudgedToday ? 'Nudged' : 'Nudge'}
+            </Text>
+          </Pressable>
+        )}
       </View>
     );
   }
@@ -429,9 +470,6 @@ export default function BuddySettingsScreen() {
     <View style={styles.container}>
       <AmbientBackground />
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
-          <Logo />
-        </View>
         {/* Header */}
         <View style={styles.header}>
           <Pressable
@@ -456,7 +494,7 @@ export default function BuddySettingsScreen() {
             showsVerticalScrollIndicator={false}
           >
             {/* Connect form — always visible */}
-            <ConnectSection />
+            <ConnectSection autoFocusInput={!hasActiveBuddy} />
 
             {/* Privacy mode — only if has any active partnership */}
             {hasActiveBuddy && <PrivacyModeSection />}
@@ -717,6 +755,28 @@ const styles = StyleSheet.create({
   },
   privacyModeDescActive: {
     color: '#5E9EFF',
+  },
+
+  // ── Nudge button ──
+  nudgeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,122,255,0.1)',
+  },
+  nudgeBtnDisabled: {
+    backgroundColor: 'rgba(0,0,0,0.04)',
+  },
+  nudgeBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#007AFF',
+  },
+  nudgeBtnTextDisabled: {
+    color: '#C7C7CC',
   },
 
   // ── Misc ──

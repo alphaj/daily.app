@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CalendarRange, CircleDashed, Heart, User } from 'lucide-react-native';
+import { CalendarRange, CircleDashed, Heart, User, Plus } from 'lucide-react-native';
 import * as Haptics from '@/lib/haptics';
 import { useBuddy } from '@/contexts/BuddyContext';
 import { useBuddyInteractions } from '@/hooks/useBuddyInteractions';
@@ -20,7 +20,7 @@ function getActiveRoute(pathname: string): NavRoute {
     return 'today';
 }
 
-export function BottomNavBar({ onFabPress }: BottomNavBarProps) {
+export function BottomNavBar(_props: BottomNavBarProps) {
     const router = useRouter();
     const pathname = usePathname();
     const insets = useSafeAreaInsets();
@@ -41,6 +41,11 @@ export function BottomNavBar({ onFabPress }: BottomNavBarProps) {
         ? 'Buddies'
         : 'Buddy';
 
+    const handleAddPress = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        router.push('/add-todo' as any);
+    };
+
     const navItems: { route: NavRoute; path: string; icon: any; label: string }[] = [
         { route: 'today', path: '/history', icon: CalendarRange, label: 'Today' },
         { route: 'focus', path: '/flow', icon: CircleDashed, label: 'Focus' },
@@ -48,49 +53,50 @@ export function BottomNavBar({ onFabPress }: BottomNavBarProps) {
         { route: 'profile', path: '/menu', icon: User, label: 'Profile' },
     ];
 
+    const renderNavItem = (item: typeof navItems[0]) => {
+        const Icon = item.icon;
+        const isActive = activeRoute === item.route;
+
+        return (
+            <Pressable
+                key={item.route}
+                style={[styles.tab, isActive && styles.tabActive]}
+                onPress={() => handleNavPress(item.route, item.path)}
+            >
+                {isActive ? (
+                    <View style={styles.activePillOuter}>
+                        <View style={styles.activePillContent}>
+                            <Icon size={20} color="#1C1C1E" strokeWidth={2.2} />
+                            <Text style={styles.activeLabel}>{item.label}</Text>
+                        </View>
+                    </View>
+                ) : (
+                    <View style={styles.inactiveIcon}>
+                        <Icon size={22} color="#6E6E73" strokeWidth={1.6} />
+                        {item.route === 'buddy' && unreadCount > 0 && (
+                            <View style={styles.unreadBadge} />
+                        )}
+                    </View>
+                )}
+            </Pressable>
+        );
+    };
+
     return (
         <View style={[styles.outerWrapper, { bottom: Math.max(insets.bottom, 12) }]}>
             <View style={styles.shadowContainer}>
                 <View style={styles.container}>
                     <View style={styles.navContent}>
-                        {navItems.map((item) => {
-                            const Icon = item.icon;
-                            const isActive = activeRoute === item.route;
-
-                            return (
-                                <Pressable
-                                    key={item.route}
-                                    style={[styles.tab, isActive && styles.tabActive]}
-                                    onPress={() => handleNavPress(item.route, item.path)}
-                                >
-                                    {isActive ? (
-                                        <View style={styles.activePillOuter}>
-                                            <View style={styles.activePillContent}>
-                                                <Icon
-                                                    size={20}
-                                                    color="#1C1C1E"
-                                                    strokeWidth={2.2}
-                                                />
-                                                <Text style={styles.activeLabel}>
-                                                    {item.label}
-                                                </Text>
-                                            </View>
-                                        </View>
-                                    ) : (
-                                        <View style={styles.inactiveIcon}>
-                                            <Icon
-                                                size={22}
-                                                color="#6E6E73"
-                                                strokeWidth={1.6}
-                                            />
-                                            {item.route === 'buddy' && unreadCount > 0 && (
-                                                <View style={styles.unreadBadge} />
-                                            )}
-                                        </View>
-                                    )}
-                                </Pressable>
-                            );
-                        })}
+                        {renderNavItem(navItems[0])}
+                        {renderNavItem(navItems[1])}
+                        <Pressable
+                            style={({ pressed }) => [styles.addButton, pressed && styles.addButtonPressed]}
+                            onPress={handleAddPress}
+                        >
+                            <Plus size={22} color="#FFFFFF" strokeWidth={2.5} />
+                        </Pressable>
+                        {renderNavItem(navItems[2])}
+                        {renderNavItem(navItems[3])}
                     </View>
                 </View>
             </View>
@@ -163,6 +169,17 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#1C1C1E',
         letterSpacing: -0.2,
+    },
+    addButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: '#1C1C1E',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    addButtonPressed: {
+        opacity: 0.7,
     },
     unreadBadge: {
         position: 'absolute',

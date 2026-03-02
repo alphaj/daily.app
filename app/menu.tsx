@@ -32,7 +32,7 @@ import { AmbientBackground } from '@/components/AmbientBackground';
 import { BottomNavBar } from '@/components/BottomNavBar';
 import { Avatar } from '@/components/Avatar';
 import { Fonts } from '@/lib/typography';
-import { Logo } from '@/components/Logo';
+
 
 // ── Icon pill (iOS Settings style) ──────────────────────────────────
 
@@ -185,9 +185,8 @@ export default function MenuScreen() {
             <AmbientBackground />
             <SafeAreaView style={styles.safeArea} edges={['top']}>
                 <View style={styles.topRow}>
-                    <Logo />
+                    <Text style={styles.screenTitle}>Profile</Text>
                 </View>
-                <Text style={styles.screenTitle}>Profile</Text>
                 <ScrollView
                     style={styles.scrollView}
                     contentContainerStyle={styles.scrollContent}
@@ -205,7 +204,34 @@ export default function MenuScreen() {
                                 <Camera size={12} color="#fff" strokeWidth={2.5} />
                             </View>
                         </Pressable>
-                        <Text style={styles.profileName}>{profile?.name ?? ''}</Text>
+                        <View style={styles.nameRow}>
+                            {isEditingName ? (
+                                <TextInput
+                                    ref={nameInputRef}
+                                    style={styles.nameInput}
+                                    value={editedName}
+                                    onChangeText={setEditedName}
+                                    onBlur={handleSaveName}
+                                    onSubmitEditing={handleSaveName}
+                                    returnKeyType="done"
+                                    autoFocus
+                                    selectTextOnFocus
+                                />
+                            ) : (
+                                <>
+                                    <Text style={styles.profileName}>{profile?.name ?? ''}</Text>
+                                    <Pressable
+                                        onPress={() => {
+                                            setEditedName(profile?.name ?? '');
+                                            setIsEditingName(true);
+                                        }}
+                                        hitSlop={8}
+                                    >
+                                        <Pencil size={14} color="#8E8E93" strokeWidth={2} />
+                                    </Pressable>
+                                </>
+                            )}
+                        </View>
                         {!!profile?.email && (
                             <Text style={styles.profileEmail}>{profile.email}</Text>
                         )}
@@ -315,14 +341,13 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingTop: 8,
         minHeight: 48,
-        marginBottom: 16,
+        marginBottom: 12,
     },
     screenTitle: {
-        fontSize: 34,
+        fontSize: 28,
         fontFamily: Fonts.heading,
         fontWeight: '700',
         color: '#1C1C1E',
-        textAlign: 'center',
         letterSpacing: -0.5,
     },
     scrollView: {
@@ -355,6 +380,23 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         borderWidth: 2.5,
         borderColor: '#fff',
+    },
+    nameRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    nameInput: {
+        fontSize: 22,
+        fontWeight: '700',
+        color: '#000',
+        letterSpacing: -0.4,
+        borderBottomWidth: 1.5,
+        borderBottomColor: '#007AFF',
+        paddingVertical: 2,
+        paddingHorizontal: 4,
+        minWidth: 120,
+        textAlign: 'center',
     },
     profileName: {
         fontSize: 22,

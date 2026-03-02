@@ -18,7 +18,6 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Haptics from '@/lib/haptics';
 
 import { AmbientBackground } from '@/components/AmbientBackground';
-import { Logo } from '@/components/Logo';
 import { usePreferences } from '@/contexts/PreferencesContext';
 import { scheduleDailyReminder, cancelDailyReminder, registerPushToken } from '@/lib/notifications';
 
@@ -87,9 +86,6 @@ export default function SettingsNotificationsScreen() {
         <View style={styles.container}>
             <AmbientBackground />
             <SafeAreaView style={styles.safeArea} edges={['top']}>
-                <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
-                    <Logo />
-                </View>
                 <View style={styles.header}>
                     <Pressable style={styles.backButton} onPress={goBack} hitSlop={20}>
                         <ArrowLeft size={20} color="#000" strokeWidth={2.5} />
@@ -117,7 +113,9 @@ export default function SettingsNotificationsScreen() {
                         <View style={styles.toggleRow}>
                             <View style={styles.toggleContent}>
                                 <Text style={styles.toggleTitle}>Daily Reminder</Text>
-                                <Text style={styles.toggleSubtitle}>Get a daily nudge to check in</Text>
+                                <Text style={styles.toggleSubtitle}>
+                                    A gentle notification to plan your day and review tasks
+                                </Text>
                             </View>
                             <Switch
                                 value={preferences.dailyReminderEnabled}
@@ -127,13 +125,21 @@ export default function SettingsNotificationsScreen() {
                             />
                         </View>
                         {preferences.dailyReminderEnabled && (
-                            <Pressable
-                                style={[styles.toggleRow, styles.toggleRowBorder]}
-                                onPress={() => setShowTimePicker(true)}
-                            >
-                                <Text style={styles.toggleTitle}>Reminder Time</Text>
-                                <Text style={styles.timeValue}>{formatTime(preferences.dailyReminderTime)}</Text>
-                            </Pressable>
+                            <>
+                                <Pressable
+                                    style={[styles.toggleRow, styles.toggleRowBorder]}
+                                    onPress={() => setShowTimePicker(true)}
+                                >
+                                    <Text style={styles.toggleTitle}>Reminder Time</Text>
+                                    <Text style={styles.timeValue}>{formatTime(preferences.dailyReminderTime)}</Text>
+                                </Pressable>
+                                <View style={styles.scheduledHint}>
+                                    <Bell size={13} color="#34C759" strokeWidth={2} />
+                                    <Text style={styles.scheduledHintText}>
+                                        You'll be reminded daily at {formatTime(preferences.dailyReminderTime)}
+                                    </Text>
+                                </View>
+                            </>
                         )}
                     </View>
 
@@ -209,4 +215,19 @@ const styles = StyleSheet.create({
     toggleTitle: { fontSize: 16, fontWeight: '500', color: '#000' },
     toggleSubtitle: { fontSize: 13, color: '#8E8E93', marginTop: 2 },
     timeValue: { fontSize: 16, color: '#8E8E93', fontWeight: '400' },
+    scheduledHint: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        backgroundColor: 'rgba(52, 199, 89, 0.06)',
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: 'rgba(60,60,67,0.1)',
+    },
+    scheduledHintText: {
+        fontSize: 13,
+        color: '#34C759',
+        fontWeight: '500',
+    },
 });

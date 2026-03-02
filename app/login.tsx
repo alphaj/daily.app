@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -20,7 +21,7 @@ import * as Haptics from '@/lib/haptics';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { signIn } = useAuth();
+  const { signIn, resetPassword } = useAuth();
   const { completeOnboarding } = useOnboarding();
 
   const [email, setEmail] = useState('');
@@ -50,6 +51,20 @@ export default function LoginScreen() {
     await completeOnboarding();
 
     router.replace('/');
+  };
+
+  const handleForgotPassword = async () => {
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail) {
+      Alert.alert('Enter your email', 'Type your email address above, then tap "Forgot password?" again.');
+      return;
+    }
+    const { error: resetError } = await resetPassword(trimmedEmail);
+    if (resetError) {
+      Alert.alert('Error', resetError);
+    } else {
+      Alert.alert('Check your email', 'We sent a password reset link to ' + trimmedEmail);
+    }
   };
 
   const handleNewUser = () => {
@@ -125,6 +140,9 @@ export default function LoginScreen() {
               </View>
             </View>
 
+            <Pressable onPress={handleForgotPassword} style={styles.forgotButton}>
+              <Text style={styles.forgotText}>Forgot password?</Text>
+            </Pressable>
           </View>
 
           <View style={styles.buttonContainer}>
@@ -231,6 +249,15 @@ const styles = StyleSheet.create({
   },
   eyeButton: {
     paddingHorizontal: 16,
+  },
+  forgotButton: {
+    alignSelf: 'flex-end',
+    marginTop: -8,
+  },
+  forgotText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#007AFF',
   },
   errorText: {
     color: '#FF3B30',

@@ -17,7 +17,7 @@ import Animated, {
     interpolate,
     runOnJS,
 } from 'react-native-reanimated';
-import { CheckCircle2, X, ArrowUp } from 'lucide-react-native';
+import { X, ArrowUp } from 'lucide-react-native';
 import * as Haptics from '@/lib/haptics';
 import { BlurView } from 'expo-blur';
 import { useTodos } from '@/contexts/TodoContext';
@@ -25,16 +25,10 @@ import { useWorkMode } from '@/contexts/WorkModeContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-type CaptureMode = 'task';
-
 interface CaptureBarProps {
     visible: boolean;
     onClose: () => void;
 }
-
-const MODES: { mode: CaptureMode; icon: typeof CheckCircle2; label: string; color: string }[] = [
-    { mode: 'task', icon: CheckCircle2, label: 'Task', color: '#007AFF' },
-];
 
 const SPRING_OPEN = { damping: 28, stiffness: 340, mass: 0.7 };
 const SPRING_CLOSE = { damping: 26, stiffness: 380, mass: 0.6 };
@@ -43,7 +37,6 @@ export function CaptureBar({
     visible,
     onClose,
 }: CaptureBarProps) {
-    const [mode, setMode] = useState<CaptureMode>('task');
     const [tempInput, setTempInput] = useState('');
     const [mounted, setMounted] = useState(false);
     const { addTodo } = useTodos();
@@ -52,7 +45,6 @@ export function CaptureBar({
     const inputRef = useRef<TextInput>(null);
 
     const resetState = useCallback(() => {
-        setMode('task');
         setTempInput('');
         Keyboard.dismiss();
     }, []);
@@ -94,13 +86,6 @@ export function CaptureBar({
             { scale: interpolate(progress.value, [0, 1], [0.97, 1]) },
         ],
     }));
-
-    const handleModeSwitch = (newMode: CaptureMode) => {
-        Haptics.selectionAsync();
-        if (newMode === mode) return;
-        setMode(newMode);
-        setTimeout(() => inputRef.current?.focus(), 80);
-    };
 
     const handleSubmit = () => {
         if (!tempInput?.trim()) return;
@@ -166,37 +151,9 @@ export function CaptureBar({
                                 />
                             </View>
 
-                            {/* Bottom bar: mode pills + send */}
+                            {/* Bottom bar: send button */}
                             <View style={styles.bottomBar}>
-                                <View style={styles.pillRow}>
-                                    {MODES.map(({ mode: m, icon: Icon, label, color }) => {
-                                        const active = mode === m;
-                                        return (
-                                            <Pressable
-                                                key={m}
-                                                onPress={() => handleModeSwitch(m)}
-                                                style={({ pressed }) => [
-                                                    styles.pill,
-                                                    active && { backgroundColor: color },
-                                                    pressed && !active && styles.pillPressed,
-                                                ]}
-                                            >
-                                                <Icon
-                                                    size={16}
-                                                    color={active ? '#fff' : '#8E8E93'}
-                                                    strokeWidth={2.5}
-                                                />
-                                                <Text style={[
-                                                    styles.pillLabel,
-                                                    active && styles.pillLabelActive,
-                                                ]}>
-                                                    {label}
-                                                </Text>
-                                            </Pressable>
-                                        );
-                                    })}
-                                </View>
-
+                                <View style={{ flex: 1 }} />
                                 <Pressable
                                     onPress={handleSubmit}
                                     disabled={!hasText}
@@ -307,32 +264,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
     },
-    pillRow: {
-        flexDirection: 'row',
-        gap: 8,
-    },
-    pill: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 5,
-        paddingVertical: 8,
-        paddingHorizontal: 14,
-        borderRadius: 20,
-        backgroundColor: 'rgba(120,120,128,0.08)',
-    },
-    pillPressed: {
-        backgroundColor: 'rgba(120,120,128,0.14)',
-    },
-    pillLabel: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#8E8E93',
-        letterSpacing: -0.2,
-    },
-    pillLabelActive: {
-        color: '#fff',
-    },
-
     // Send
     sendBtn: {
         width: 36,

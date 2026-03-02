@@ -28,6 +28,7 @@ import { DailySummaryModal, useDailySummary } from '@/components/DailySummaryMod
 
 import { BlurView } from 'expo-blur';
 import { AmbientBackground } from '@/components/AmbientBackground';
+import { UndoToast } from '@/components/UndoToast';
 
 import { HomeHeader } from '@/components/home/HomeHeader';
 
@@ -300,7 +301,7 @@ function CalendarModal({
 export default function TodayScreen() {
   const router = useRouter();
 
-  const { getTodosForDate, getCompletedTodosForDate, toggleTodo, deleteTodo, duplicateTodo, rescheduleTodo, todos: allTodos, reorderTodos, toggleSubtask, deleteSubtask, editSubtask, convertSubtaskToTask, incompleteDateMap } = useTodos();
+  const { getTodosForDate, getCompletedTodosForDate, toggleTodo, deleteTodo, restoreTodo, duplicateTodo, rescheduleTodo, todos: allTodos, reorderTodos, toggleSubtask, deleteSubtask, editSubtask, convertSubtaskToTask, incompleteDateMap } = useTodos();
 
   const { hasNoteForDate } = useNotes();
   const { items: inboxItems } = useInbox();
@@ -344,11 +345,21 @@ export default function TodayScreen() {
     }
   }, [capture]);
 
-  const handleAddPress = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push('/add-todo');
-  }, [router]);
+  const [undoToast, setUndoToast] = useState<{ visible: boolean; todo: Todo | null }>({ visible: false, todo: null });
 
+  const handleDeleteWithUndo = useCallback((id: string) => {
+    const todo = allTodos.find(t => t.id === id);
+    if (!todo) return;
+    deleteTodo(id);
+    setUndoToast({ visible: true, todo });
+  }, [allTodos, deleteTodo]);
+
+  const handleUndoDelete = useCallback(() => {
+    if (undoToast.todo) {
+      restoreTodo(undoToast.todo);
+    }
+    setUndoToast({ visible: false, todo: null });
+  }, [undoToast.todo, restoreTodo]);
 
   const handleAddTodoForSection = useCallback((timeOfDay: TimeOfDay) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -378,7 +389,7 @@ export default function TodayScreen() {
     allTodos,
     tasksCompleted,
     onToggleTodo: toggleTodo,
-    onDeleteTodo: deleteTodo,
+    onDeleteTodo: handleDeleteWithUndo,
     onReorderTodos: (reorderedDateTodos) => {
       const otherTodos = allTodos.filter(t => !todosForDate.some(dt => dt.id === t.id));
       const newAllTodos = [...otherTodos, ...reorderedDateTodos];
@@ -403,8 +414,9 @@ export default function TodayScreen() {
         <HomeHeader
           selectedDate={selectedDate}
           onSelectDate={handleSelectDate}
-          onAddPress={handleAddPress}
           incompleteDateMap={incompleteDateMap}
+          tasksCompleted={tasksCompleted}
+          tasksTotal={todosForDate.length}
         />
 
         <HomeV1 {...variantProps} />
@@ -431,6 +443,13 @@ export default function TodayScreen() {
           onDismiss={dismissDailySummary}
           tasksCompletedYesterday={todosForDate.filter(t => t.completed).length}
           pendingTasks={todosForDate.filter(t => !t.completed).length}
+        />
+
+        <UndoToast
+          message="Task deleted"
+          visible={undoToast.visible}
+          onUndo={handleUndoDelete}
+          onDismiss={() => setUndoToast({ visible: false, todo: null })}
         />
 
       </SafeAreaView>

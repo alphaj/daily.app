@@ -1,15 +1,29 @@
 import React, { memo } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { Plus, ChevronDown } from 'lucide-react-native';
+import { Plus, ChevronDown, ChevronRight } from 'lucide-react-native';
 import * as Haptics from '@/lib/haptics';
 import { TaskCard } from './TaskCard';
 import type { Todo, TimeOfDay } from '@/types/todo';
 
-const SECTION_CONFIG: Record<TimeOfDay, { label: string; icon: string }> = {
-  anytime: { label: 'ANYTIME', icon: '🕐' },
-  morning: { label: 'MORNING', icon: '🌅' },
-  afternoon: { label: 'AFTERNOON', icon: '☀️' },
-  evening: { label: 'EVENING', icon: '🌙' },
+const SECTION_LABELS: Record<TimeOfDay, string> = {
+  anytime: 'Anytime',
+  morning: 'Morning',
+  afternoon: 'Afternoon',
+  evening: 'Evening',
+};
+
+const SECTION_EMOJIS: Record<TimeOfDay, string> = {
+  anytime: '📌',
+  morning: '🌅',
+  afternoon: '☀️',
+  evening: '🌙',
+};
+
+const SECTION_COLORS: Record<TimeOfDay, { text: string }> = {
+  anytime: { text: '#6C6C70' },
+  morning: { text: '#8B7000' },
+  afternoon: { text: '#8B5200' },
+  evening: { text: '#4240A0' },
 };
 
 interface TaskSectionProps {
@@ -47,8 +61,9 @@ export const TaskSection = memo(function TaskSection({
   onEditTodo,
   buddyReactions,
 }: TaskSectionProps) {
-  const config = SECTION_CONFIG[timeOfDay];
-  const count = tasks.length;
+  const label = SECTION_LABELS[timeOfDay];
+  const emoji = SECTION_EMOJIS[timeOfDay];
+  const colors = SECTION_COLORS[timeOfDay];
   const todayKey = new Date().toISOString().split('T')[0];
 
   const handleCollapse = () => {
@@ -60,15 +75,17 @@ export const TaskSection = memo(function TaskSection({
     <View style={styles.container}>
       {/* Section Header */}
       <View style={styles.header}>
-        <Pressable
-          style={styles.sectionHeader}
-          onPress={handleCollapse}
-        >
-          <Text style={styles.pillIcon}>{config.icon}</Text>
-          <Text style={styles.pillLabel}>
-            {config.label} ({count})
+        <Pressable onPress={handleCollapse} hitSlop={8} style={styles.headerLeft}>
+          <Text style={styles.sectionEmoji}>{emoji}</Text>
+          <Text style={[styles.sectionLabel, { color: colors.text }]}>
+            {label}
           </Text>
-          <ChevronDown size={14} color="#8E8E93" />
+          <Text style={styles.sectionCount}>{tasks.length}</Text>
+          {isCollapsed ? (
+            <ChevronRight size={16} color={colors.text} strokeWidth={2.5} />
+          ) : (
+            <ChevronDown size={16} color={colors.text} strokeWidth={2.5} />
+          )}
         </Pressable>
         <Pressable
           style={styles.addButton}
@@ -78,7 +95,7 @@ export const TaskSection = memo(function TaskSection({
           }}
           hitSlop={8}
         >
-          <Plus size={18} color="#8E8E93" strokeWidth={2} />
+          <Plus size={18} color="#C7C7CC" strokeWidth={2} />
         </Pressable>
       </View>
 
@@ -101,6 +118,7 @@ export const TaskSection = memo(function TaskSection({
               <TaskCard
                 key={todo.id}
                 todo={todo}
+                timeOfDay={timeOfDay}
                 isOverdue={!todo.completed && todo.dueDate < todayKey}
                 onToggle={onToggleTodo}
                 onDelete={onDeleteTodo}
@@ -123,7 +141,7 @@ export const TaskSection = memo(function TaskSection({
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 44,
+    marginTop: 24,
   },
   header: {
     flexDirection: 'row',
@@ -132,20 +150,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 12,
   },
-  sectionHeader: {
+  headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 4,
+    gap: 4,
   },
-  pillIcon: {
-    fontSize: 14,
+  sectionEmoji: {
+    fontSize: 18,
+    marginRight: 4,
   },
-  pillLabel: {
-    fontSize: 12,
+  sectionLabel: {
+    fontSize: 18,
     fontWeight: '700',
-    letterSpacing: 0.8,
+    letterSpacing: -0.3,
+  },
+  sectionCount: {
+    fontSize: 14,
+    fontWeight: '500',
     color: '#8E8E93',
+    marginLeft: 2,
   },
   addButton: {
     width: 28,
@@ -162,7 +185,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#E5E5EA',
     borderStyle: 'dashed',

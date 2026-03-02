@@ -28,7 +28,6 @@ import { BottomNavBar } from '@/components/BottomNavBar';
 import { ReactionPicker } from '@/components/buddy/ReactionPicker';
 import { NudgePicker } from '@/components/buddy/NudgePicker';
 import { Fonts } from '@/lib/typography';
-import { Logo } from '@/components/Logo';
 import type {
   BuddyData,
   BuddyTodo,
@@ -390,9 +389,6 @@ export default function BuddyDetailScreen() {
     <View style={styles.container}>
       <AmbientBackground />
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
-          <Logo />
-        </View>
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>

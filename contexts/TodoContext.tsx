@@ -75,6 +75,12 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
     await saveTodos(newTodos);
   }, [todos, saveTodos]);
 
+  const restoreTodo = useCallback(async (todo: Todo) => {
+    const newTodos = [...todos, todo];
+    setTodos(newTodos);
+    await saveTodos(newTodos);
+  }, [todos, saveTodos]);
+
   const toggleTodo = useCallback(async (id: string): Promise<boolean> => {
     const todo = todos.find(t => t.id === id);
     if (!todo) return false;
@@ -317,6 +323,7 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
     isLoading: todosQuery.isLoading,
     addTodo,
     deleteTodo,
+    restoreTodo,
     toggleTodo,
     updateTodo,
     duplicateTodo,
