@@ -1,6 +1,6 @@
 import React, { memo, useState, useCallback } from 'react';
 import { View, Text, Pressable, StyleSheet, Platform, Alert, ActionSheetIOS, Dimensions } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming, runOnJS, FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { Check, ChevronDown, ChevronUp, EyeOff } from 'lucide-react-native';
 import * as Haptics from '@/lib/haptics';
 import SwipeableRow from '@/components/SwipeableRow';
@@ -22,6 +22,7 @@ interface TaskCardProps {
   todo: Todo;
   timeOfDay?: TimeOfDay;
   isOverdue?: boolean;
+  index?: number;
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
   onToggleSubtask?: (todoId: string, subtaskId: string) => void;
@@ -39,6 +40,7 @@ export const TaskCard = memo(function TaskCard({
   todo,
   timeOfDay = 'anytime',
   isOverdue,
+  index = 0,
   onToggle,
   onDelete,
   onToggleSubtask,
@@ -52,11 +54,21 @@ export const TaskCard = memo(function TaskCard({
   buddyReaction,
 }: TaskCardProps) {
   const [subtasksExpanded, setSubtasksExpanded] = useState(false);
+  const [isOptimisticallyCompleted, setIsOptimisticallyCompleted] = useState(false);
+
+  // Derive displayed completed state
+  const showCompleted = todo.completed || isOptimisticallyCompleted;
 
   // Press scale animation
   const scale = useSharedValue(1);
   const pressStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
+  }));
+
+  // Checkbox pop animation
+  const checkboxScale = useSharedValue(1);
+  const checkboxStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: checkboxScale.value }],
   }));
 
   // Exit animation (reschedule slide-out)
@@ -79,10 +91,28 @@ export const TaskCard = memo(function TaskCard({
   const hasSubtasks = subtasks.length > 0;
   const completedSubtasks = subtasks.filter(st => st.completed).length;
 
-  const handleToggle = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  const fireToggle = useCallback(() => {
     onToggle(todo.id);
+    setIsOptimisticallyCompleted(false);
   }, [todo.id, onToggle]);
+
+  const handleToggle = useCallback(() => {
+    if (!todo.completed && !isOptimisticallyCompleted) {
+      // Completing: pop checkbox, dim card, delay actual toggle
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setIsOptimisticallyCompleted(true);
+      checkboxScale.value = withSequence(
+        withSpring(1.3, { damping: 12, stiffness: 400 }),
+        withSpring(1, { damping: 14, stiffness: 300 }),
+      );
+      // Delay actual toggle so the user sees the micro-interaction
+      setTimeout(fireToggle, 400);
+    } else {
+      // Un-completing: immediate
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      onToggle(todo.id);
+    }
+  }, [todo.id, todo.completed, isOptimisticallyCompleted, onToggle, fireToggle]);
 
   const handleSubtaskToggle = useCallback((subtaskId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -192,7 +222,7 @@ export const TaskCard = memo(function TaskCard({
       : `${todo.estimatedMinutes}m`
     : null;
 
-  const daysOverdue = isOverdue && !todo.completed && todo.dueDate
+  const daysOverdue = isOverdue && !showCompleted && todo.dueDate
     ? differenceInCalendarDays(new Date(), parseISO(todo.dueDate))
     : 0;
   const overdueLabel = daysOverdue === 1
@@ -204,10 +234,15 @@ export const TaskCard = memo(function TaskCard({
         : `${Math.floor(daysOverdue / 7)} weeks overdue`;
 
   return (
-    <Animated.View style={exitStyle}>
+    <Animated.View
+      style={exitStyle}
+      entering={FadeInDown.duration(300).delay(index * 40)}
+      exiting={FadeOut.duration(200)}
+      layout={LinearTransition.springify().damping(18).stiffness(200)}
+    >
     <SwipeableRow onDelete={() => onDelete(todo.id)}>
-      <Animated.View style={[pressStyle, styles.cardShadow, todo.completed && styles.cardCompleted, todo.isDefault && !todo.completed && styles.cardDefault, isOverdue && !todo.completed && styles.cardOverdue]}>
-      <View style={[styles.card, { backgroundColor: tint.card, borderWidth: 1, borderColor: tint.border }, todo.isDefault && !todo.completed && styles.cardDefaultInner, isOverdue && !todo.completed && styles.cardOverdueInner]}>
+      <Animated.View style={[pressStyle, styles.cardShadow, showCompleted && styles.cardCompleted, todo.isDefault && !showCompleted && styles.cardDefault, isOverdue && !showCompleted && styles.cardOverdue]}>
+      <View style={[styles.card, { backgroundColor: tint.card, borderWidth: 1, borderColor: tint.border }, todo.isDefault && !showCompleted && styles.cardDefaultInner, isOverdue && !showCompleted && styles.cardOverdueInner]}>
         <Pressable
           style={styles.cardContent}
           onPress={handleToggle}
@@ -217,7 +252,7 @@ export const TaskCard = memo(function TaskCard({
         >
           {/* Emoji circle */}
           {todo.emoji ? (
-            <View style={[styles.emojiCircle, { backgroundColor: isOverdue && !todo.completed ? 'rgba(255,149,0,0.12)' : (todo.emojiColor || tint.emoji) }]}>
+            <View style={[styles.emojiCircle, { backgroundColor: isOverdue && !showCompleted ? 'rgba(255,149,0,0.12)' : (todo.emojiColor || tint.emoji) }]}>
               <Text style={styles.emoji}>{todo.emoji}</Text>
             </View>
           ) : null}
@@ -226,7 +261,7 @@ export const TaskCard = memo(function TaskCard({
           <View style={styles.textColumn}>
             <View style={styles.titleRow}>
               <Text
-                style={[styles.title, todo.completed && styles.titleCompleted, isOverdue && !todo.completed && styles.titleOverdue]}
+                style={[styles.title, showCompleted && styles.titleCompleted, isOverdue && !showCompleted && styles.titleOverdue]}
                 numberOfLines={2}
               >
                 {todo.title}
@@ -236,7 +271,7 @@ export const TaskCard = memo(function TaskCard({
                   <EyeOff size={11} color="#8E8E93" strokeWidth={2.5} />
                 </View>
               )}
-              {isOverdue && !todo.completed && (
+              {isOverdue && !showCompleted && (
                 <View style={styles.overdueChip}>
                   <Text style={styles.overdueChipText}>{daysOverdue}d</Text>
                 </View>
@@ -254,7 +289,7 @@ export const TaskCard = memo(function TaskCard({
                 {todo.partnerCompleted ? ' ✓' : ''}
               </Text>
             )}
-            {todo.isDefault && !todo.completed && (
+            {todo.isDefault && !showCompleted && (
               <View style={styles.defaultBadge}>
                 <Text style={styles.defaultBadgeText}>Suggested</Text>
               </View>
@@ -270,21 +305,23 @@ export const TaskCard = memo(function TaskCard({
           )}
 
           {/* Partner reaction badge */}
-          {buddyReaction && todo.completed && (
+          {buddyReaction && showCompleted && (
             <Text style={styles.buddyReaction}>{buddyReaction}</Text>
           )}
 
           {/* Checkbox */}
-          <View
-            style={[
-              styles.checkbox,
-              todo.completed && !todo.isTogether && styles.checkboxChecked,
-              todo.isTogether && todo.completed && !todo.partnerCompleted && styles.checkboxTogetherWaiting,
-              todo.isTogether && todo.completed && todo.partnerCompleted && styles.checkboxTogetherDone,
-            ]}
-          >
-            {todo.completed && <Check size={14} color="#fff" strokeWidth={3} />}
-          </View>
+          <Animated.View style={checkboxStyle}>
+            <View
+              style={[
+                styles.checkbox,
+                showCompleted && !todo.isTogether && styles.checkboxChecked,
+                todo.isTogether && showCompleted && !todo.partnerCompleted && styles.checkboxTogetherWaiting,
+                todo.isTogether && showCompleted && todo.partnerCompleted && styles.checkboxTogetherDone,
+              ]}
+            >
+              {showCompleted && <Check size={14} color="#fff" strokeWidth={3} />}
+            </View>
+          </Animated.View>
         </Pressable>
 
         {/* Subtask indicator row */}

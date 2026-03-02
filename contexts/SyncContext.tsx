@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBuddy } from '@/contexts/BuddyContext';
-import { pushAllData, pullBuddyData, pullAssignedTasks, markAssignedTasksDelivered, pullInteractions, markInteractionsDelivered, pullTogetherTasks, markTogetherTasksDelivered, pullPartnerCompletionStatus, BuddyData } from '@/lib/sync';
+import { pushAllData, pullBuddyData, pullAssignedTasks, markAssignedTasksDelivered, pullInteractions, markInteractionsDelivered, pullTogetherTasks, markTogetherTasksDelivered, pullPartnerCompletionStatus, createTogetherTask, BuddyData } from '@/lib/sync';
 import { supabase } from '@/lib/supabase';
 import type { Todo } from '@/types/todo';
 
@@ -42,6 +42,44 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     setIsSyncing(true);
     try {
       await pushAllData(session.user.id);
+
+      // Deliver recurring together tasks that don't have a group ID yet
+      {
+        const rawDelivery = await AsyncStorage.getItem(TODOS_STORAGE_KEY);
+        const localForDelivery: Todo[] = rawDelivery ? JSON.parse(rawDelivery) : [];
+        const needsDelivery = localForDelivery.filter(t =>
+          t.isTogether && !t.togetherGroupId && t.togetherPartnerId
+        );
+
+        if (needsDelivery.length > 0) {
+          let updatedLocal = [...localForDelivery];
+          for (const todo of needsDelivery) {
+            const result = await createTogetherTask({
+              id: todo.id,
+              title: todo.title,
+              createdAt: todo.createdAt,
+              dueDate: todo.dueDate,
+              dueTime: todo.dueTime,
+              priority: todo.priority,
+              isWork: todo.isWork,
+              emoji: todo.emoji,
+              emojiColor: todo.emojiColor,
+              estimatedMinutes: todo.estimatedMinutes,
+              timeOfDay: todo.timeOfDay,
+              repeat: todo.repeat,
+              subtasks: todo.subtasks,
+            }, todo.togetherPartnerId);
+
+            if (result.togetherGroupId) {
+              updatedLocal = updatedLocal.map(t =>
+                t.id === todo.id ? { ...t, togetherGroupId: result.togetherGroupId } : t
+              );
+            }
+          }
+          await AsyncStorage.setItem(TODOS_STORAGE_KEY, JSON.stringify(updatedLocal));
+          queryClient.invalidateQueries({ queryKey: ['todos'] });
+        }
+      }
 
       // Pull assigned tasks from buddy
       const assigned = await pullAssignedTasks(session.user.id);
@@ -88,38 +126,62 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       const togetherTasks = await pullTogetherTasks(session.user.id);
       if (togetherTasks.length > 0) {
         const raw2 = await AsyncStorage.getItem(TODOS_STORAGE_KEY);
-        const localTodos2: Todo[] = raw2 ? JSON.parse(raw2) : [];
+        let localTodos2: Todo[] = raw2 ? JSON.parse(raw2) : [];
         const localIds2 = new Set(localTodos2.map((t) => t.id));
 
-        const newTogetherTodos: Todo[] = togetherTasks
-          .filter((tt) => !localIds2.has(tt.task_id))
-          .map((tt) => ({
-            id: tt.task_id,
-            title: tt.title,
-            completed: false,
-            createdAt: tt.created_at,
-            dueDate: tt.due_date,
-            dueTime: tt.due_time ?? undefined,
-            priority: (tt.priority as Todo['priority']) ?? undefined,
-            isWork: tt.is_work,
-            emoji: tt.emoji ?? undefined,
-            emojiColor: tt.emoji_color ?? undefined,
-            estimatedMinutes: tt.estimated_minutes ?? undefined,
-            timeOfDay: (tt.time_of_day as Todo['timeOfDay']) ?? undefined,
-            repeat: (tt.repeat as Todo['repeat']) ?? undefined,
-            subtasks: tt.subtasks
-              ? typeof tt.subtasks === 'string'
-                ? JSON.parse(tt.subtasks)
-                : tt.subtasks
-              : undefined,
-            isTogether: true,
-            togetherGroupId: tt.together_group_id,
-            togetherPartnerId: tt.creator_id,
-            togetherPartnerName: tt.creator_name,
-            togetherPartnerAvatarUrl: tt.creator_avatar_url ?? undefined,
-          }));
+        let localMerged = false;
+        const newTogetherTodos: Todo[] = [];
 
-        if (newTogetherTodos.length > 0) {
+        for (const tt of togetherTasks) {
+          if (localIds2.has(tt.task_id)) continue;
+
+          // Check if a locally-spawned recurring together task already exists for this title+date
+          const existingMatch = localTodos2.find(t =>
+            t.isTogether && !t.togetherGroupId && t.title === tt.title && t.dueDate === tt.due_date
+          );
+
+          if (existingMatch) {
+            // Merge: update existing local task with group ID from delivery
+            localTodos2 = localTodos2.map(t =>
+              t.id === existingMatch.id ? {
+                ...t,
+                togetherGroupId: tt.together_group_id,
+                togetherPartnerId: tt.creator_id,
+                togetherPartnerName: tt.creator_name,
+                togetherPartnerAvatarUrl: tt.creator_avatar_url ?? undefined,
+              } : t
+            );
+            localMerged = true;
+          } else {
+            newTogetherTodos.push({
+              id: tt.task_id,
+              title: tt.title,
+              completed: false,
+              createdAt: tt.created_at,
+              dueDate: tt.due_date,
+              dueTime: tt.due_time ?? undefined,
+              priority: (tt.priority as Todo['priority']) ?? undefined,
+              isWork: tt.is_work,
+              emoji: tt.emoji ?? undefined,
+              emojiColor: tt.emoji_color ?? undefined,
+              estimatedMinutes: tt.estimated_minutes ?? undefined,
+              timeOfDay: (tt.time_of_day as Todo['timeOfDay']) ?? undefined,
+              repeat: (tt.repeat as Todo['repeat']) ?? undefined,
+              subtasks: tt.subtasks
+                ? typeof tt.subtasks === 'string'
+                  ? JSON.parse(tt.subtasks)
+                  : tt.subtasks
+                : undefined,
+              isTogether: true,
+              togetherGroupId: tt.together_group_id,
+              togetherPartnerId: tt.creator_id,
+              togetherPartnerName: tt.creator_name,
+              togetherPartnerAvatarUrl: tt.creator_avatar_url ?? undefined,
+            });
+          }
+        }
+
+        if (newTogetherTodos.length > 0 || localMerged) {
           const merged = [...localTodos2, ...newTogetherTodos];
           await AsyncStorage.setItem(TODOS_STORAGE_KEY, JSON.stringify(merged));
           queryClient.invalidateQueries({ queryKey: ['todos'] });

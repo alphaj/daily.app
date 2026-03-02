@@ -1,5 +1,6 @@
 import React, { memo } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
+import Animated, { LinearTransition } from 'react-native-reanimated';
 import { Plus, ChevronDown, ChevronRight } from 'lucide-react-native';
 import * as Haptics from '@/lib/haptics';
 import { TaskCard } from './TaskCard';
@@ -103,7 +104,10 @@ export const TaskSection = memo(function TaskSection({
 
       {/* Task Cards */}
       {!isCollapsed && (
-        <View style={styles.body}>
+        <Animated.View
+          style={styles.body}
+          layout={LinearTransition.springify().damping(18).stiffness(200)}
+        >
           {tasks.length === 0 ? (
             <Pressable
               style={styles.emptyPlaceholder}
@@ -116,12 +120,13 @@ export const TaskSection = memo(function TaskSection({
               <Text style={styles.emptyText}>Add a task</Text>
             </Pressable>
           ) : (
-            tasks.map((todo) => (
+            tasks.map((todo, i) => (
               <TaskCard
                 key={todo.id}
                 todo={todo}
                 timeOfDay={timeOfDay}
                 isOverdue={!todo.completed && todo.dueDate < todayKey}
+                index={i}
                 onToggle={onToggleTodo}
                 onDelete={onDeleteTodo}
                 onToggleSubtask={onToggleSubtask}
@@ -136,7 +141,7 @@ export const TaskSection = memo(function TaskSection({
               />
             ))
           )}
-        </View>
+        </Animated.View>
       )}
     </View>
   );

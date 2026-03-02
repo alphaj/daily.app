@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,14 +6,13 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
+  Alert,
   Platform,
 } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  interpolate,
-  type SharedValue,
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -41,24 +40,11 @@ import { Fonts } from '@/lib/typography';
 
 function BuddyCard({
   partner,
-  index,
-  entrance,
 }: {
   partner: BuddyStatus;
-  index: number;
-  entrance: SharedValue<number>;
 }) {
   const router = useRouter();
   const scale = useSharedValue(1);
-
-  const entranceStyle = useAnimatedStyle(() => {
-    const delay = index * 0.08;
-    const p = interpolate(entrance.value, [delay, delay + 0.5], [0, 1], 'clamp');
-    return {
-      opacity: p,
-      transform: [{ translateY: interpolate(p, [0, 1], [16, 0]) }],
-    };
-  });
 
   const pressStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -77,35 +63,33 @@ function BuddyCard({
     : 'today';
 
   return (
-    <Animated.View style={[entranceStyle, { marginBottom: 10 }]}>
-      <Animated.View style={[pressStyle, styles.cardShadow]}>
-        <Pressable
-          style={styles.partnerCard}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push(`/buddy-detail?partnerId=${partner.partner_id}`);
-          }}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-        >
-          <Avatar
-            uri={partner.partner_avatar_url}
-            name={partner.partner_name}
-            size={52}
-          />
-          <View style={styles.partnerCardInfo}>
-            <Text style={styles.partnerCardName}>
-              {partner.partner_name ?? 'Buddy'}
-            </Text>
-            <Text style={styles.partnerCardSince}>
-              Since {sinceLabel}
-            </Text>
-          </View>
-          <View style={styles.chevronWrap}>
-            <ChevronRight size={18} color="#C7C7CC" strokeWidth={2} />
-          </View>
-        </Pressable>
-      </Animated.View>
+    <Animated.View style={[pressStyle, styles.cardShadow, { marginBottom: 10 }]}>
+      <Pressable
+        style={styles.partnerCard}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          router.push(`/buddy-detail?partnerId=${partner.partner_id}`);
+        }}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+      >
+        <Avatar
+          uri={partner.partner_avatar_url}
+          name={partner.partner_name}
+          size={52}
+        />
+        <View style={styles.partnerCardInfo}>
+          <Text style={styles.partnerCardName}>
+            {partner.partner_name ?? 'Buddy'}
+          </Text>
+          <Text style={styles.partnerCardSince}>
+            Since {sinceLabel}
+          </Text>
+        </View>
+        <View style={styles.chevronWrap}>
+          <ChevronRight size={18} color="#C7C7CC" strokeWidth={2} />
+        </View>
+      </Pressable>
     </Animated.View>
   );
 }
@@ -114,31 +98,14 @@ function BuddyCard({
 
 function PendingRequestCard({
   partner,
-  index,
-  entrance,
 }: {
   partner: BuddyStatus;
-  index: number;
-  entrance: SharedValue<number>;
 }) {
-  const { respondToBuddy, nudgePendingRequest } = useBuddy();
+  const { respondToBuddy, nudgePendingRequest, cancelRequest } = useBuddy();
   const [isResponding, setIsResponding] = React.useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   const [isNudging, setIsNudging] = useState(false);
   const [nudgedToday, setNudgedToday] = useState(false);
-  const scale = useSharedValue(1);
-
-  const entranceStyle = useAnimatedStyle(() => {
-    const delay = index * 0.08;
-    const p = interpolate(entrance.value, [delay, delay + 0.5], [0, 1], 'clamp');
-    return {
-      opacity: p,
-      transform: [{ translateY: interpolate(p, [0, 1], [16, 0]) }],
-    };
-  });
-
-  const pressStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
 
   useEffect(() => {
     if (!partner.is_inviter || !partner.partnership_id) return;
@@ -162,6 +129,29 @@ function PendingRequestCard({
     }
   };
 
+  const handleCancel = () => {
+    if (!partner.partnership_id) return;
+    Alert.alert(
+      'Cancel Request',
+      `Remove your buddy request to ${partner.partner_name ?? 'this person'}?`,
+      [
+        { text: 'Keep', style: 'cancel' },
+        {
+          text: 'Cancel Request',
+          style: 'destructive',
+          onPress: async () => {
+            setIsCancelling(true);
+            const { error } = await cancelRequest(partner.partnership_id!);
+            setIsCancelling(false);
+            if (!error) {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleRespond = async (accept: boolean) => {
     if (!partner.partnership_id) return;
     setIsResponding(true);
@@ -173,46 +163,7 @@ function PendingRequestCard({
   // We sent the request
   if (partner.is_inviter) {
     return (
-      <Animated.View style={[entranceStyle, { marginBottom: 10 }]}>
-        <Animated.View style={[pressStyle, styles.cardShadow]}>
-          <View style={styles.pendingCard}>
-            <Avatar
-              uri={partner.partner_avatar_url}
-              name={partner.partner_name}
-              size={44}
-            />
-            <View style={styles.pendingCardInfo}>
-              <Text style={styles.pendingCardName}>{partner.partner_name}</Text>
-              <View style={styles.pendingBadge}>
-                <Clock size={12} color="#FF9500" strokeWidth={2} />
-                <Text style={styles.pendingBadgeText}>Waiting for response</Text>
-              </View>
-            </View>
-            {isNudging ? (
-              <ActivityIndicator size="small" color="#007AFF" />
-            ) : (
-              <Pressable
-                style={[styles.nudgeBtn, nudgedToday && styles.nudgeBtnDisabled]}
-                onPress={handleNudge}
-                disabled={nudgedToday}
-                hitSlop={8}
-              >
-                <Send size={14} color={nudgedToday ? '#C7C7CC' : '#007AFF'} strokeWidth={2} />
-                <Text style={[styles.nudgeBtnText, nudgedToday && styles.nudgeBtnTextDisabled]}>
-                  {nudgedToday ? 'Nudged' : 'Nudge'}
-                </Text>
-              </Pressable>
-            )}
-          </View>
-        </Animated.View>
-      </Animated.View>
-    );
-  }
-
-  // We received the request
-  return (
-    <Animated.View style={[entranceStyle, { marginBottom: 10 }]}>
-      <Animated.View style={[pressStyle, styles.cardShadow]}>
+      <View style={[styles.cardShadow, { marginBottom: 10 }]}>
         <View style={styles.pendingCard}>
           <Avatar
             uri={partner.partner_avatar_url}
@@ -221,81 +172,114 @@ function PendingRequestCard({
           />
           <View style={styles.pendingCardInfo}>
             <Text style={styles.pendingCardName}>{partner.partner_name}</Text>
-            <Text style={styles.pendingCardSubtext}>Wants to be your buddy</Text>
+            <View style={styles.pendingBadge}>
+              <Clock size={12} color="#FF9500" strokeWidth={2} />
+              <Text style={styles.pendingBadgeText}>Waiting for response</Text>
+            </View>
           </View>
-          {isResponding ? (
-            <ActivityIndicator size="small" color="#007AFF" />
+          {isCancelling ? (
+            <ActivityIndicator size="small" color="#FF3B30" />
           ) : (
             <View style={styles.pendingActions}>
               <Pressable
+                style={[styles.nudgeBtn, nudgedToday && styles.nudgeBtnDisabled]}
+                onPress={handleNudge}
+                disabled={nudgedToday || isNudging}
+                hitSlop={8}
+              >
+                {isNudging ? (
+                  <ActivityIndicator size="small" color="#007AFF" />
+                ) : (
+                  <>
+                    <Send size={14} color={nudgedToday ? '#C7C7CC' : '#007AFF'} strokeWidth={2} />
+                    <Text style={[styles.nudgeBtnText, nudgedToday && styles.nudgeBtnTextDisabled]}>
+                      {nudgedToday ? 'Nudged' : 'Nudge'}
+                    </Text>
+                  </>
+                )}
+              </Pressable>
+              <Pressable
                 style={styles.declineBtn}
-                onPress={() => handleRespond(false)}
+                onPress={handleCancel}
                 hitSlop={8}
               >
                 <X size={18} color="#8E8E93" strokeWidth={2.5} />
               </Pressable>
-              <Pressable
-                style={styles.acceptBtn}
-                onPress={() => handleRespond(true)}
-                hitSlop={8}
-              >
-                <Check size={18} color="#fff" strokeWidth={2.5} />
-              </Pressable>
             </View>
           )}
         </View>
-      </Animated.View>
-    </Animated.View>
+      </View>
+    );
+  }
+
+  // We received the request
+  return (
+    <View style={[styles.cardShadow, { marginBottom: 10 }]}>
+      <View style={styles.pendingCard}>
+        <Avatar
+          uri={partner.partner_avatar_url}
+          name={partner.partner_name}
+          size={44}
+        />
+        <View style={styles.pendingCardInfo}>
+          <Text style={styles.pendingCardName}>{partner.partner_name}</Text>
+          <Text style={styles.pendingCardSubtext}>Wants to be your buddy</Text>
+        </View>
+        {isResponding ? (
+          <ActivityIndicator size="small" color="#007AFF" />
+        ) : (
+          <View style={styles.pendingActions}>
+            <Pressable
+              style={styles.declineBtn}
+              onPress={() => handleRespond(false)}
+              hitSlop={8}
+            >
+              <X size={18} color="#8E8E93" strokeWidth={2.5} />
+            </Pressable>
+            <Pressable
+              style={styles.acceptBtn}
+              onPress={() => handleRespond(true)}
+              hitSlop={8}
+            >
+              <Check size={18} color="#fff" strokeWidth={2.5} />
+            </Pressable>
+          </View>
+        )}
+      </View>
+    </View>
   );
 }
 
 // ── Add Buddy Card ──────────────────────────────────────────────────
 
-function AddBuddyCard({
-  index,
-  entrance,
-}: {
-  index: number;
-  entrance: SharedValue<number>;
-}) {
+function AddBuddyCard() {
   const router = useRouter();
   const scale = useSharedValue(1);
-
-  const entranceStyle = useAnimatedStyle(() => {
-    const delay = index * 0.08;
-    const p = interpolate(entrance.value, [delay, delay + 0.5], [0, 1], 'clamp');
-    return {
-      opacity: p,
-      transform: [{ translateY: interpolate(p, [0, 1], [16, 0]) }],
-    };
-  });
 
   const pressStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
 
   return (
-    <Animated.View style={[entranceStyle, { marginBottom: 10 }]}>
-      <Animated.View style={pressStyle}>
-        <Pressable
-          style={styles.addBuddyCard}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push('/buddy-settings');
-          }}
-          onPressIn={() => {
-            scale.value = withSpring(0.97, { damping: 15, stiffness: 400 });
-          }}
-          onPressOut={() => {
-            scale.value = withSpring(1, { damping: 15, stiffness: 400 });
-          }}
-        >
-          <View style={styles.addBuddyIcon}>
-            <UserPlus size={20} color="#007AFF" strokeWidth={2} />
-          </View>
-          <Text style={styles.addBuddyText}>Add a buddy</Text>
-        </Pressable>
-      </Animated.View>
+    <Animated.View style={[pressStyle, { marginBottom: 10 }]}>
+      <Pressable
+        style={styles.addBuddyCard}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          router.push('/buddy-settings');
+        }}
+        onPressIn={() => {
+          scale.value = withSpring(0.97, { damping: 15, stiffness: 400 });
+        }}
+        onPressOut={() => {
+          scale.value = withSpring(1, { damping: 15, stiffness: 400 });
+        }}
+      >
+        <View style={styles.addBuddyIcon}>
+          <UserPlus size={20} color="#007AFF" strokeWidth={2} />
+        </View>
+        <Text style={styles.addBuddyText}>Add a buddy</Text>
+      </Pressable>
     </Animated.View>
   );
 }
@@ -304,16 +288,6 @@ function AddBuddyCard({
 
 function EmptyState() {
   const router = useRouter();
-  const entrance = useSharedValue(0);
-
-  useEffect(() => {
-    entrance.value = withSpring(1, { damping: 20, stiffness: 300 });
-  }, []);
-
-  const containerStyle = useAnimatedStyle(() => ({
-    opacity: entrance.value,
-    transform: [{ scale: interpolate(entrance.value, [0, 1], [0.92, 1]) }],
-  }));
 
   const buttonScale = useSharedValue(1);
   const buttonStyle = useAnimatedStyle(() => ({
@@ -321,7 +295,7 @@ function EmptyState() {
   }));
 
   return (
-    <Animated.View style={[styles.emptyContainer, containerStyle]}>
+    <View style={styles.emptyContainer}>
       {/* Decorative circles */}
       <View style={styles.emptyVisual}>
         <View style={[styles.emptyCircle, styles.emptyCircle1]} />
@@ -356,7 +330,7 @@ function EmptyState() {
           <Text style={styles.addButtonText}>Add a Buddy</Text>
         </Pressable>
       </Animated.View>
-    </Animated.View>
+    </View>
   );
 }
 
@@ -366,33 +340,12 @@ export default function BuddyListScreen() {
   const router = useRouter();
   const { activeBuddies, pendingBuddies, isLoading } = useBuddy();
   const { markAllRead } = useBuddyInteractions();
-  const entrance = useSharedValue(0);
-
-  // If exactly one active partner and no pending, navigate directly to detail
-  const hasAutoRedirected = useRef(false);
-  useEffect(() => {
-    if (!isLoading && activeBuddies.length === 1 && pendingBuddies.length === 0 && !hasAutoRedirected.current) {
-      hasAutoRedirected.current = true;
-      router.replace(`/buddy-detail?partnerId=${activeBuddies[0].partner_id}`);
-    }
-  }, [isLoading, activeBuddies, pendingBuddies, router]);
 
   useEffect(() => {
     markAllRead();
   }, [markAllRead]);
 
-  // Trigger entrance animation when data loads
-  useEffect(() => {
-    if (!isLoading) {
-      entrance.value = 0;
-      entrance.value = withSpring(1, { damping: 28, stiffness: 420, mass: 0.9 });
-    }
-  }, [isLoading]);
-
   const hasAny = activeBuddies.length > 0 || pendingBuddies.length > 0;
-
-  // Running index for stagger across all cards
-  let staggerIndex = 0;
 
   return (
     <View style={styles.container}>
@@ -436,17 +389,12 @@ export default function BuddyListScreen() {
             {pendingBuddies.length > 0 && (
               <View style={styles.sectionBlock}>
                 <Text style={styles.sectionLabel}>PENDING</Text>
-                {pendingBuddies.map((p) => {
-                  const idx = staggerIndex++;
-                  return (
-                    <PendingRequestCard
-                      key={p.partnership_id}
-                      partner={p}
-                      index={idx}
-                      entrance={entrance}
-                    />
-                  );
-                })}
+                {pendingBuddies.map((p) => (
+                  <PendingRequestCard
+                    key={p.partnership_id}
+                    partner={p}
+                  />
+                ))}
               </View>
             )}
 
@@ -456,22 +404,17 @@ export default function BuddyListScreen() {
                 {pendingBuddies.length > 0 && (
                   <Text style={styles.sectionLabel}>ACTIVE</Text>
                 )}
-                {activeBuddies.map((p) => {
-                  const idx = staggerIndex++;
-                  return (
-                    <BuddyCard
-                      key={p.partnership_id}
-                      partner={p}
-                      index={idx}
-                      entrance={entrance}
-                    />
-                  );
-                })}
+                {activeBuddies.map((p) => (
+                  <BuddyCard
+                    key={p.partnership_id}
+                    partner={p}
+                  />
+                ))}
               </View>
             )}
 
             {/* Add Another — dashed card */}
-            <AddBuddyCard index={staggerIndex} entrance={entrance} />
+            <AddBuddyCard />
 
             <View style={{ height: 100 }} />
           </ScrollView>

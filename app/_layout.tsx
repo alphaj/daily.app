@@ -1,9 +1,10 @@
 import 'react-native-url-polyfill/auto';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
+import * as Notifications from "expo-notifications";
 import * as SplashScreen from "expo-splash-screen";
 import * as SystemUI from "expo-system-ui";
-import React, { useEffect, useRef, Component, type ReactNode } from "react";
+import React, { useEffect, useRef, useCallback, Component, type ReactNode } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -70,6 +71,33 @@ const errorStyles = StyleSheet.create({
   buttonText: { color: '#fff', fontSize: 17, fontWeight: '600' },
 });
 
+const VALID_PATHS = new Set(['/buddy', '/history', '/schedule', '/inbox', '/menu']);
+
+function useNotificationTapHandler() {
+  const router = useRouter();
+
+  const handleResponse = useCallback((response: Notifications.NotificationResponse) => {
+    const path = response.notification.request.content.data?.path;
+    if (typeof path === 'string' && VALID_PATHS.has(path)) {
+      router.push(path as any);
+    }
+  }, [router]);
+
+  useEffect(() => {
+    // Handle taps while app is running (warm start)
+    const subscription = Notifications.addNotificationResponseReceivedListener(handleResponse);
+
+    // Handle cold start: check if app was opened via notification tap
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (response) {
+        handleResponse(response);
+      }
+    });
+
+    return () => subscription.remove();
+  }, [handleResponse]);
+}
+
 function useProtectedRoute() {
   const segments = useSegments();
   const router = useRouter();
@@ -114,6 +142,7 @@ const SPLASH_TIMEOUT_MS = 5000;
 
 function RootLayoutNav() {
   useProtectedRoute();
+  useNotificationTapHandler();
   const { isLoading: onboardingLoading } = useOnboarding();
   const { isLoading: authLoading } = useAuth();
 
@@ -148,7 +177,7 @@ function RootLayoutNav() {
 
       <Stack.Screen name="edit-todo" options={{ presentation: "modal", headerShown: false }} />
 
-      <Stack.Screen name="buddy" options={{ headerShown: false, animation: 'fade', animationDuration: 100 }} />
+      <Stack.Screen name="buddy" options={{ headerShown: false, animation: 'none' }} />
       <Stack.Screen name="buddy-detail" options={{ headerShown: false, animation: 'slide_from_right' }} />
       <Stack.Screen name="buddy-settings" options={{ headerShown: false, animation: 'slide_from_right' }} />
       <Stack.Screen name="privacy-policy" options={{ headerShown: false, animation: 'slide_from_right' }} />

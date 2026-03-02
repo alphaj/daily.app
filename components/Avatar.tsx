@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 
@@ -22,16 +22,9 @@ export const Avatar = memo(function Avatar({
   const borderRadius = size / 2;
   const fontSize = size * 0.45;
   const badgeSize = Math.max(12, size * 0.3);
+  const [imgError, setImgError] = useState(false);
 
-  const content = uri ? (
-    <Image
-      source={{ uri }}
-      style={{ width: size, height: size, borderRadius }}
-      cachePolicy="memory-disk"
-      contentFit="cover"
-      transition={200}
-    />
-  ) : (
+  const fallback = (
     <View
       style={[
         styles.fallback,
@@ -48,6 +41,17 @@ export const Avatar = memo(function Avatar({
       </Text>
     </View>
   );
+
+  const content = uri && !imgError ? (
+    <Image
+      source={{ uri }}
+      style={{ width: size, height: size, borderRadius }}
+      cachePolicy="memory-disk"
+      contentFit="cover"
+      transition={200}
+      onError={() => setImgError(true)}
+    />
+  ) : fallback;
 
   const badge = showOnlineBadge ? (
     <View

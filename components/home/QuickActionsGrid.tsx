@@ -1,7 +1,7 @@
 import React, { memo, useMemo } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import * as Haptics from '@/lib/haptics';
+import { AnimatedPressable } from '@/components/AnimatedPressable';
 
 interface QuickAction {
   key: string;
@@ -34,19 +34,17 @@ export const QuickActionsGrid = memo(function QuickActionsGrid({ isToday }: Quic
   return (
     <View style={styles.container}>
       {actions.map((action) => (
-        <Pressable
+        <AnimatedPressable
           key={action.key}
-          style={({ pressed }) => [styles.item, pressed && styles.itemPressed]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push(action.route as any);
-          }}
+          style={styles.item}
+          scaleValue={0.92}
+          onPress={() => router.push(action.route as any)}
         >
           <View style={[styles.circle, { backgroundColor: action.bg }]}>
             <Text style={styles.emoji}>{action.emoji}</Text>
           </View>
           <Text style={styles.label}>{action.label}</Text>
-        </Pressable>
+        </AnimatedPressable>
       ))}
     </View>
   );
@@ -63,10 +61,6 @@ const styles = StyleSheet.create({
   item: {
     alignItems: 'center',
     gap: 6,
-  },
-  itemPressed: {
-    opacity: 0.7,
-    transform: [{ scale: 0.92 }],
   },
   circle: {
     width: 56,

@@ -31,6 +31,7 @@ import {
   Clock,
   Unlink,
   Send,
+  X,
   Eye,
   EyeOff,
   ChevronDown,
@@ -299,8 +300,9 @@ function PendingBuddyCard({
   index: number;
   entrance: SharedValue<number>;
 }) {
-  const { respondToBuddy, nudgePendingRequest } = useBuddy();
+  const { respondToBuddy, nudgePendingRequest, cancelRequest } = useBuddy();
   const [isResponding, setIsResponding] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   const [isNudging, setIsNudging] = useState(false);
   const [nudgedToday, setNudgedToday] = useState(false);
 
@@ -324,6 +326,31 @@ function PendingBuddyCard({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setNudgedToday(true);
     }
+  };
+
+  const handleCancel = () => {
+    if (!partnership.partnership_id) return;
+    Alert.alert(
+      'Cancel Request',
+      `Remove your buddy request to ${partnership.partner_name ?? 'this person'}?`,
+      [
+        { text: 'Keep', style: 'cancel' },
+        {
+          text: 'Cancel Request',
+          style: 'destructive',
+          onPress: async () => {
+            setIsCancelling(true);
+            const { error } = await cancelRequest(partnership.partnership_id!);
+            setIsCancelling(false);
+            if (error) {
+              Alert.alert('Error', error);
+            } else {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleRespond = async (accept: boolean) => {
@@ -353,20 +380,35 @@ function PendingBuddyCard({
             <Text style={styles.statusCardName}>{partnership.partner_name}</Text>
             <Text style={styles.statusCardSubtext}>Waiting for response</Text>
           </View>
-          {isNudging ? (
-            <ActivityIndicator size="small" color="#007AFF" />
+          {isCancelling ? (
+            <ActivityIndicator size="small" color="#FF3B30" />
           ) : (
-            <Pressable
-              style={[styles.nudgeBtn, nudgedToday && styles.nudgeBtnDisabled]}
-              onPress={handleNudge}
-              disabled={nudgedToday}
-              hitSlop={8}
-            >
-              <Send size={14} color={nudgedToday ? '#C7C7CC' : '#007AFF'} strokeWidth={2} />
-              <Text style={[styles.nudgeBtnText, nudgedToday && styles.nudgeBtnTextDisabled]}>
-                {nudgedToday ? 'Nudged' : 'Nudge'}
-              </Text>
-            </Pressable>
+            <View style={styles.responseActions}>
+              <Pressable
+                style={[styles.nudgeBtn, nudgedToday && styles.nudgeBtnDisabled]}
+                onPress={handleNudge}
+                disabled={nudgedToday || isNudging}
+                hitSlop={8}
+              >
+                {isNudging ? (
+                  <ActivityIndicator size="small" color="#007AFF" />
+                ) : (
+                  <>
+                    <Send size={14} color={nudgedToday ? '#C7C7CC' : '#007AFF'} strokeWidth={2} />
+                    <Text style={[styles.nudgeBtnText, nudgedToday && styles.nudgeBtnTextDisabled]}>
+                      {nudgedToday ? 'Nudged' : 'Nudge'}
+                    </Text>
+                  </>
+                )}
+              </Pressable>
+              <Pressable
+                style={styles.declineButton}
+                onPress={handleCancel}
+                hitSlop={8}
+              >
+                <X size={16} color="#8E8E93" strokeWidth={2.5} />
+              </Pressable>
+            </View>
           )}
         </View>
       </AnimatedSection>

@@ -55,6 +55,7 @@ export async function scheduleDailyReminder(time: string): Promise<string> {
                 title: 'Daily Check-in',
                 body: 'Take a moment to plan your day.',
                 sound: true,
+                data: { path: '/history' },
             },
             trigger: {
                 type: Notifications.SchedulableTriggerInputTypes.CALENDAR,

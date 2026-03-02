@@ -39,6 +39,7 @@ interface BuddyContextType {
   requestBuddy: (code: string) => Promise<{ error: string | null; partnerName: string | null }>;
   respondToBuddy: (partnershipId: string, accept: boolean) => Promise<{ error: string | null }>;
   dissolveBuddy: (partnershipId: string) => Promise<{ error: string | null }>;
+  cancelRequest: (partnershipId: string) => Promise<{ error: string | null }>;
   nudgePendingRequest: (partnershipId: string) => Promise<{ error: string | null }>;
   updateSharingPrefs: (partnershipId: string, prefs: Partial<SharingPreferences>) => Promise<{ error: string | null }>;
   refresh: () => Promise<void>;
@@ -190,6 +191,7 @@ export function BuddyProvider({ children }: { children: ReactNode }) {
               recipient_id: partnershipRow.invitee_id,
               title: 'Partner Request',
               body: `${profile?.name ?? 'Someone'} wants to partner with you on Daily!`,
+              data: { path: '/buddy' },
             },
           }).catch(() => {});
         }
@@ -246,6 +248,28 @@ export function BuddyProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const cancelRequest = async (partnershipId: string): Promise<{ error: string | null }> => {
+    try {
+      const { data, error } = await supabase.rpc('cancel_partnership_request', {
+        partnership_id_input: partnershipId,
+      });
+
+      if (error) {
+        return { error: error.message };
+      }
+
+      const result = data as any;
+      if (result.error) {
+        return { error: result.error };
+      }
+
+      await fetchStatus();
+      return { error: null };
+    } catch (err: any) {
+      return { error: err.message ?? 'An unexpected error occurred' };
+    }
+  };
+
   const nudgePendingRequest = async (partnershipId: string): Promise<{ error: string | null }> => {
     try {
       const key = `nudge_last_${partnershipId}`;
@@ -269,6 +293,7 @@ export function BuddyProvider({ children }: { children: ReactNode }) {
           recipient_id: row.invitee_id,
           title: 'Reminder',
           body: `${profile?.name ?? 'Someone'} is waiting for your response on Daily!`,
+          data: { path: '/buddy' },
         },
       });
 
@@ -318,6 +343,7 @@ export function BuddyProvider({ children }: { children: ReactNode }) {
         requestBuddy,
         respondToBuddy,
         dissolveBuddy,
+        cancelRequest,
         nudgePendingRequest,
         updateSharingPrefs,
         refresh: fetchStatus,

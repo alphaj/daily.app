@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
+import Animated, { LinearTransition } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { ChevronDown, ChevronRight, Check, Plus } from 'lucide-react-native';
 import * as Haptics from '@/lib/haptics';
@@ -7,6 +8,7 @@ import * as Haptics from '@/lib/haptics';
 import { TaskSection } from './TaskSection';
 import { TaskCard } from './TaskCard';
 import { BuddyDiscoveryCard } from './BuddyDiscoveryCard';
+import { AnimatedPressable } from '@/components/AnimatedPressable';
 
 import { useBuddyInteractions } from '@/hooks/useBuddyInteractions';
 import { useTodos } from '@/contexts/TodoContext';
@@ -31,12 +33,9 @@ function IncompleteTasksBanner() {
 
   return (
     <View style={styles.bannerWrapper}>
-      <Pressable
-        style={({ pressed }) => [styles.bannerCard, pressed && { opacity: 0.7 }]}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          router.push('/incomplete');
-        }}
+      <AnimatedPressable
+        style={styles.bannerCard}
+        onPress={() => router.push('/incomplete')}
       >
         <View style={styles.bannerBadge}>
           <Text style={styles.bannerBadgeText}>{totalIncomplete}</Text>
@@ -50,7 +49,7 @@ function IncompleteTasksBanner() {
           </Text>
         </View>
         <ChevronRight size={16} color="#C7C7CC" strokeWidth={2} />
-      </Pressable>
+      </AnimatedPressable>
     </View>
   );
 }
@@ -120,7 +119,6 @@ export function HomeV1(props: HomeVariantProps) {
   }, []);
 
   const handleToggleTodo = useCallback((id: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onToggleTodo(id);
   }, [onToggleTodo]);
 
@@ -159,16 +157,13 @@ export function HomeV1(props: HomeVariantProps) {
           <Text style={styles.emptySubtitle}>
             {isToday ? 'Add your first task to get started' : 'Nothing planned for this day'}
           </Text>
-          <Pressable
-            style={({ pressed }) => [styles.emptyAddButton, pressed && { opacity: 0.8, transform: [{ scale: 0.97 }] }]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              onAddTodo();
-            }}
+          <AnimatedPressable
+            style={styles.emptyAddButton}
+            onPress={() => onAddTodo()}
           >
             <Plus size={18} color="#fff" strokeWidth={2.5} />
             <Text style={styles.emptyAddText}>Add a task</Text>
-          </Pressable>
+          </AnimatedPressable>
         </View>
       )}
 
@@ -227,11 +222,15 @@ export function HomeV1(props: HomeVariantProps) {
           </Pressable>
 
           {doneExpanded && (
-            <View style={styles.doneBody}>
-              {completedTodos.map((todo) => (
+            <Animated.View
+              style={styles.doneBody}
+              layout={LinearTransition.springify().damping(18).stiffness(200)}
+            >
+              {completedTodos.map((todo, i) => (
                 <TaskCard
                   key={todo.id}
                   todo={todo}
+                  index={i}
                   onToggle={handleToggleTodo}
                   onDelete={onDeleteTodo}
                   onToggleSubtask={onToggleSubtask}
@@ -244,7 +243,7 @@ export function HomeV1(props: HomeVariantProps) {
                   buddyReaction={reactionsOnMyTasks?.get(todo.id)}
                 />
               ))}
-            </View>
+            </Animated.View>
           )}
         </View>
       )}

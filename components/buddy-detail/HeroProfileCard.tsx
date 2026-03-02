@@ -50,7 +50,7 @@ export function HeroProfileCard({
   };
 
   const sinceLabel = partnerSinceDate
-    ? `Partners since ${new Date(partnerSinceDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`
+    ? `Buddies since ${new Date(partnerSinceDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`
     : null;
 
   return (

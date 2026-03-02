@@ -13,9 +13,9 @@ import { supabase } from '@/lib/supabase';
 import { showToast } from '@/lib/toast';
 import type { BuddyInteraction } from '@/types/interaction';
 
-function sendPushNotification(recipientId: string, title: string, body: string) {
+function sendPushNotification(recipientId: string, title: string, body: string, data?: Record<string, string>) {
   supabase.functions.invoke('send-push-notification', {
-    body: { recipient_id: recipientId, title, body },
+    body: { recipient_id: recipientId, title, body, ...(data ? { data } : {}) },
   }).catch((err) => {
     console.log('[interactions] Push notification failed (non-blocking):', err);
   });
@@ -167,7 +167,7 @@ export function useBuddyInteractions(partnerId?: string | null) {
     onSuccess: (_result, { emoji }) => {
       queryClient.invalidateQueries({ queryKey: ['sent-reactions'] });
       if (partnerId) {
-        sendPushNotification(partnerId, `${emoji} ${senderName}`, 'reacted to your task');
+        sendPushNotification(partnerId, `${emoji} ${senderName}`, 'reacted to your task', { path: '/buddy' });
       }
     },
   });
@@ -181,7 +181,7 @@ export function useBuddyInteractions(partnerId?: string | null) {
       } else {
         showToast({ emoji, title: 'Sent!', message: 'Nudge delivered' });
         if (partnerId) {
-          sendPushNotification(partnerId, `${emoji} ${senderName}`, message);
+          sendPushNotification(partnerId, `${emoji} ${senderName}`, message, { path: '/buddy' });
         }
       }
     },

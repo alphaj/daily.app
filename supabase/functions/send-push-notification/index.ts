@@ -45,6 +45,7 @@ Deno.serve(async (req) => {
         title,
         body: message,
         sound: "default",
+        ...(body.data ? { data: body.data } : {}),
       }),
     });
 

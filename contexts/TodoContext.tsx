@@ -100,6 +100,15 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
       if (!alreadySpawned) {
         const nextDate = getNextRepeatDate(todo.repeat, new Date());
         if (nextDate) {
+          // For together tasks, skip if partner already delivered the next instance
+          const alreadyDelivered = todo.isTogether && todos.some(t =>
+            t.isTogether && t.dueDate === nextDate && t.title === todo.title && t.id !== id && !t.completed
+          );
+          if (alreadyDelivered) {
+            setTodos(newTodos);
+            await saveTodos(newTodos);
+            return newCompleted;
+          }
           const nextTodo: Todo = {
             id: generateId(),
             title: todo.title,

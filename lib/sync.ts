@@ -293,6 +293,7 @@ export async function assignTaskToBuddy(task: {
         assignee_id: result.assignee_id,
         task_title: task.title,
         assigner_name: result.assigner_name,
+        data: { path: '/history' },
       },
     }).catch((err) => {
       console.log('[sync] Push notification failed (non-blocking):', err);
@@ -331,29 +332,19 @@ export async function markAssignedTasksDelivered(ids: string[]): Promise<void> {
 }
 
 export async function deleteAssignedTask(taskId: string, partnerId: string): Promise<{ success?: boolean; error?: string }> {
-  // Delete from partner's synced_todos (the task we assigned to them)
-  const { error: syncError } = await supabase
-    .from('synced_todos')
-    .delete()
-    .eq('id', taskId)
-    .eq('user_id', partnerId);
+  const { data, error } = await supabase.rpc('delete_assigned_task', {
+    p_task_id: taskId,
+    p_partner_id: partnerId,
+  });
 
-  if (syncError) {
-    console.error('[sync] Failed to delete from synced_todos:', syncError.message);
+  if (error) {
+    console.error('[sync] Failed to delete assigned task:', error.message);
+    return { error: error.message };
   }
 
-  // Also delete from assigned_tasks table
-  const { error: assignError } = await supabase
-    .from('assigned_tasks')
-    .delete()
-    .eq('id', taskId);
-
-  if (assignError) {
-    console.error('[sync] Failed to delete from assigned_tasks:', assignError.message);
-  }
-
-  if (syncError && assignError) {
-    return { error: syncError.message };
+  const result = data as any;
+  if (result?.error) {
+    return { error: result.error };
   }
 
   return { success: true };
@@ -526,6 +517,7 @@ export async function createTogetherTask(task: {
         assignee_id: result.partner_id,
         task_title: task.title,
         assigner_name: `${result.creator_name} (together)`,
+        data: { path: '/history' },
       },
     }).catch((err) => {
       console.log('[sync] Together push notification failed (non-blocking):', err);
