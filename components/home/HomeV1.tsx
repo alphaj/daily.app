@@ -10,6 +10,7 @@ import { BuddyDiscoveryCard } from './BuddyDiscoveryCard';
 
 import { useBuddyInteractions } from '@/hooks/useBuddyInteractions';
 import { useTodos } from '@/contexts/TodoContext';
+import { useFocus } from '@/contexts/FocusContext';
 import type { HomeVariantProps } from './types';
 import type { Todo, TimeOfDay } from '@/types/todo';
 
@@ -91,7 +92,9 @@ export function HomeV1(props: HomeVariantProps) {
     onEditTodo,
   } = props;
 
+  const router = useRouter();
   const { reactionsOnMyTasks } = useBuddyInteractions();
+  const { startSession } = useFocus();
 
   const [collapsedSections, setCollapsedSections] = useState<Record<TimeOfDay, boolean>>({
     anytime: false,
@@ -128,6 +131,15 @@ export function HomeV1(props: HomeVariantProps) {
       onAddTodo();
     }
   }, [onAddTodoForSection, onAddTodo]);
+
+  const handleStartTask = useCallback((todo: Todo) => {
+    startSession(todo.estimatedMinutes || 45, {
+      todoId: todo.id,
+      title: todo.title,
+      emoji: todo.emoji || undefined,
+    });
+    router.replace('/flow');
+  }, [startSession, router]);
 
 
   return (
@@ -177,6 +189,7 @@ export function HomeV1(props: HomeVariantProps) {
           onDuplicateTodo={onDuplicateTodo}
           onRescheduleTodo={onRescheduleTodo}
           onEditTodo={onEditTodo}
+          onStartTask={handleStartTask}
           buddyReactions={reactionsOnMyTasks}
         />
       ))}

@@ -46,4 +46,16 @@ export interface Todo {
   originalDueDate?: string;
   /** ID of the completed task that spawned this repeat instance (duplicate prevention) */
   repeatSourceId?: string;
+  /** Whether this is a "do together" collaborative task */
+  isTogether?: boolean;
+  /** Shared UUID linking both users' copies of this together task */
+  togetherGroupId?: string;
+  /** The other user's ID for this together task */
+  togetherPartnerId?: string;
+  /** Display name of the together partner */
+  togetherPartnerName?: string;
+  /** Avatar URL of the together partner */
+  togetherPartnerAvatarUrl?: string;
+  /** Whether the partner has completed their copy */
+  partnerCompleted?: boolean;
 }

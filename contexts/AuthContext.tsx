@@ -4,7 +4,7 @@ import { registerPushToken } from '@/lib/notifications';
 import { uploadAvatar as uploadAvatarLib, deleteAvatar as deleteAvatarLib, pickAvatar } from '@/lib/avatar';
 import type { Session, User } from '@supabase/supabase-js';
 
-export type PrivacyMode = 'open' | 'focus' | 'private';
+export type PrivacyMode = 'visible' | 'private';
 
 interface UserProfile {
   id: string;
@@ -290,7 +290,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signOut,
         refreshProfile,
         regenerateBuddyCode,
-        privacyMode: profile?.privacy_mode ?? 'open',
+        privacyMode: profile?.privacy_mode ?? 'visible',
         setPrivacyMode,
         uploadAvatar,
         removeAvatar,

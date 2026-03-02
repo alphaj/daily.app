@@ -48,7 +48,7 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
     priority?: 'low' | 'medium' | 'high',
     isWork?: boolean,
     dueTime?: string,
-    extras?: { emoji?: string; emojiColor?: string; estimatedMinutes?: number; timeOfDay?: TimeOfDay; repeat?: RepeatOption; subtasks?: Subtask[]; isPrivate?: boolean; isDefault?: boolean }
+    extras?: { emoji?: string; emojiColor?: string; estimatedMinutes?: number; timeOfDay?: TimeOfDay; repeat?: RepeatOption; subtasks?: Subtask[]; isPrivate?: boolean; isDefault?: boolean; isTogether?: boolean; togetherGroupId?: string; togetherPartnerId?: string; togetherPartnerName?: string; togetherPartnerAvatarUrl?: string }
   ) => {
     const dueDate = date ? getDateKey(date) : getToday();
 
@@ -121,6 +121,10 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
               id: generateId(),
               completed: false,
             })),
+            isTogether: todo.isTogether,
+            togetherPartnerId: todo.togetherPartnerId,
+            togetherPartnerName: todo.togetherPartnerName,
+            togetherPartnerAvatarUrl: todo.togetherPartnerAvatarUrl,
           };
           newTodos = [...newTodos, nextTodo];
         }

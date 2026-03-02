@@ -38,6 +38,9 @@ export async function pushTodos(userId: string): Promise<void> {
     is_private: t.isPrivate ?? false,
     assigned_by_id: t.assignedById ?? null,
     assigned_by_name: t.assignedByName ?? null,
+    is_together: t.isTogether ?? false,
+    together_group_id: t.togetherGroupId ?? null,
+    together_partner_id: t.togetherPartnerId ?? null,
     synced_at: new Date().toISOString(),
   }));
 
@@ -144,7 +147,7 @@ export interface BuddyFocusSession {
   todoEmoji: string | null;
 }
 
-export type BuddyPrivacyMode = 'open' | 'focus' | 'private' | null;
+export type BuddyPrivacyMode = 'visible' | 'private' | null;
 
 export async function fetchBuddyPrivacyMode(partnerUserId: string): Promise<BuddyPrivacyMode> {
   const { data, error } = await supabase.rpc('get_partner_privacy_mode', {
@@ -448,4 +451,142 @@ export async function markInteractionsRead(ids: string[]): Promise<void> {
   if (error) {
     console.error('[sync] Failed to mark interactions read:', error.message);
   }
+}
+
+// ── Together tasks (collaborative) ──────────────────────────────
+
+export interface TogetherTask {
+  id: string;
+  together_group_id: string;
+  creator_id: string;
+  creator_name: string;
+  creator_avatar_url: string | null;
+  partner_id: string;
+  task_id: string;
+  title: string;
+  created_at: string;
+  due_date: string;
+  due_time: string | null;
+  priority: string | null;
+  is_work: boolean;
+  emoji: string | null;
+  emoji_color: string | null;
+  estimated_minutes: number | null;
+  time_of_day: string | null;
+  repeat: string | null;
+  subtasks: any | null;
+}
+
+export async function createTogetherTask(task: {
+  id: string;
+  title: string;
+  createdAt: string;
+  dueDate: string;
+  dueTime?: string;
+  priority?: string;
+  isWork?: boolean;
+  emoji?: string;
+  emojiColor?: string;
+  estimatedMinutes?: number;
+  timeOfDay?: string;
+  repeat?: string;
+  subtasks?: any[];
+}, partnerId?: string): Promise<{ togetherGroupId?: string; partnerName?: string; error?: string }> {
+  const { data, error } = await supabase.rpc('create_together_task', {
+    task_id: task.id,
+    task_title: task.title,
+    task_created_at: task.createdAt,
+    task_due_date: task.dueDate,
+    task_due_time: task.dueTime ?? null,
+    task_priority: task.priority ?? null,
+    task_is_work: task.isWork ?? false,
+    task_emoji: task.emoji ?? null,
+    task_emoji_color: task.emojiColor ?? null,
+    task_estimated_minutes: task.estimatedMinutes ?? null,
+    task_time_of_day: task.timeOfDay ?? null,
+    task_repeat: task.repeat ?? null,
+    task_subtasks: task.subtasks ? JSON.stringify(task.subtasks) : null,
+    p_partner_id: partnerId ?? null,
+  });
+
+  if (error) {
+    console.error('[sync] Failed to create together task:', error.message);
+    return { error: error.message };
+  }
+
+  const result = data as any;
+  if (result?.error) {
+    return { error: result.error };
+  }
+
+  // Fire-and-forget push notification
+  if (result?.partner_id && result?.creator_name) {
+    supabase.functions.invoke('send-push-notification', {
+      body: {
+        assignee_id: result.partner_id,
+        task_title: task.title,
+        assigner_name: `${result.creator_name} (together)`,
+      },
+    }).catch((err) => {
+      console.log('[sync] Together push notification failed (non-blocking):', err);
+    });
+  }
+
+  return { togetherGroupId: result?.together_group_id };
+}
+
+export async function pullTogetherTasks(userId: string): Promise<TogetherTask[]> {
+  const { data, error } = await supabase
+    .from('together_tasks')
+    .select('id, together_group_id, creator_id, creator_name, creator_avatar_url, partner_id, task_id, title, created_at, due_date, due_time, priority, is_work, emoji, emoji_color, estimated_minutes, time_of_day, repeat, subtasks')
+    .eq('partner_id', userId)
+    .eq('status', 'pending');
+
+  if (error) {
+    console.error('[sync] Failed to pull together tasks:', error.message);
+    return [];
+  }
+
+  return (data ?? []) as TogetherTask[];
+}
+
+export async function markTogetherTasksDelivered(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+
+  const { error } = await supabase
+    .from('together_tasks')
+    .update({ status: 'delivered', delivered_at: new Date().toISOString() })
+    .in('id', ids);
+
+  if (error) {
+    console.error('[sync] Failed to mark together tasks delivered:', error.message);
+  }
+}
+
+export async function pullPartnerCompletionStatus(
+  togetherGroupIds: string[],
+  myUserId: string
+): Promise<Map<string, { completed: boolean; completedAt: string | null }>> {
+  const result = new Map<string, { completed: boolean; completedAt: string | null }>();
+  if (togetherGroupIds.length === 0) return result;
+
+  const { data, error } = await supabase
+    .from('synced_todos')
+    .select('together_group_id, completed, completed_at')
+    .in('together_group_id', togetherGroupIds)
+    .neq('user_id', myUserId);
+
+  if (error) {
+    console.error('[sync] Failed to pull partner completion status:', error.message);
+    return result;
+  }
+
+  for (const row of data ?? []) {
+    result.set(row.together_group_id, {
+      completed: row.completed,
+      completedAt: row.completed_at,
+    });
+  }
+
+  return result;
 }

@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBuddy } from '@/contexts/BuddyContext';
-import { pushAllData, pullBuddyData, pullAssignedTasks, markAssignedTasksDelivered, pullInteractions, markInteractionsDelivered, BuddyData } from '@/lib/sync';
+import { pushAllData, pullBuddyData, pullAssignedTasks, markAssignedTasksDelivered, pullInteractions, markInteractionsDelivered, pullTogetherTasks, markTogetherTasksDelivered, pullPartnerCompletionStatus, BuddyData } from '@/lib/sync';
 import { supabase } from '@/lib/supabase';
 import type { Todo } from '@/types/todo';
 
@@ -84,6 +84,79 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         await markAssignedTasksDelivered(assigned.map((a) => a.id));
       }
 
+      // Pull together tasks from buddy
+      const togetherTasks = await pullTogetherTasks(session.user.id);
+      if (togetherTasks.length > 0) {
+        const raw2 = await AsyncStorage.getItem(TODOS_STORAGE_KEY);
+        const localTodos2: Todo[] = raw2 ? JSON.parse(raw2) : [];
+        const localIds2 = new Set(localTodos2.map((t) => t.id));
+
+        const newTogetherTodos: Todo[] = togetherTasks
+          .filter((tt) => !localIds2.has(tt.task_id))
+          .map((tt) => ({
+            id: tt.task_id,
+            title: tt.title,
+            completed: false,
+            createdAt: tt.created_at,
+            dueDate: tt.due_date,
+            dueTime: tt.due_time ?? undefined,
+            priority: (tt.priority as Todo['priority']) ?? undefined,
+            isWork: tt.is_work,
+            emoji: tt.emoji ?? undefined,
+            emojiColor: tt.emoji_color ?? undefined,
+            estimatedMinutes: tt.estimated_minutes ?? undefined,
+            timeOfDay: (tt.time_of_day as Todo['timeOfDay']) ?? undefined,
+            repeat: (tt.repeat as Todo['repeat']) ?? undefined,
+            subtasks: tt.subtasks
+              ? typeof tt.subtasks === 'string'
+                ? JSON.parse(tt.subtasks)
+                : tt.subtasks
+              : undefined,
+            isTogether: true,
+            togetherGroupId: tt.together_group_id,
+            togetherPartnerId: tt.creator_id,
+            togetherPartnerName: tt.creator_name,
+            togetherPartnerAvatarUrl: tt.creator_avatar_url ?? undefined,
+          }));
+
+        if (newTogetherTodos.length > 0) {
+          const merged = [...localTodos2, ...newTogetherTodos];
+          await AsyncStorage.setItem(TODOS_STORAGE_KEY, JSON.stringify(merged));
+          queryClient.invalidateQueries({ queryKey: ['todos'] });
+        }
+
+        await markTogetherTasksDelivered(togetherTasks.map((tt) => tt.id));
+      }
+
+      // Pull partner completion status for together tasks
+      {
+        const raw3 = await AsyncStorage.getItem(TODOS_STORAGE_KEY);
+        const localTodos3: Todo[] = raw3 ? JSON.parse(raw3) : [];
+        const groupIds = localTodos3
+          .filter((t) => t.isTogether && t.togetherGroupId)
+          .map((t) => t.togetherGroupId!);
+
+        if (groupIds.length > 0) {
+          const statusMap = await pullPartnerCompletionStatus(groupIds, session.user.id);
+          if (statusMap.size > 0) {
+            let changed = false;
+            const updated = localTodos3.map((t) => {
+              if (!t.togetherGroupId) return t;
+              const status = statusMap.get(t.togetherGroupId);
+              if (status !== undefined && t.partnerCompleted !== status.completed) {
+                changed = true;
+                return { ...t, partnerCompleted: status.completed };
+              }
+              return t;
+            });
+            if (changed) {
+              await AsyncStorage.setItem(TODOS_STORAGE_KEY, JSON.stringify(updated));
+              queryClient.invalidateQueries({ queryKey: ['todos'] });
+            }
+          }
+        }
+      }
+
       // Pull pending interactions and mark delivered
       const pending = await pullInteractions(session.user.id);
       if (pending.length > 0) {
@@ -144,6 +217,32 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         },
         () => {
           console.log('[sync] New assigned task detected via realtime');
+          syncNow();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session?.user?.id, shouldSync, syncNow]);
+
+  // Realtime: sync immediately when a together task is created for us
+  useEffect(() => {
+    if (!session?.user?.id || !shouldSync) return;
+
+    const channel = supabase
+      .channel('together-tasks-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'together_tasks',
+          filter: `partner_id=eq.${session.user.id}`,
+        },
+        () => {
+          console.log('[sync] New together task detected via realtime');
           syncNow();
         }
       )

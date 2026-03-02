@@ -1,12 +1,13 @@
 import React, { memo, useState, useCallback } from 'react';
 import { View, Text, Pressable, StyleSheet, Platform, Alert, ActionSheetIOS, Dimensions } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS } from 'react-native-reanimated';
-import { Check, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { Check, ChevronDown, ChevronUp, EyeOff } from 'lucide-react-native';
 import * as Haptics from '@/lib/haptics';
 import SwipeableRow from '@/components/SwipeableRow';
 import { TaskContextMenuD as TaskContextMenu } from '@/components/TaskContextMenuD';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 import type { Todo, Subtask, TimeOfDay } from '@/types/todo';
+import { Avatar } from '@/components/Avatar';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -30,6 +31,7 @@ interface TaskCardProps {
   onDuplicate?: (id: string) => void;
   onReschedule?: (id: string, date: string) => void;
   onEdit?: (todo: Todo) => void;
+  onStartTask?: (todo: Todo) => void;
   buddyReaction?: string;
 }
 
@@ -46,6 +48,7 @@ export const TaskCard = memo(function TaskCard({
   onDuplicate,
   onReschedule,
   onEdit,
+  onStartTask,
   buddyReaction,
 }: TaskCardProps) {
   const [subtasksExpanded, setSubtasksExpanded] = useState(false);
@@ -144,6 +147,10 @@ export const TaskCard = memo(function TaskCard({
     onEdit?.(todo);
   }, [todo, onEdit]);
 
+  const handleStartTask = useCallback(() => {
+    onStartTask?.(todo);
+  }, [todo, onStartTask]);
+
   const handleDelete = useCallback(() => {
     Alert.alert(
       'Are you sure you want to delete this?',
@@ -224,6 +231,11 @@ export const TaskCard = memo(function TaskCard({
               >
                 {todo.title}
               </Text>
+              {todo.isPrivate && (
+                <View style={styles.privateBadge}>
+                  <EyeOff size={11} color="#8E8E93" strokeWidth={2.5} />
+                </View>
+              )}
               {isOverdue && !todo.completed && (
                 <View style={styles.overdueChip}>
                   <Text style={styles.overdueChipText}>{daysOverdue}d</Text>
@@ -236,12 +248,26 @@ export const TaskCard = memo(function TaskCard({
             {todo.assignedByName && (
               <Text style={styles.assignedBadge}>From {todo.assignedByName}</Text>
             )}
+            {todo.isTogether && todo.togetherPartnerName && (
+              <Text style={styles.togetherLabel}>
+                With {todo.togetherPartnerName.split(' ')[0]}
+                {todo.partnerCompleted ? ' ✓' : ''}
+              </Text>
+            )}
             {todo.isDefault && !todo.completed && (
               <View style={styles.defaultBadge}>
                 <Text style={styles.defaultBadgeText}>Suggested</Text>
               </View>
             )}
           </View>
+
+          {/* Together avatar badge */}
+          {todo.isTogether && (
+            <View style={styles.togetherBadge}>
+              <Avatar uri={todo.togetherPartnerAvatarUrl} name={todo.togetherPartnerName} size={24} />
+              <View style={[styles.togetherDot, todo.partnerCompleted ? styles.dotDone : styles.dotPending]} />
+            </View>
+          )}
 
           {/* Partner reaction badge */}
           {buddyReaction && todo.completed && (
@@ -250,7 +276,12 @@ export const TaskCard = memo(function TaskCard({
 
           {/* Checkbox */}
           <View
-            style={[styles.checkbox, todo.completed && styles.checkboxChecked]}
+            style={[
+              styles.checkbox,
+              todo.completed && !todo.isTogether && styles.checkboxChecked,
+              todo.isTogether && todo.completed && !todo.partnerCompleted && styles.checkboxTogetherWaiting,
+              todo.isTogether && todo.completed && todo.partnerCompleted && styles.checkboxTogetherDone,
+            ]}
           >
             {todo.completed && <Check size={14} color="#fff" strokeWidth={3} />}
           </View>
@@ -322,6 +353,7 @@ export const TaskCard = memo(function TaskCard({
       onCopy={handleCopy}
       onReschedule={handleEdit}
       onRescheduleTomorrow={handleReschedule}
+      onStartTask={onStartTask ? handleStartTask : undefined}
       onEdit={handleEdit}
       onDelete={handleDelete}
     />
@@ -456,6 +488,11 @@ const styles = StyleSheet.create({
     color: '#7C6EBF',
     letterSpacing: 0.3,
   },
+  privateBadge: {
+    backgroundColor: 'rgba(142,142,147,0.12)',
+    borderRadius: 10,
+    padding: 4,
+  },
   buddyReaction: {
     fontSize: 18,
     marginLeft: 6,
@@ -473,6 +510,40 @@ const styles = StyleSheet.create({
   checkboxChecked: {
     backgroundColor: '#007AFF',
     borderColor: '#007AFF',
+  },
+  checkboxTogetherWaiting: {
+    backgroundColor: 'rgba(0, 122, 255, 0.6)',
+    borderColor: 'rgba(0, 122, 255, 0.6)',
+  },
+  checkboxTogetherDone: {
+    backgroundColor: '#34C759',
+    borderColor: '#34C759',
+  },
+  togetherLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#34C759',
+    marginTop: 2,
+  },
+  togetherBadge: {
+    position: 'relative',
+    marginLeft: 6,
+  },
+  togetherDot: {
+    position: 'absolute',
+    bottom: -1,
+    right: -1,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: '#fff',
+  },
+  dotDone: {
+    backgroundColor: '#34C759',
+  },
+  dotPending: {
+    backgroundColor: '#C7C7CC',
   },
   // Subtask indicator
   subtaskIndicator: {

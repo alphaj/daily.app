@@ -1,25 +1,44 @@
 import React, { useState, useRef } from 'react';
 import {
     View, Text, StyleSheet, Pressable, TextInput, ScrollView,
-    KeyboardAvoidingView, Platform, Keyboard,
+    KeyboardAvoidingView, Platform, Keyboard, Image,
 } from 'react-native';
 import Animated, {
     useSharedValue, useAnimatedStyle, withTiming, withSpring, withDelay, runOnJS,
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, Check, Plus, Lock, UserPlus } from 'lucide-react-native';
+import { X, Check, Plus, Lock, UserPlus, Users, ArrowRight } from 'lucide-react-native';
 import * as Haptics from '@/lib/haptics';
 import { DatePickerModal } from '@/components/DatePickerModal';
 import { AnimatedBottomSheet } from '@/components/AnimatedBottomSheet';
 import { LinearGradient } from 'expo-linear-gradient';
 import { isToday, isTomorrow, addDays } from 'date-fns';
+import { useAuth } from '@/contexts/AuthContext';
 import {
     type AddTodoFormState,
     TIME_OF_DAY_OPTIONS, DURATION_OPTIONS, REPEAT_OPTIONS,
     EMOJI_OPTIONS, EMOJI_BG_COLORS,
 } from '@/hooks/useAddTodoForm';
 
+const AVATAR_COLORS = [
+    { bg: '#E8D5F5', text: '#7C3AED' },
+    { bg: '#D5EDE8', text: '#059669' },
+    { bg: '#DBEAFE', text: '#2563EB' },
+    { bg: '#FDE8D5', text: '#EA580C' },
+    { bg: '#FCE7F3', text: '#DB2777' },
+    { bg: '#E0E7FF', text: '#4F46E5' },
+    { bg: '#D5F5E8', text: '#047857' },
+    { bg: '#FEF3C7', text: '#B45309' },
+];
+
+function getAvatarColor(name: string) {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
 export function AddTodoThings({ form }: { form: AddTodoFormState }) {
+    const { profile } = useAuth();
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [showSubtaskEmojiPicker, setShowSubtaskEmojiPicker] = useState<string | null>(null);
@@ -238,50 +257,144 @@ export function AddTodoThings({ form }: { form: AddTodoFormState }) {
                                 </View>
                             </View>
 
-                            {/* Partner Section */}
+                            {/* People Section */}
                             {form.hasPartner && (
-                                <View style={s.section}>
-                                    <Text style={s.sectionLabel}>Assign</Text>
-                                    <View style={s.pillRow}>
-                                        {form.activeBuddies.map((p) => {
-                                            const isSelected = form.assignToPartnerId === p.partner_id;
+                                <>
+                                    <View style={s.section}>
+                                        <Text style={s.sectionLabel}>People</Text>
+                                        <View style={s.pillRow}>
+                                            {(() => {
+                                                const isMe = !form.isTogether && !form.assignToPartner;
+                                                const myInitial = profile?.name?.charAt(0).toUpperCase() ?? 'M';
+                                                const myColor = getAvatarColor(profile?.name ?? 'Me');
+                                                return (
+                                                    <Pressable
+                                                        style={[s.personPill, isMe && s.personPillSelected]}
+                                                        onPress={() => {
+                                                            Haptics.selectionAsync();
+                                                            form.setTogetherPartnerId(null);
+                                                            form.setAssignToPartnerId(null);
+                                                        }}
+                                                    >
+                                                        {profile?.avatar_url ? (
+                                                            <Image source={{ uri: profile.avatar_url }} style={s.personAvatarImg} />
+                                                        ) : (
+                                                            <View style={[s.personAvatar, { backgroundColor: myColor.bg }]}>
+                                                                <Text style={[s.personInitial, { color: myColor.text }]}>{myInitial}</Text>
+                                                            </View>
+                                                        )}
+                                                        <Text style={[s.personName, isMe && s.personNameSelected]}>
+                                                            Me
+                                                        </Text>
+                                                    </Pressable>
+                                                );
+                                            })()}
+                                            {form.activeBuddies.map((p) => {
+                                                const pid = p.partner_id!;
+                                                const firstName = p.partner_name?.split(' ')[0] ?? 'Partner';
+                                                const initial = firstName.charAt(0).toUpperCase();
+                                                const color = getAvatarColor(firstName);
+                                                const avatarUrl = p.partner_avatar_url;
+                                                const isTogether = form.togetherPartnerId === pid;
+                                                const isAssigned = form.assignToPartnerId === pid;
+                                                const isSelected = isTogether || isAssigned;
+
+                                                return (
+                                                    <Pressable
+                                                        key={pid}
+                                                        style={[s.personPill, isSelected && s.personPillSelected]}
+                                                        onPress={() => {
+                                                            Haptics.selectionAsync();
+                                                            if (isSelected) {
+                                                                form.setTogetherPartnerId(null);
+                                                                form.setAssignToPartnerId(null);
+                                                            } else {
+                                                                form.setTogetherPartnerId(pid);
+                                                                form.setAssignToPartnerId(null);
+                                                                form.setIsPrivate(false);
+                                                            }
+                                                        }}
+                                                    >
+                                                        {avatarUrl ? (
+                                                            <Image source={{ uri: avatarUrl }} style={s.personAvatarImg} />
+                                                        ) : (
+                                                            <View style={[s.personAvatar, { backgroundColor: color.bg }]}>
+                                                                <Text style={[s.personInitial, { color: color.text }]}>{initial}</Text>
+                                                            </View>
+                                                        )}
+                                                        <Text style={[s.personName, isSelected && s.personNameSelected]}>
+                                                            {firstName}
+                                                        </Text>
+                                                    </Pressable>
+                                                );
+                                            })}
+                                        </View>
+                                        {(form.isTogether || form.assignToPartner) && (() => {
+                                            const pid = form.togetherPartnerId || form.assignToPartnerId;
+                                            const buddy = form.activeBuddies.find(b => b.partner_id === pid);
+                                            const name = buddy?.partner_name?.split(' ')[0] ?? 'them';
                                             return (
+                                                <View style={s.modeCards}>
+                                                    <Pressable
+                                                        style={[s.modeCard, form.isTogether && s.modeCardOn]}
+                                                        onPress={() => {
+                                                            Haptics.selectionAsync();
+                                                            form.setAssignToPartnerId(null);
+                                                            form.setTogetherPartnerId(pid);
+                                                        }}
+                                                    >
+                                                        <View style={[s.modeIconWrap, form.isTogether && s.modeIconWrapOn]}>
+                                                            <Users size={16} color={form.isTogether ? '#FFFFFF' : '#8E8E93'} />
+                                                        </View>
+                                                        <Text style={[s.modeTitle, form.isTogether && s.modeTitleOn]}>Together</Text>
+                                                        <Text style={s.modeDesc}>You and {name} both do it</Text>
+                                                    </Pressable>
+                                                    <Pressable
+                                                        style={[s.modeCard, form.assignToPartner && s.modeCardOn]}
+                                                        onPress={() => {
+                                                            Haptics.selectionAsync();
+                                                            form.setTogetherPartnerId(null);
+                                                            form.setAssignToPartnerId(pid);
+                                                        }}
+                                                    >
+                                                        <View style={[s.modeIconWrap, form.assignToPartner && s.modeIconWrapAssignOn]}>
+                                                            <ArrowRight size={16} color={form.assignToPartner ? '#FFFFFF' : '#8E8E93'} />
+                                                        </View>
+                                                        <Text style={[s.modeTitle, form.assignToPartner && s.modeTitleOn]}>Assign</Text>
+                                                        <Text style={s.modeDesc}>Send to {name} to do</Text>
+                                                    </Pressable>
+                                                </View>
+                                            );
+                                        })()}
+                                    </View>
+                                    {!form.assignToPartner && !form.isTogether && (
+                                        <View style={s.section}>
+                                            <Text style={s.sectionLabel}>Visibility</Text>
+                                            <View style={s.pillRow}>
                                                 <Pressable
-                                                    key={p.partner_id}
-                                                    style={[s.pill, isSelected && s.pillAccent]}
+                                                    style={[s.pill, !form.isPrivate && s.pillActive]}
                                                     onPress={() => {
                                                         Haptics.selectionAsync();
-                                                        if (isSelected) {
-                                                            form.setAssignToPartnerId(null);
-                                                        } else {
-                                                            form.setAssignToPartnerId(p.partner_id!);
-                                                            form.setIsPrivate(false);
-                                                        }
+                                                        form.setIsPrivate(false);
                                                     }}
                                                 >
-                                                    <UserPlus size={14} color={isSelected ? '#007AFF' : '#8E8E93'} />
-                                                    <Text style={[s.pillText, isSelected && s.pillTextActive]}>
-                                                        {p.partner_name?.split(' ')[0] ?? 'Partner'}
-                                                    </Text>
+                                                    <UserPlus size={14} color={!form.isPrivate ? '#007AFF' : '#8E8E93'} />
+                                                    <Text style={[s.pillText, !form.isPrivate && s.pillTextActive]}>Shared</Text>
                                                 </Pressable>
-                                            );
-                                        })}
-                                        {!form.assignToPartner && (
-                                            <Pressable
-                                                style={[s.pill, form.isPrivate && s.pillWarn]}
-                                                onPress={() => {
-                                                    Haptics.selectionAsync();
-                                                    form.setIsPrivate(!form.isPrivate);
-                                                }}
-                                            >
-                                                <Lock size={14} color={form.isPrivate ? '#FF9500' : '#8E8E93'} />
-                                                <Text style={[s.pillText, form.isPrivate && s.pillTextWarn]}>
-                                                    {form.isPrivate ? 'Private' : 'Shared'}
-                                                </Text>
-                                            </Pressable>
-                                        )}
-                                    </View>
-                                </View>
+                                                <Pressable
+                                                    style={[s.pill, form.isPrivate && s.pillWarn]}
+                                                    onPress={() => {
+                                                        Haptics.selectionAsync();
+                                                        form.setIsPrivate(true);
+                                                    }}
+                                                >
+                                                    <Lock size={14} color={form.isPrivate ? '#FF9500' : '#8E8E93'} />
+                                                    <Text style={[s.pillText, form.isPrivate && s.pillTextWarn]}>Private</Text>
+                                                </Pressable>
+                                            </View>
+                                        </View>
+                                    )}
+                                </>
                             )}
 
                             {/* Checklist Section */}
@@ -689,6 +802,100 @@ const s = StyleSheet.create({
         flexWrap: 'wrap',
         gap: 10,
     },
+    personPill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        paddingVertical: 6,
+        paddingLeft: 6,
+        paddingRight: 14,
+        borderRadius: 100,
+        backgroundColor: '#F5F5F5',
+    },
+    personPillSelected: {
+        backgroundColor: '#F0F0F0',
+        borderWidth: 1.5,
+        borderColor: '#1C1C1E',
+        paddingVertical: 4.5,
+        paddingLeft: 4.5,
+        paddingRight: 12.5,
+    },
+    personAvatar: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    personAvatarImg: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+    },
+    personInitial: {
+        fontSize: 13,
+        fontWeight: '700',
+    },
+    personName: {
+        fontSize: 15,
+        fontWeight: '500',
+        color: '#3C3C43',
+    },
+    personNameSelected: {
+        color: '#1C1C1E',
+        fontWeight: '600',
+    },
+    modeCards: {
+        flexDirection: 'row',
+        gap: 10,
+        marginTop: 14,
+    },
+    modeCard: {
+        flex: 1,
+        backgroundColor: '#F8F8F8',
+        borderRadius: 14,
+        padding: 14,
+        borderWidth: 1.5,
+        borderColor: 'transparent',
+    },
+    modeCardOn: {
+        backgroundColor: '#FFFFFF',
+        borderColor: '#1C1C1E',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+        elevation: 2,
+    },
+    modeIconWrap: {
+        width: 32,
+        height: 32,
+        borderRadius: 10,
+        backgroundColor: '#ECECEC',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 10,
+    },
+    modeIconWrapOn: {
+        backgroundColor: '#1C1C1E',
+    },
+    modeIconWrapAssignOn: {
+        backgroundColor: '#1C1C1E',
+    },
+    modeTitle: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#AEAEB2',
+        marginBottom: 2,
+    },
+    modeTitleOn: {
+        color: '#1C1C1E',
+    },
+    modeDesc: {
+        fontSize: 12,
+        color: '#AEAEB2',
+        lineHeight: 16,
+    },
     pill: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -711,6 +918,10 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(0, 122, 255, 0.07)',
         borderColor: 'rgba(0, 122, 255, 0.28)',
     },
+    pillGreen: {
+        backgroundColor: 'rgba(52, 199, 89, 0.07)',
+        borderColor: 'rgba(52, 199, 89, 0.28)',
+    },
     pillWarn: {
         backgroundColor: 'rgba(255, 149, 0, 0.07)',
         borderColor: 'rgba(255, 149, 0, 0.28)',
@@ -725,6 +936,9 @@ const s = StyleSheet.create({
     },
     pillTextActive: {
         color: '#007AFF',
+    },
+    pillTextGreen: {
+        color: '#34C759',
     },
     pillTextWarn: {
         color: '#FF9500',

@@ -59,7 +59,7 @@ export function useBuddyPresence(partnerId: string | null, partnershipId: string
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
           // Only track if not in private/focus mode
-          if (privacyMode === 'open') {
+          if (privacyMode === 'visible') {
             await channel.track({ user_id: userId });
           }
         }
@@ -71,7 +71,7 @@ export function useBuddyPresence(partnerId: string | null, partnershipId: string
     const handleAppState = async (state: AppStateStatus) => {
       if (!channelRef.current) return;
 
-      if (state === 'active' && privacyMode === 'open') {
+      if (state === 'active' && privacyMode === 'visible') {
         await channelRef.current.track({ user_id: userId });
       } else if (state !== 'active') {
         await channelRef.current.untrack();
@@ -93,7 +93,7 @@ export function useBuddyPresence(partnerId: string | null, partnershipId: string
   useEffect(() => {
     if (!channelRef.current || !userId) return;
 
-    if (privacyMode !== 'open') {
+    if (privacyMode !== 'visible') {
       channelRef.current.untrack();
     } else if (AppState.currentState === 'active') {
       channelRef.current.track({ user_id: userId });

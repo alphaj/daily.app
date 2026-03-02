@@ -42,7 +42,7 @@ const allMenuItems = [
   { key: 'moveToTodo', label: 'Move to To-do', Icon: Inbox, color: ICON_COLOR, iconColor: ICON_COLOR },
   { key: 'reschedule', label: 'Reschedule', Icon: CalendarDays, color: ICON_COLOR, iconColor: ICON_COLOR },
   { key: 'rescheduleTomorrow', label: 'Reschedule for Tomorrow', Icon: ArrowRight, color: ICON_COLOR, iconColor: ICON_COLOR },
-  { key: 'startTask', label: 'Start task', Icon: Play, color: ICON_COLOR, iconColor: ICON_COLOR },
+  { key: 'startTask', label: 'Start in Focus Mode', Icon: Play, color: ICON_COLOR, iconColor: ICON_COLOR },
   { key: 'edit', label: 'Edit task', Icon: SquarePen, color: ICON_COLOR, iconColor: ICON_COLOR },
   { key: 'delete', label: 'Delete task', Icon: Trash2, color: DELETE_COLOR, iconColor: DELETE_COLOR },
 ] as const;

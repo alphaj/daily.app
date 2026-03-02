@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,15 @@ import {
   Share,
   ActivityIndicator,
   Switch,
+  Platform,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  interpolate,
+  type SharedValue,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useGoBack } from '@/lib/useGoBack';
@@ -23,6 +31,10 @@ import {
   Clock,
   Unlink,
   Send,
+  Eye,
+  EyeOff,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from '@/lib/haptics';
@@ -34,8 +46,42 @@ import { AmbientBackground } from '@/components/AmbientBackground';
 import { Avatar } from '@/components/Avatar';
 import { Fonts } from '@/lib/typography';
 
-// ── Connect form (always visible at the top) ────────────────────────
-function ConnectSection({ autoFocusInput }: { autoFocusInput?: boolean }) {
+const SPRING_CONFIG = { damping: 28, stiffness: 420, mass: 0.9 };
+
+// ── Animated section wrapper ────────────────────────────────────────
+
+function AnimatedSection({
+  index,
+  entrance,
+  children,
+  style,
+}: {
+  index: number;
+  entrance: SharedValue<number>;
+  children: React.ReactNode;
+  style?: any;
+}) {
+  const animStyle = useAnimatedStyle(() => {
+    const delay = index * 0.08;
+    const p = interpolate(entrance.value, [delay, delay + 0.5], [0, 1], 'clamp');
+    return {
+      opacity: p,
+      transform: [{ translateY: interpolate(p, [0, 1], [16, 0]) }],
+    };
+  });
+
+  return <Animated.View style={[animStyle, style]}>{children}</Animated.View>;
+}
+
+// ── Connect form ────────────────────────────────────────────────────
+
+function ConnectSection({
+  autoFocusInput,
+  entrance,
+}: {
+  autoFocusInput?: boolean;
+  entrance: SharedValue<number>;
+}) {
   const { profile, regenerateBuddyCode } = useAuth();
   const { requestBuddy } = useBuddy();
   const [copied, setCopied] = useState(false);
@@ -108,102 +154,151 @@ function ConnectSection({ autoFocusInput }: { autoFocusInput?: boolean }) {
     );
   };
 
+  const copyScale = useSharedValue(1);
+  const shareScale = useSharedValue(1);
+  const connectScale = useSharedValue(1);
+
+  const copyStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: copyScale.value }],
+  }));
+  const shareStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: shareScale.value }],
+  }));
+  const connectBtnStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: connectScale.value }],
+  }));
+
   return (
     <>
       {/* Buddy Code Card */}
-      <View style={styles.codeCard}>
-        <Text style={styles.codeLabel}>YOUR BUDDY CODE</Text>
-        <Text style={styles.codeText}>{partnerCode}</Text>
-        <Text style={styles.codeHint}>
-          Share this code with someone to connect as buddies
-        </Text>
+      <AnimatedSection index={0} entrance={entrance}>
+        <View style={styles.codeCard}>
+          <Text style={styles.codeLabel}>YOUR BUDDY CODE</Text>
+          <Text style={styles.codeText}>{partnerCode}</Text>
+          <Text style={styles.codeHint}>
+            Share this code with someone to connect
+          </Text>
 
-        <View style={styles.codeActions}>
-          <Pressable
-            style={({ pressed }) => [styles.codeAction, pressed && styles.pressedBg]}
-            onPress={handleCopyCode}
-          >
-            <Copy size={18} color="#007AFF" strokeWidth={2} />
-            <Text style={styles.codeActionText}>
-              {copied ? 'Copied!' : 'Copy'}
-            </Text>
-          </Pressable>
+          <View style={styles.codeActions}>
+            <Animated.View style={copyStyle}>
+              <Pressable
+                style={styles.codeAction}
+                onPress={handleCopyCode}
+                onPressIn={() => {
+                  copyScale.value = withSpring(0.95, { damping: 15, stiffness: 400 });
+                }}
+                onPressOut={() => {
+                  copyScale.value = withSpring(1, { damping: 15, stiffness: 400 });
+                }}
+              >
+                <Copy size={17} color="#007AFF" strokeWidth={2} />
+                <Text style={styles.codeActionText}>
+                  {copied ? 'Copied!' : 'Copy'}
+                </Text>
+              </Pressable>
+            </Animated.View>
 
-          <View style={styles.codeActionDivider} />
+            <View style={styles.codeActionDivider} />
 
-          <Pressable
-            style={({ pressed }) => [styles.codeAction, pressed && styles.pressedBg]}
-            onPress={handleShareCode}
-          >
-            <Share2 size={18} color="#007AFF" strokeWidth={2} />
-            <Text style={styles.codeActionText}>Share</Text>
-          </Pressable>
+            <Animated.View style={shareStyle}>
+              <Pressable
+                style={styles.codeAction}
+                onPress={handleShareCode}
+                onPressIn={() => {
+                  shareScale.value = withSpring(0.95, { damping: 15, stiffness: 400 });
+                }}
+                onPressOut={() => {
+                  shareScale.value = withSpring(1, { damping: 15, stiffness: 400 });
+                }}
+              >
+                <Share2 size={17} color="#007AFF" strokeWidth={2} />
+                <Text style={styles.codeActionText}>Share</Text>
+              </Pressable>
+            </Animated.View>
+          </View>
         </View>
-      </View>
+      </AnimatedSection>
 
-      {/* Connect with Buddy */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Add a Buddy</Text>
-        <Text style={styles.cardSubtitle}>
-          Enter their 6-character code to send a request
-        </Text>
+      {/* Add a Buddy */}
+      <AnimatedSection index={1} entrance={entrance}>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Add a Buddy</Text>
+          <Text style={styles.cardSubtitle}>
+            Enter their 6-character code to send a request
+          </Text>
 
-        <TextInput
-          style={styles.codeInput}
-          placeholder="ABC123"
-          placeholderTextColor="#C7C7CC"
-          value={connectCode}
-          onChangeText={(t) => {
-            setConnectCode(t.toUpperCase());
-            setConnectError('');
-          }}
-          maxLength={6}
-          autoCapitalize="characters"
-          autoCorrect={false}
-          autoFocus={autoFocusInput}
-        />
+          <TextInput
+            style={styles.codeInput}
+            placeholder="ABC123"
+            placeholderTextColor="#C7C7CC"
+            value={connectCode}
+            onChangeText={(t) => {
+              setConnectCode(t.toUpperCase());
+              setConnectError('');
+            }}
+            maxLength={6}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            autoFocus={autoFocusInput}
+          />
 
-        {connectError ? <Text style={styles.errorText}>{connectError}</Text> : null}
+          {connectError ? <Text style={styles.errorText}>{connectError}</Text> : null}
 
-        <Pressable
-          style={({ pressed }) => [
-            styles.connectButton,
-            connectCode.trim().length !== 6 && styles.buttonDisabled,
-            pressed && { opacity: 0.8 },
-          ]}
-          onPress={handleConnect}
-          disabled={connectCode.trim().length !== 6 || isConnecting}
-        >
-          {isConnecting ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.connectButtonText}>Send Request</Text>
-          )}
-        </Pressable>
-      </View>
+          <Animated.View style={connectBtnStyle}>
+            <Pressable
+              style={[
+                styles.connectButton,
+                connectCode.trim().length !== 6 && styles.buttonDisabled,
+              ]}
+              onPress={handleConnect}
+              disabled={connectCode.trim().length !== 6 || isConnecting}
+              onPressIn={() => {
+                connectScale.value = withSpring(0.97, { damping: 15, stiffness: 400 });
+              }}
+              onPressOut={() => {
+                connectScale.value = withSpring(1, { damping: 15, stiffness: 400 });
+              }}
+            >
+              {isConnecting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.connectButtonText}>Send Request</Text>
+              )}
+            </Pressable>
+          </Animated.View>
+        </View>
+      </AnimatedSection>
 
       {/* Regenerate Code */}
-      <View style={styles.centered}>
+      <AnimatedSection index={2} entrance={entrance} style={styles.centered}>
         <Pressable
-          style={({ pressed }) => [styles.regenerateButton, pressed && styles.pressedBg]}
+          style={styles.regenerateButton}
           onPress={handleRegenerateCode}
           disabled={isRegenerating}
         >
           {isRegenerating ? (
             <ActivityIndicator size="small" color="#8E8E93" />
           ) : (
-            <RefreshCw size={18} color="#8E8E93" strokeWidth={2} />
+            <RefreshCw size={16} color="#8E8E93" strokeWidth={2} />
           )}
           <Text style={styles.regenerateText}>Regenerate Code</Text>
         </Pressable>
-      </View>
+      </AnimatedSection>
     </>
   );
 }
 
 // ── Pending partnership card ─────────────────────────────────────────
 
-function PendingBuddyCard({ partnership }: { partnership: BuddyStatus }) {
+function PendingBuddyCard({
+  partnership,
+  index,
+  entrance,
+}: {
+  partnership: BuddyStatus;
+  index: number;
+  entrance: SharedValue<number>;
+}) {
   const { respondToBuddy, nudgePendingRequest } = useBuddy();
   const [isResponding, setIsResponding] = useState(false);
   const [isNudging, setIsNudging] = useState(false);
@@ -249,57 +344,65 @@ function PendingBuddyCard({ partnership }: { partnership: BuddyStatus }) {
 
   if (partnership.is_inviter) {
     return (
-      <View style={styles.statusCard}>
-        <Clock size={28} color="#FF9500" strokeWidth={1.5} />
-        <View style={styles.statusCardInfo}>
-          <Text style={styles.statusCardName}>{partnership.partner_name}</Text>
-          <Text style={styles.statusCardSubtext}>Waiting for response</Text>
+      <AnimatedSection index={index} entrance={entrance} style={{ marginBottom: 10 }}>
+        <View style={styles.statusCard}>
+          <View style={styles.statusIconWrap}>
+            <Clock size={20} color="#FF9500" strokeWidth={2} />
+          </View>
+          <View style={styles.statusCardInfo}>
+            <Text style={styles.statusCardName}>{partnership.partner_name}</Text>
+            <Text style={styles.statusCardSubtext}>Waiting for response</Text>
+          </View>
+          {isNudging ? (
+            <ActivityIndicator size="small" color="#007AFF" />
+          ) : (
+            <Pressable
+              style={[styles.nudgeBtn, nudgedToday && styles.nudgeBtnDisabled]}
+              onPress={handleNudge}
+              disabled={nudgedToday}
+              hitSlop={8}
+            >
+              <Send size={14} color={nudgedToday ? '#C7C7CC' : '#007AFF'} strokeWidth={2} />
+              <Text style={[styles.nudgeBtnText, nudgedToday && styles.nudgeBtnTextDisabled]}>
+                {nudgedToday ? 'Nudged' : 'Nudge'}
+              </Text>
+            </Pressable>
+          )}
         </View>
-        {isNudging ? (
-          <ActivityIndicator size="small" color="#007AFF" />
-        ) : (
-          <Pressable
-            style={[styles.nudgeBtn, nudgedToday && styles.nudgeBtnDisabled]}
-            onPress={handleNudge}
-            disabled={nudgedToday}
-            hitSlop={8}
-          >
-            <Send size={14} color={nudgedToday ? '#C7C7CC' : '#007AFF'} strokeWidth={2} />
-            <Text style={[styles.nudgeBtnText, nudgedToday && styles.nudgeBtnTextDisabled]}>
-              {nudgedToday ? 'Nudged' : 'Nudge'}
-            </Text>
-          </Pressable>
-        )}
-      </View>
+      </AnimatedSection>
     );
   }
 
   return (
-    <View style={styles.statusCard}>
-      <UserCheck size={28} color="#007AFF" strokeWidth={1.5} />
-      <View style={styles.statusCardInfo}>
-        <Text style={styles.statusCardName}>{partnership.partner_name}</Text>
-        <Text style={styles.statusCardSubtext}>Wants to be your buddy</Text>
-      </View>
-      {isResponding ? (
-        <ActivityIndicator size="small" color="#007AFF" />
-      ) : (
-        <View style={styles.responseActions}>
-          <Pressable
-            style={({ pressed }) => [styles.declineButton, pressed && { opacity: 0.8 }]}
-            onPress={() => handleRespond(false)}
-          >
-            <Text style={styles.declineButtonText}>Decline</Text>
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [styles.acceptButton, pressed && { opacity: 0.8 }]}
-            onPress={() => handleRespond(true)}
-          >
-            <Text style={styles.acceptButtonText}>Accept</Text>
-          </Pressable>
+    <AnimatedSection index={index} entrance={entrance} style={{ marginBottom: 10 }}>
+      <View style={styles.statusCard}>
+        <View style={[styles.statusIconWrap, { backgroundColor: 'rgba(0,122,255,0.1)' }]}>
+          <UserCheck size={20} color="#007AFF" strokeWidth={2} />
         </View>
-      )}
-    </View>
+        <View style={styles.statusCardInfo}>
+          <Text style={styles.statusCardName}>{partnership.partner_name}</Text>
+          <Text style={styles.statusCardSubtext}>Wants to be your buddy</Text>
+        </View>
+        {isResponding ? (
+          <ActivityIndicator size="small" color="#007AFF" />
+        ) : (
+          <View style={styles.responseActions}>
+            <Pressable
+              style={styles.declineButton}
+              onPress={() => handleRespond(false)}
+            >
+              <Text style={styles.declineButtonText}>Decline</Text>
+            </Pressable>
+            <Pressable
+              style={styles.acceptButton}
+              onPress={() => handleRespond(true)}
+            >
+              <Text style={styles.acceptButtonText}>Accept</Text>
+            </Pressable>
+          </View>
+        )}
+      </View>
+    </AnimatedSection>
   );
 }
 
@@ -307,15 +410,21 @@ function PendingBuddyCard({ partnership }: { partnership: BuddyStatus }) {
 
 const SHARING_OPTIONS: { key: keyof SharingPreferences; label: string; description: string }[] = [
   { key: 'share_todos', label: 'Tasks', description: 'Your daily tasks and completion status' },
-
   { key: 'share_focus', label: 'Focus Sessions', description: 'When you\'re focusing and for how long' },
   { key: 'share_inbox', label: 'Brain Dump', description: 'Your captured thoughts and ideas' },
   { key: 'share_notes', label: 'Notes', description: 'Your daily notes' },
   { key: 'share_work_items', label: 'Work Tasks', description: 'Tasks marked as work-related' },
-
 ];
 
-function ActiveBuddyCard({ partnership }: { partnership: BuddyStatus }) {
+function ActiveBuddyCard({
+  partnership,
+  index,
+  entrance,
+}: {
+  partnership: BuddyStatus;
+  index: number;
+  entrance: SharedValue<number>;
+}) {
   const { sharingPrefsMap, dissolveBuddy, updateSharingPrefs } = useBuddy();
   const partnershipId = partnership.partnership_id!;
   const sharingPrefs = sharingPrefsMap[partnershipId] ?? null;
@@ -349,122 +458,150 @@ function ActiveBuddyCard({ partnership }: { partnership: BuddyStatus }) {
     Haptics.selectionAsync();
   };
 
+  const sinceLabel = partnership.created_at
+    ? new Date(partnership.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    : 'today';
+
   return (
-    <View style={styles.activeCard}>
-      <View style={styles.activeCardHeader}>
-        <Avatar
-          uri={partnership.partner_avatar_url}
-          name={partnership.partner_name}
-          size={48}
-        />
-        <View style={styles.activeCardInfo}>
-          <Text style={styles.activeCardName}>{partnership.partner_name}</Text>
-          <Text style={styles.activeCardSince}>
-            Since {partnership.created_at
-              ? new Date(partnership.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-              : 'today'}
+    <AnimatedSection index={index} entrance={entrance} style={{ marginBottom: 12 }}>
+      <View style={styles.activeCard}>
+        <View style={styles.activeCardHeader}>
+          <Avatar
+            uri={partnership.partner_avatar_url}
+            name={partnership.partner_name}
+            size={48}
+          />
+          <View style={styles.activeCardInfo}>
+            <Text style={styles.activeCardName}>{partnership.partner_name}</Text>
+            <Text style={styles.activeCardSince}>Since {sinceLabel}</Text>
+          </View>
+        </View>
+
+        {/* Sharing Preferences Toggle */}
+        <Pressable
+          style={styles.showPrefsButton}
+          onPress={() => {
+            Haptics.selectionAsync();
+            setShowPrefs(!showPrefs);
+          }}
+        >
+          <Text style={styles.showPrefsText}>
+            {showPrefs ? 'Hide sharing settings' : 'Sharing settings'}
           </Text>
-        </View>
-      </View>
+          {showPrefs ? (
+            <ChevronUp size={16} color="#007AFF" />
+          ) : (
+            <ChevronDown size={16} color="#007AFF" />
+          )}
+        </Pressable>
 
-      {/* Sharing Preferences Toggle */}
-      <Pressable
-        style={styles.showPrefsButton}
-        onPress={() => {
-          Haptics.selectionAsync();
-          setShowPrefs(!showPrefs);
-        }}
-      >
-        <Text style={styles.showPrefsText}>
-          {showPrefs ? 'Hide sharing settings' : 'Sharing settings'}
-        </Text>
-      </Pressable>
-
-      {showPrefs && sharingPrefs && (
-        <View style={styles.prefsList}>
-          {SHARING_OPTIONS.map((opt, i) => (
-            <View
-              key={opt.key}
-              style={[
-                styles.prefRow,
-                i < SHARING_OPTIONS.length - 1 && styles.prefRowBorder,
-              ]}
-            >
-              <View style={styles.prefInfo}>
-                <Text style={styles.prefLabel}>{opt.label}</Text>
-                <Text style={styles.prefDescription}>{opt.description}</Text>
+        {showPrefs && sharingPrefs && (
+          <View style={styles.prefsList}>
+            {SHARING_OPTIONS.map((opt, i) => (
+              <View
+                key={opt.key}
+                style={[
+                  styles.prefRow,
+                  i < SHARING_OPTIONS.length - 1 && styles.prefRowBorder,
+                ]}
+              >
+                <View style={styles.prefInfo}>
+                  <Text style={styles.prefLabel}>{opt.label}</Text>
+                  <Text style={styles.prefDescription}>{opt.description}</Text>
+                </View>
+                <Switch
+                  value={sharingPrefs[opt.key]}
+                  onValueChange={() => togglePref(opt.key)}
+                  trackColor={{ false: '#E5E5EA', true: '#34C759' }}
+                  thumbColor="#fff"
+                />
               </View>
-              <Switch
-                value={sharingPrefs[opt.key]}
-                onValueChange={() => togglePref(opt.key)}
-                trackColor={{ false: '#E5E5EA', true: '#34C759' }}
-                thumbColor="#fff"
-              />
-            </View>
-          ))}
-        </View>
-      )}
+            ))}
+          </View>
+        )}
 
-      {/* Dissolve */}
-      <Pressable
-        style={styles.dissolveRow}
-        onPress={handleDissolve}
-      >
-        <Unlink size={16} color="#FF3B30" strokeWidth={2} />
-        <Text style={styles.dissolveRowText}>Remove buddy</Text>
-      </Pressable>
-    </View>
+        {/* Dissolve */}
+        <Pressable
+          style={styles.dissolveRow}
+          onPress={handleDissolve}
+        >
+          <Unlink size={15} color="#FF3B30" strokeWidth={2} />
+          <Text style={styles.dissolveRowText}>Remove buddy</Text>
+        </Pressable>
+      </View>
+    </AnimatedSection>
   );
 }
 
-// ── Privacy mode (global, not per-partner) ──────────────────────────
+// ── Privacy mode ────────────────────────────────────────────────────
 
-const PRIVACY_MODES: { value: PrivacyMode; label: string; description: string }[] = [
-  { value: 'open', label: 'Open', description: 'Buddies see all shared data' },
-  { value: 'focus', label: 'Focus', description: 'Only shows you\'re busy' },
-  { value: 'private', label: 'Private', description: 'All data hidden' },
+const PRIVACY_MODES: { value: PrivacyMode; label: string; description: string; Icon: any }[] = [
+  { value: 'visible', label: 'Visible', description: 'Based on sharing settings', Icon: Eye },
+  { value: 'private', label: 'Private', description: 'Hidden from all buddies', Icon: EyeOff },
 ];
 
-function PrivacyModeSection() {
+function PrivacyModeSection({
+  index,
+  entrance,
+}: {
+  index: number;
+  entrance: SharedValue<number>;
+}) {
   const { privacyMode, setPrivacyMode } = useAuth();
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.cardTitle}>Privacy Mode</Text>
-      <Text style={styles.cardSubtitle}>
-        Quickly control your visibility to all buddies
-      </Text>
-      <View style={styles.privacyModeContainer}>
-        {PRIVACY_MODES.map((mode) => {
-          const isActive = privacyMode === mode.value;
-          return (
-            <Pressable
-              key={mode.value}
-              style={[styles.privacyModeOption, isActive && styles.privacyModeOptionActive]}
-              onPress={async () => {
-                Haptics.selectionAsync();
-                await setPrivacyMode(mode.value);
-              }}
-            >
-              <Text style={[styles.privacyModeLabel, isActive && styles.privacyModeLabelActive]}>
-                {mode.label}
-              </Text>
-              <Text style={[styles.privacyModeDesc, isActive && styles.privacyModeDescActive]}>
-                {mode.description}
-              </Text>
-            </Pressable>
-          );
-        })}
+    <AnimatedSection index={index} entrance={entrance}>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Privacy Mode</Text>
+        <Text style={styles.cardSubtitle}>
+          Control your visibility to all buddies
+        </Text>
+        <View style={styles.privacyModeContainer}>
+          {PRIVACY_MODES.map((mode) => {
+            const isActive = privacyMode === mode.value;
+            return (
+              <Pressable
+                key={mode.value}
+                style={[styles.privacyModeOption, isActive && styles.privacyModeOptionActive]}
+                onPress={async () => {
+                  Haptics.selectionAsync();
+                  await setPrivacyMode(mode.value);
+                }}
+              >
+                <View style={[styles.privacyIconWrap, isActive && styles.privacyIconWrapActive]}>
+                  <mode.Icon size={18} color={isActive ? '#007AFF' : '#8E8E93'} strokeWidth={2} />
+                </View>
+                <Text style={[styles.privacyModeLabel, isActive && styles.privacyModeLabelActive]}>
+                  {mode.label}
+                </Text>
+                <Text style={[styles.privacyModeDesc, isActive && styles.privacyModeDescActive]}>
+                  {mode.description}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
-    </View>
+    </AnimatedSection>
   );
 }
 
 // ── Main Screen ────────────────────────────────────────────────────
+
 export default function BuddySettingsScreen() {
-  const router = useRouter();
   const goBack = useGoBack();
   const { activeBuddies, pendingBuddies, hasActiveBuddy, isLoading } = useBuddy();
+  const entrance = useSharedValue(0);
+
+  useEffect(() => {
+    if (!isLoading) {
+      entrance.value = 0;
+      entrance.value = withSpring(1, SPRING_CONFIG);
+    }
+  }, [isLoading]);
+
+  // Running stagger index — connect sections use 0, 1, 2
+  let staggerIdx = 3;
 
   return (
     <View style={styles.container}>
@@ -492,19 +629,32 @@ export default function BuddySettingsScreen() {
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
             {/* Connect form — always visible */}
-            <ConnectSection autoFocusInput={!hasActiveBuddy} />
+            <ConnectSection
+              autoFocusInput={!hasActiveBuddy}
+              entrance={entrance}
+            />
 
-            {/* Privacy mode — only if has any active partnership */}
-            {hasActiveBuddy && <PrivacyModeSection />}
+            {/* Privacy mode — only if has active partnership */}
+            {hasActiveBuddy && (
+              <PrivacyModeSection index={staggerIdx++} entrance={entrance} />
+            )}
 
             {/* Pending partnerships */}
             {pendingBuddies.length > 0 && (
               <View style={styles.sectionBlock}>
-                <Text style={styles.sectionLabel}>PENDING</Text>
+                <AnimatedSection index={staggerIdx} entrance={entrance}>
+                  <Text style={styles.sectionLabel}>PENDING</Text>
+                </AnimatedSection>
                 {pendingBuddies.map((p) => (
-                  <PendingBuddyCard key={p.partnership_id} partnership={p} />
+                  <PendingBuddyCard
+                    key={p.partnership_id}
+                    partnership={p}
+                    index={staggerIdx++}
+                    entrance={entrance}
+                  />
                 ))}
               </View>
             )}
@@ -512,12 +662,21 @@ export default function BuddySettingsScreen() {
             {/* Active partnerships */}
             {activeBuddies.length > 0 && (
               <View style={styles.sectionBlock}>
-                <Text style={styles.sectionLabel}>ACTIVE BUDDIES</Text>
+                <AnimatedSection index={staggerIdx} entrance={entrance}>
+                  <Text style={styles.sectionLabel}>ACTIVE BUDDIES</Text>
+                </AnimatedSection>
                 {activeBuddies.map((p) => (
-                  <ActiveBuddyCard key={p.partnership_id} partnership={p} />
+                  <ActiveBuddyCard
+                    key={p.partnership_id}
+                    partnership={p}
+                    index={staggerIdx++}
+                    entrance={entrance}
+                  />
                 ))}
               </View>
             )}
+
+            <View style={{ height: 40 }} />
           </ScrollView>
         )}
       </SafeAreaView>
@@ -537,137 +696,239 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   backButtonCircle: {
-    width: 36, height: 36, borderRadius: 18,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: 'rgba(255,255,255,0.8)',
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05, shadowRadius: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
   },
   headerTitle: {
-    fontSize: 17, fontWeight: '600', color: '#000',
-    position: 'absolute', left: 0, right: 0,
-    textAlign: 'center', zIndex: -1,
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#000',
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    zIndex: -1,
   },
   scrollView: { flex: 1 },
-  scrollContent: { paddingTop: 24, paddingBottom: 40, gap: 24 },
+  scrollContent: { paddingTop: 20, paddingBottom: 40, gap: 22 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   // ── Section blocks ──
   sectionBlock: {
     marginHorizontal: 16,
-    gap: 10,
+    gap: 4,
   },
   sectionLabel: {
-    fontSize: 12, fontWeight: '600', color: '#8E8E93',
-    letterSpacing: 1.5, marginBottom: 4,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#8E8E93',
+    letterSpacing: 1.5,
+    marginBottom: 8,
   },
 
   // ── Code card ──
   codeCard: {
     marginHorizontal: 16,
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    borderRadius: 20, padding: 28, alignItems: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06, shadowRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.04)',
+    padding: 28,
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+      },
+      android: { elevation: 3 },
+    }),
   },
   codeLabel: {
-    fontSize: 12, fontWeight: '600', color: '#8E8E93',
-    letterSpacing: 1.5, marginBottom: 12,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#8E8E93',
+    letterSpacing: 2,
+    marginBottom: 14,
   },
   codeText: {
-    fontSize: 40, fontFamily: Fonts.heading, fontWeight: '700',
-    color: '#000', letterSpacing: 6, marginBottom: 12,
+    fontSize: 38,
+    fontFamily: Fonts.heading,
+    fontWeight: '700',
+    color: '#000',
+    letterSpacing: 8,
+    marginBottom: 10,
   },
   codeHint: {
-    fontSize: 14, color: '#8E8E93', textAlign: 'center',
-    lineHeight: 20, marginBottom: 20,
+    fontSize: 13,
+    color: '#AEAEB2',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 20,
   },
   codeActions: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(0,122,255,0.08)',
-    borderRadius: 12, overflow: 'hidden',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,122,255,0.06)',
+    borderRadius: 14,
+    overflow: 'hidden',
   },
   codeAction: {
-    flexDirection: 'row', alignItems: 'center',
-    gap: 6, paddingVertical: 10, paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
   },
-  codeActionText: { fontSize: 15, fontWeight: '500', color: '#007AFF' },
+  codeActionText: { fontSize: 14, fontWeight: '600', color: '#007AFF' },
   codeActionDivider: {
-    width: 1, height: 20, backgroundColor: 'rgba(0,122,255,0.2)',
+    width: 1,
+    height: 18,
+    backgroundColor: 'rgba(0,122,255,0.15)',
   },
 
   // ── Generic card ──
   card: {
     marginHorizontal: 16,
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    borderRadius: 20, padding: 24,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06, shadowRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.04)',
+    padding: 24,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+      },
+      android: { elevation: 3 },
+    }),
   },
   cardTitle: {
-    fontSize: 20, fontWeight: '700', color: '#000',
+    fontSize: 19,
+    fontWeight: '700',
+    color: '#000',
     marginBottom: 4,
   },
   cardSubtitle: {
-    fontSize: 14, color: '#8E8E93', marginBottom: 20,
+    fontSize: 13,
+    color: '#8E8E93',
+    marginBottom: 20,
   },
 
   // ── Code input ──
   codeInput: {
-    fontSize: 24, fontWeight: '600', color: '#000',
-    backgroundColor: '#F5F5F7', borderRadius: 12,
-    padding: 16, textAlign: 'center', letterSpacing: 4,
+    fontSize: 22,
+    fontWeight: '600',
+    color: '#000',
+    backgroundColor: 'rgba(0,0,0,0.03)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.06)',
+    padding: 16,
+    textAlign: 'center',
+    letterSpacing: 6,
     marginBottom: 16,
   },
 
   // ── Buttons ──
   connectButton: {
-    backgroundColor: '#000', borderRadius: 28,
-    paddingVertical: 16, alignItems: 'center',
+    backgroundColor: '#000',
+    borderRadius: 24,
+    paddingVertical: 15,
+    alignItems: 'center',
   },
-  connectButtonText: { color: '#fff', fontSize: 17, fontWeight: '600' },
+  connectButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   buttonDisabled: { backgroundColor: '#E5E5EA' },
 
   // ── Status card (pending) ──
   statusCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    borderRadius: 16, padding: 16,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04, shadowRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.04)',
+    padding: 16,
     gap: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 4,
+      },
+      android: { elevation: 2 },
+    }),
+  },
+  statusIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,149,0,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   statusCardInfo: {
     flex: 1,
   },
   statusCardName: {
-    fontSize: 16, fontWeight: '600', color: '#000',
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1C1C1E',
+    letterSpacing: -0.2,
   },
   statusCardSubtext: {
-    fontSize: 14, color: '#8E8E93', marginTop: 2,
+    fontSize: 13,
+    color: '#8E8E93',
+    marginTop: 2,
   },
 
   responseActions: {
-    flexDirection: 'row', gap: 8,
+    flexDirection: 'row',
+    gap: 8,
   },
   declineButton: {
-    paddingHorizontal: 16, paddingVertical: 8,
-    borderRadius: 20, backgroundColor: '#F5F5F7',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.04)',
   },
-  declineButtonText: { fontSize: 14, fontWeight: '600', color: '#8E8E93' },
+  declineButtonText: { fontSize: 13, fontWeight: '600', color: '#8E8E93' },
   acceptButton: {
-    paddingHorizontal: 16, paddingVertical: 8,
-    borderRadius: 20, backgroundColor: '#007AFF',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 16,
+    backgroundColor: '#007AFF',
   },
-  acceptButtonText: { fontSize: 14, fontWeight: '600', color: '#fff' },
+  acceptButtonText: { fontSize: 13, fontWeight: '600', color: '#fff' },
 
   // ── Active partnership card ──
   activeCard: {
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    borderRadius: 20, padding: 20,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06, shadowRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.04)',
+    padding: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+      },
+      android: { elevation: 3 },
+    }),
   },
   activeCardHeader: {
     flexDirection: 'row',
@@ -678,35 +939,46 @@ const styles = StyleSheet.create({
     marginLeft: 14,
   },
   activeCardName: {
-    fontSize: 18, fontWeight: '600', color: '#000',
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#1C1C1E',
+    letterSpacing: -0.2,
   },
   activeCardSince: {
-    fontSize: 14, color: '#8E8E93', marginTop: 2,
+    fontSize: 13,
+    color: '#8E8E93',
+    marginTop: 2,
   },
   showPrefsButton: {
     marginTop: 16,
     paddingVertical: 10,
+    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,122,255,0.06)',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0,122,255,0.05)',
     borderRadius: 12,
   },
   showPrefsText: {
-    fontSize: 14, fontWeight: '600', color: '#007AFF',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#007AFF',
   },
 
   // ── Sharing prefs ──
   prefsList: { marginTop: 12 },
   prefRow: {
-    flexDirection: 'row', alignItems: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 14,
   },
   prefRowBorder: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(60,60,67,0.1)',
+    borderBottomColor: 'rgba(60,60,67,0.08)',
   },
   prefInfo: { flex: 1, marginRight: 12 },
-  prefLabel: { fontSize: 16, fontWeight: '500', color: '#000' },
-  prefDescription: { fontSize: 13, color: '#8E8E93', marginTop: 2 },
+  prefLabel: { fontSize: 15, fontWeight: '500', color: '#1C1C1E' },
+  prefDescription: { fontSize: 12, color: '#8E8E93', marginTop: 2 },
 
   // ── Dissolve ──
   dissolveRow: {
@@ -716,27 +988,41 @@ const styles = StyleSheet.create({
     gap: 6,
     marginTop: 16,
     paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,59,48,0.05)',
   },
   dissolveRowText: { fontSize: 14, color: '#FF3B30', fontWeight: '500' },
 
   // ── Privacy mode ──
   privacyModeContainer: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 10,
   },
   privacyModeOption: {
     flex: 1,
-    backgroundColor: '#F5F5F7',
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 8,
+    backgroundColor: 'rgba(0,0,0,0.03)',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 10,
     alignItems: 'center',
     borderWidth: 2,
     borderColor: 'transparent',
   },
   privacyModeOptionActive: {
-    backgroundColor: '#E8F0FE',
+    backgroundColor: 'rgba(0,122,255,0.06)',
     borderColor: '#007AFF',
+  },
+  privacyIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.04)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  privacyIconWrapActive: {
+    backgroundColor: 'rgba(0,122,255,0.1)',
   },
   privacyModeLabel: {
     fontSize: 15,
@@ -761,14 +1047,14 @@ const styles = StyleSheet.create({
   nudgeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 5,
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-    backgroundColor: 'rgba(0,122,255,0.1)',
+    paddingVertical: 7,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,122,255,0.08)',
   },
   nudgeBtnDisabled: {
-    backgroundColor: 'rgba(0,0,0,0.04)',
+    backgroundColor: 'rgba(0,0,0,0.03)',
   },
   nudgeBtnText: {
     fontSize: 13,
@@ -781,12 +1067,15 @@ const styles = StyleSheet.create({
 
   // ── Misc ──
   centered: { alignItems: 'center', marginHorizontal: 16 },
-  pressedBg: { backgroundColor: 'rgba(0,0,0,0.05)' },
-  errorText: { color: '#FF3B30', fontSize: 14, marginBottom: 12, textAlign: 'center' },
+  errorText: { color: '#FF3B30', fontSize: 13, marginBottom: 12, textAlign: 'center' },
   regenerateButton: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingVertical: 12, paddingHorizontal: 20,
-    borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.7)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.03)',
   },
-  regenerateText: { fontSize: 15, color: '#8E8E93', fontWeight: '500' },
+  regenerateText: { fontSize: 14, color: '#8E8E93', fontWeight: '500' },
 });

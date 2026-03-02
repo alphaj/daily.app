@@ -1,13 +1,14 @@
 import { useState, useCallback, useRef } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import { Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useGoBack } from '@/lib/useGoBack';
 import { useTodos } from '@/contexts/TodoContext';
 import { useWorkMode } from '@/contexts/WorkModeContext';
 import { useBuddy } from '@/contexts/BuddyContext';
 import { useSync } from '@/contexts/SyncContext';
 import { suggestEmoji } from '@/utils/emojiSuggest';
-import { assignTaskToBuddy } from '@/lib/sync';
+import { assignTaskToBuddy, createTogetherTask } from '@/lib/sync';
 import * as Haptics from '@/lib/haptics';
 import { format, isToday, isTomorrow } from 'date-fns';
 import type { TimeOfDay, RepeatOption, Subtask } from '@/types/todo';
@@ -86,6 +87,9 @@ export function useAddTodoForm() {
     const assignedPartnership = assignToPartnerId
         ? getBuddy(assignToPartnerId)
         : (activeBuddies.length === 1 ? activeBuddies[0] : null);
+
+    const [togetherPartnerId, setTogetherPartnerId] = useState<string | null>(null);
+    const isTogether = !!togetherPartnerId;
 
     const [title, setTitle] = useState('');
     const [emoji, setEmoji] = useState<string | undefined>('🌤');
@@ -183,7 +187,64 @@ export function useAddTodoForm() {
             completed: false,
         }));
 
-        if (assignToPartner && hasPartner) {
+        if (isTogether && hasPartner) {
+            const targetPartnerId = togetherPartnerId!;
+            const togetherPartnership = getBuddy(targetPartnerId);
+            const taskId = generateId();
+            const taskData = {
+                id: taskId,
+                title: title.trim(),
+                createdAt: new Date().toISOString(),
+                dueDate: (dueDate || new Date()).toISOString().split('T')[0],
+                dueTime: undefined as string | undefined,
+                priority: undefined as string | undefined,
+                isWork: isWorkMode,
+                emoji,
+                emojiColor,
+                estimatedMinutes,
+                timeOfDay,
+                repeat: repeat !== 'none' ? repeat : undefined,
+                subtasks: subtaskData.length > 0 ? subtaskData : undefined,
+            };
+
+            // Create local todo with together fields
+            await addTodo(title.trim(), dueDate || new Date(), undefined, isWorkMode, undefined, {
+                emoji,
+                emojiColor,
+                estimatedMinutes,
+                timeOfDay,
+                repeat: repeat !== 'none' ? repeat : undefined,
+                subtasks: subtaskData.length > 0 ? subtaskData : undefined,
+                isTogether: true,
+                togetherPartnerId: targetPartnerId,
+                togetherPartnerName: togetherPartnership?.partner_name ?? undefined,
+                togetherPartnerAvatarUrl: togetherPartnership?.partner_avatar_url ?? undefined,
+            });
+
+            // Call RPC to create together task for partner
+            const result = await createTogetherTask(taskData, targetPartnerId);
+            if (result.error) {
+                setSaving(false);
+                Alert.alert('Could not create together task', result.error);
+                return false;
+            }
+
+            // Update local todo with togetherGroupId
+            if (result.togetherGroupId) {
+                const raw = await AsyncStorage.getItem('daily_todos');
+                if (raw) {
+                    const todos: any[] = JSON.parse(raw);
+                    const updated = todos.map(t =>
+                        t.title === title.trim() && t.isTogether && !t.togetherGroupId
+                            ? { ...t, togetherGroupId: result.togetherGroupId }
+                            : t
+                    );
+                    await AsyncStorage.setItem('daily_todos', JSON.stringify(updated));
+                }
+            }
+
+            syncNow();
+        } else if (assignToPartner && hasPartner) {
             const targetPartnerId = assignToPartnerId ?? assignedPartnership?.partner_id ?? undefined;
             const result = await assignTaskToBuddy({
                 id: generateId(),
@@ -219,7 +280,7 @@ export function useAddTodoForm() {
             });
         }
         return true;
-    }, [title, saving, subtasks, assignToPartner, hasPartner, assignToPartnerId, assignedPartnership, dueDate, isWorkMode, emoji, emojiColor, estimatedMinutes, timeOfDay, repeat, isPrivate, addTodo, syncNow]);
+    }, [title, saving, subtasks, isTogether, togetherPartnerId, assignToPartner, hasPartner, assignToPartnerId, assignedPartnership, getBuddy, dueDate, isWorkMode, emoji, emojiColor, estimatedMinutes, timeOfDay, repeat, isPrivate, addTodo, syncNow]);
 
     const getDateLabel = useCallback((): string => {
         if (!dueDate) return 'None';
@@ -265,6 +326,8 @@ export function useAddTodoForm() {
         assignToPartnerId, setAssignToPartnerId,
         assignToPartner,
         assignedPartnership,
+        togetherPartnerId, setTogetherPartnerId,
+        isTogether,
         saving, canSave, executeSave,
         getDateLabel, getTimeOfDayLabel, getDurationLabel, getRepeatLabel,
     };

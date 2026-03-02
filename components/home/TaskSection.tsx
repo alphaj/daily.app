@@ -41,6 +41,7 @@ interface TaskSectionProps {
   onDuplicateTodo?: (id: string) => void;
   onRescheduleTodo?: (id: string, date: string) => void;
   onEditTodo?: (todo: Todo) => void;
+  onStartTask?: (todo: Todo) => void;
   buddyReactions?: Map<string, string>;
 }
 
@@ -59,6 +60,7 @@ export const TaskSection = memo(function TaskSection({
   onDuplicateTodo,
   onRescheduleTodo,
   onEditTodo,
+  onStartTask,
   buddyReactions,
 }: TaskSectionProps) {
   const label = SECTION_LABELS[timeOfDay];
@@ -129,6 +131,7 @@ export const TaskSection = memo(function TaskSection({
                 onDuplicate={onDuplicateTodo}
                 onReschedule={onRescheduleTodo}
                 onEdit={onEditTodo}
+                onStartTask={onStartTask}
                 buddyReaction={buddyReactions?.get(todo.id)}
               />
             ))
