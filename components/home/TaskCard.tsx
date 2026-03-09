@@ -115,14 +115,40 @@ export const TaskCard = memo(function TaskCard({
   }, [todo.id, todo.completed, isOptimisticallyCompleted, onToggle, fireToggle]);
 
   const handleSubtaskToggle = useCallback((subtaskId: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const subtask = subtasks.find(st => st.id === subtaskId);
+    const isCompleting = subtask && !subtask.completed;
+    const wouldCompleteAll = isCompleting &&
+      subtasks.every(st => st.id === subtaskId || st.completed);
+
+    if (wouldCompleteAll) {
+      // Last subtask — success haptic + parent checkbox pop
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      checkboxScale.value = withSequence(
+        withSpring(1.3, { damping: 12, stiffness: 400 }),
+        withSpring(1, { damping: 14, stiffness: 300 }),
+      );
+    } else {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
     onToggleSubtask?.(todo.id, subtaskId);
-  }, [todo.id, onToggleSubtask]);
+  }, [todo.id, subtasks, onToggleSubtask]);
 
   const toggleExpanded = useCallback(() => {
     Haptics.selectionAsync();
     setSubtasksExpanded(prev => !prev);
   }, []);
+
+  // Card body tap: expand subtasks if incomplete, otherwise toggle completion
+  const handleCardPress = useCallback(() => {
+    if (hasSubtasks && completedSubtasks < subtasks.length && !showCompleted) {
+      // Has incomplete subtasks — show them instead of completing
+      if (!subtasksExpanded) {
+        toggleExpanded();
+      }
+    } else {
+      handleToggle();
+    }
+  }, [hasSubtasks, completedSubtasks, subtasks.length, showCompleted, subtasksExpanded, toggleExpanded, handleToggle]);
 
   const handleSubtaskMenuAction = useCallback((key: string, subtask: Subtask) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -245,7 +271,7 @@ export const TaskCard = memo(function TaskCard({
       <View style={[styles.card, { backgroundColor: tint.card, borderWidth: 1, borderColor: tint.border }, todo.isDefault && !showCompleted && styles.cardDefaultInner, isOverdue && !showCompleted && styles.cardOverdueInner]}>
         <Pressable
           style={styles.cardContent}
-          onPress={handleToggle}
+          onPress={handleCardPress}
           onLongPress={showTaskMenu}
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
@@ -309,19 +335,21 @@ export const TaskCard = memo(function TaskCard({
             <Text style={styles.buddyReaction}>{buddyReaction}</Text>
           )}
 
-          {/* Checkbox */}
-          <Animated.View style={checkboxStyle}>
-            <View
-              style={[
-                styles.checkbox,
-                showCompleted && !todo.isTogether && styles.checkboxChecked,
-                todo.isTogether && showCompleted && !todo.partnerCompleted && styles.checkboxTogetherWaiting,
-                todo.isTogether && showCompleted && todo.partnerCompleted && styles.checkboxTogetherDone,
-              ]}
-            >
-              {showCompleted && <Check size={14} color="#fff" strokeWidth={3} />}
-            </View>
-          </Animated.View>
+          {/* Checkbox — separate pressable so it always toggles completion */}
+          <Pressable onPress={handleToggle} hitSlop={4}>
+            <Animated.View style={checkboxStyle}>
+              <View
+                style={[
+                  styles.checkbox,
+                  showCompleted && !todo.isTogether && styles.checkboxChecked,
+                  todo.isTogether && showCompleted && !todo.partnerCompleted && styles.checkboxTogetherWaiting,
+                  todo.isTogether && showCompleted && todo.partnerCompleted && styles.checkboxTogetherDone,
+                ]}
+              >
+                {showCompleted && <Check size={14} color="#fff" strokeWidth={3} />}
+              </View>
+            </Animated.View>
+          </Pressable>
         </Pressable>
 
         {/* Subtask indicator row */}

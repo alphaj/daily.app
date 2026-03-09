@@ -96,13 +96,16 @@ export function useAddTodoForm() {
     const [emojiColor, setEmojiColor] = useState<string | undefined>(undefined);
     const userPickedEmoji = useRef(false);
     const [dueDate, setDueDate] = useState<Date | null>(new Date());
-    const [estimatedMinutes, setEstimatedMinutes] = useState<number | undefined>(undefined);
+    const [estimatedMinutes, setEstimatedMinutes] = useState<number | undefined>(15);
     const [repeat, setRepeat] = useState<RepeatOption>('none');
     const [timeOfDay, setTimeOfDay] = useState<TimeOfDay | undefined>(() => {
         if (initialTimeOfDay && ['anytime', 'morning', 'afternoon', 'evening'].includes(initialTimeOfDay)) {
             return initialTimeOfDay as TimeOfDay;
         }
-        return undefined;
+        const hour = new Date().getHours();
+        if (hour < 12) return 'morning';
+        if (hour < 17) return 'afternoon';
+        return 'evening';
     });
     const [isPrivate, setIsPrivate] = useState(false);
     const [subtasks, setSubtasks] = useState<{ id: string; title: string; emoji: string }[]>([]);

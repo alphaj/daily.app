@@ -1,6 +1,6 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useGoBack } from '@/lib/useGoBack';
-import { X, Check, Plus, Lock } from 'lucide-react-native';
+import { X, Check, Plus, Lock, Users, ArrowRight, UserPlus } from 'lucide-react-native';
 import React, { useState, useMemo, useRef } from 'react';
 import {
     View,
@@ -12,17 +12,39 @@ import {
     KeyboardAvoidingView,
     Platform,
     ScrollView,
+    Image,
+    Alert,
     type ScrollView as ScrollViewType,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from '@/lib/haptics';
 import { useTodos } from '@/contexts/TodoContext';
 import { useBuddy } from '@/contexts/BuddyContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useSync } from '@/contexts/SyncContext';
+import { assignTaskToBuddy, createTogetherTask } from '@/lib/sync';
 import { format, parseISO, isToday, isTomorrow, addDays } from 'date-fns';
 import { DatePickerModal } from '@/components/DatePickerModal';
 import { AnimatedBottomSheet } from '@/components/AnimatedBottomSheet';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { TimeOfDay, RepeatOption, Subtask } from '@/types/todo';
+
+const AVATAR_COLORS = [
+    { bg: '#E8D5F5', text: '#7C3AED' },
+    { bg: '#D5EDE8', text: '#059669' },
+    { bg: '#DBEAFE', text: '#2563EB' },
+    { bg: '#FDE8D5', text: '#EA580C' },
+    { bg: '#FCE7F3', text: '#DB2777' },
+    { bg: '#E0E7FF', text: '#4F46E5' },
+    { bg: '#D5F5E8', text: '#047857' },
+    { bg: '#FEF3C7', text: '#B45309' },
+];
+
+function getAvatarColor(name: string) {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
 
 const EMOJI_OPTIONS = [
     '🌅', '☀️', '🌙', '⏰', '🛏️', '🪥',
@@ -72,11 +94,23 @@ export default function EditTodoScreen() {
     const router = useRouter();
     const goBack = useGoBack();
     const { id } = useLocalSearchParams<{ id: string }>();
-    const { todos, updateTodo } = useTodos();
-    const { hasActiveBuddy } = useBuddy();
+    const { todos, updateTodo, deleteTodo } = useTodos();
+    const { hasActiveBuddy, activeBuddies, getBuddy } = useBuddy();
+    const { profile } = useAuth();
+    const { syncNow } = useSync();
     const hasPartner = hasActiveBuddy;
 
     const todo = useMemo(() => todos.find(t => t.id === id), [todos, id]);
+
+    // Determine initial assignment state from the existing todo
+    const initialAssignTo = todo?.assignedById ? null : null; // task assigned TO user, no partner selected
+    const initialTogetherId = todo?.isTogether ? (todo.togetherPartnerId ?? null) : null;
+
+    const [assignToPartnerId, setAssignToPartnerId] = useState<string | null>(initialAssignTo);
+    const [togetherPartnerId, setTogetherPartnerId] = useState<string | null>(initialTogetherId);
+    const assignToPartner = !!assignToPartnerId;
+    const isTogether = !!togetherPartnerId;
+    const [saving, setSaving] = useState(false);
 
     const [title, setTitle] = useState(todo?.title ?? '');
     const [emoji, setEmoji] = useState<string | undefined>(todo?.emoji);
@@ -106,30 +140,112 @@ export default function EditTodoScreen() {
         );
     }
 
-    const handleSave = () => {
-        if (title.trim()) {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            const subtaskData: Subtask[] = subtasks.map(st => {
-                const existing = todo.subtasks?.find(s => s.id === st.id);
-                return {
-                    id: st.id,
-                    title: st.title,
-                    emoji: st.emoji,
-                    completed: existing?.completed ?? false,
-                };
-            });
+    const handleSave = async () => {
+        if (!title.trim() || saving) return;
+        setSaving(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+        const subtaskData: Subtask[] = subtasks.map(st => {
+            const existing = todo.subtasks?.find(s => s.id === st.id);
+            return {
+                id: st.id,
+                title: st.title,
+                emoji: st.emoji,
+                completed: existing?.completed ?? false,
+            };
+        });
+
+        const wasTogether = !!todo.isTogether;
+        const wasAssignedToPartner = false; // task is local, can't have been assigned out
+        const nowTogether = isTogether;
+        const nowAssignToPartner = assignToPartner;
+
+        const taskFields = {
+            title: title.trim(),
+            emoji,
+            dueDate: dueDate ? dueDate.toISOString().split('T')[0] : todo.dueDate,
+            estimatedMinutes,
+            timeOfDay,
+            repeat: repeat !== 'none' ? repeat : undefined,
+            subtasks: subtaskData.length > 0 ? subtaskData : undefined,
+            isPrivate: (!nowAssignToPartner && !nowTogether) ? (isPrivate || undefined) : undefined,
+        };
+
+        if (nowAssignToPartner && hasPartner) {
+            // Assign to partner: create remote task, delete local
+            const result = await assignTaskToBuddy({
+                id: todo.id,
+                title: taskFields.title,
+                createdAt: todo.createdAt,
+                dueDate: taskFields.dueDate,
+                dueTime: undefined,
+                priority: undefined,
+                isWork: todo.isWork,
+                emoji: taskFields.emoji,
+                estimatedMinutes: taskFields.estimatedMinutes,
+                timeOfDay: taskFields.timeOfDay,
+                repeat: taskFields.repeat,
+                subtasks: taskFields.subtasks,
+            }, assignToPartnerId ?? undefined);
+
+            if (result.error) {
+                setSaving(false);
+                Alert.alert('Could not assign task', result.error);
+                return;
+            }
+            deleteTodo(todo.id);
+            syncNow();
+        } else if (nowTogether && hasPartner) {
+            // Together task: update local + create remote
+            const togetherPartnership = getBuddy(togetherPartnerId!);
             updateTodo(todo.id, {
-                title: title.trim(),
-                emoji,
-                dueDate: dueDate ? dueDate.toISOString().split('T')[0] : todo.dueDate,
-                estimatedMinutes,
-                timeOfDay,
-                repeat: repeat !== 'none' ? repeat : undefined,
-                subtasks: subtaskData.length > 0 ? subtaskData : undefined,
-                isPrivate: isPrivate || undefined,
+                ...taskFields,
+                isTogether: true,
+                togetherPartnerId: togetherPartnerId!,
+                togetherPartnerName: togetherPartnership?.partner_name ?? undefined,
+                togetherPartnerAvatarUrl: togetherPartnership?.partner_avatar_url ?? undefined,
             });
-            goBack();
+
+            const result = await createTogetherTask({
+                id: todo.id,
+                title: taskFields.title,
+                createdAt: todo.createdAt,
+                dueDate: taskFields.dueDate,
+                dueTime: undefined,
+                priority: undefined,
+                isWork: todo.isWork,
+                emoji: taskFields.emoji,
+                estimatedMinutes: taskFields.estimatedMinutes,
+                timeOfDay: taskFields.timeOfDay,
+                repeat: taskFields.repeat,
+                subtasks: taskFields.subtasks,
+            }, togetherPartnerId!);
+
+            if (result.error) {
+                setSaving(false);
+                Alert.alert('Could not create together task', result.error);
+                return;
+            }
+
+            if (result.togetherGroupId) {
+                updateTodo(todo.id, { togetherGroupId: result.togetherGroupId });
+            }
+            syncNow();
+        } else {
+            // Regular self task
+            updateTodo(todo.id, {
+                ...taskFields,
+                // Clear together fields if it was a together task
+                ...(wasTogether ? {
+                    isTogether: undefined,
+                    togetherPartnerId: undefined,
+                    togetherPartnerName: undefined,
+                    togetherPartnerAvatarUrl: undefined,
+                    togetherGroupId: undefined,
+                } : {}),
+            });
         }
+        goBack();
     };
 
     const addSubtask = () => {
@@ -180,10 +296,12 @@ export default function EditTodoScreen() {
                             </Pressable>
                             <Pressable
                                 onPress={handleSave}
-                                disabled={!canSave}
+                                disabled={!canSave || saving}
                                 hitSlop={8}
                             >
-                                <Text style={[s.saveText, canSave && s.saveTextActive]}>Save</Text>
+                                <Text style={[s.saveText, canSave && !saving && s.saveTextActive]}>
+                                    {saving ? 'Saving...' : 'Save'}
+                                </Text>
                             </Pressable>
                         </View>
                     </View>
@@ -330,32 +448,146 @@ export default function EditTodoScreen() {
                             </View>
                         </View>
 
-                        {/* Private Section */}
+                        {/* People Section */}
                         {hasPartner && (
-                            <View style={s.section}>
-                                <Text style={s.sectionLabel}>Visibility</Text>
-                                <View style={s.pillRow}>
-                                    <Pressable
-                                        style={[s.pill, !isPrivate && s.pillActive]}
-                                        onPress={() => {
-                                            Haptics.selectionAsync();
-                                            setIsPrivate(false);
-                                        }}
-                                    >
-                                        <Text style={[s.pillText, !isPrivate && s.pillTextActive]}>Shared</Text>
-                                    </Pressable>
-                                    <Pressable
-                                        style={[s.pill, isPrivate && s.pillWarn]}
-                                        onPress={() => {
-                                            Haptics.selectionAsync();
-                                            setIsPrivate(true);
-                                        }}
-                                    >
-                                        <Lock size={14} color={isPrivate ? '#FF9500' : '#8E8E93'} />
-                                        <Text style={[s.pillText, isPrivate && s.pillTextWarn]}>Private</Text>
-                                    </Pressable>
+                            <>
+                                <View style={s.section}>
+                                    <Text style={s.sectionLabel}>People</Text>
+                                    <View style={s.pillRow}>
+                                        {(() => {
+                                            const isMe = !isTogether && !assignToPartner;
+                                            const myInitial = profile?.name?.charAt(0).toUpperCase() ?? 'M';
+                                            const myColor = getAvatarColor(profile?.name ?? 'Me');
+                                            return (
+                                                <Pressable
+                                                    style={[s.personPill, isMe && s.personPillSelected]}
+                                                    onPress={() => {
+                                                        Haptics.selectionAsync();
+                                                        setTogetherPartnerId(null);
+                                                        setAssignToPartnerId(null);
+                                                    }}
+                                                >
+                                                    {profile?.avatar_url ? (
+                                                        <Image source={{ uri: profile.avatar_url }} style={s.personAvatarImg} />
+                                                    ) : (
+                                                        <View style={[s.personAvatar, { backgroundColor: myColor.bg }]}>
+                                                            <Text style={[s.personInitial, { color: myColor.text }]}>{myInitial}</Text>
+                                                        </View>
+                                                    )}
+                                                    <Text style={[s.personName, isMe && s.personNameSelected]}>
+                                                        Me
+                                                    </Text>
+                                                </Pressable>
+                                            );
+                                        })()}
+                                        {activeBuddies.map((p) => {
+                                            const pid = p.partner_id!;
+                                            const firstName = p.partner_name?.split(' ')[0] ?? 'Partner';
+                                            const initial = firstName.charAt(0).toUpperCase();
+                                            const color = getAvatarColor(firstName);
+                                            const avatarUrl = p.partner_avatar_url;
+                                            const isTogetherWithThis = togetherPartnerId === pid;
+                                            const isAssignedToThis = assignToPartnerId === pid;
+                                            const isSelected = isTogetherWithThis || isAssignedToThis;
+
+                                            return (
+                                                <Pressable
+                                                    key={pid}
+                                                    style={[s.personPill, isSelected && s.personPillSelected]}
+                                                    onPress={() => {
+                                                        Haptics.selectionAsync();
+                                                        if (isSelected) {
+                                                            setTogetherPartnerId(null);
+                                                            setAssignToPartnerId(null);
+                                                        } else {
+                                                            setTogetherPartnerId(pid);
+                                                            setAssignToPartnerId(null);
+                                                            setIsPrivate(false);
+                                                        }
+                                                    }}
+                                                >
+                                                    {avatarUrl ? (
+                                                        <Image source={{ uri: avatarUrl }} style={s.personAvatarImg} />
+                                                    ) : (
+                                                        <View style={[s.personAvatar, { backgroundColor: color.bg }]}>
+                                                            <Text style={[s.personInitial, { color: color.text }]}>{initial}</Text>
+                                                        </View>
+                                                    )}
+                                                    <Text style={[s.personName, isSelected && s.personNameSelected]}>
+                                                        {firstName}
+                                                    </Text>
+                                                </Pressable>
+                                            );
+                                        })}
+                                    </View>
+                                    {(isTogether || assignToPartner) && (() => {
+                                        const pid = togetherPartnerId || assignToPartnerId;
+                                        const buddy = activeBuddies.find(b => b.partner_id === pid);
+                                        const name = buddy?.partner_name?.split(' ')[0] ?? 'them';
+                                        return (
+                                            <View style={s.modeCards}>
+                                                <Pressable
+                                                    style={[s.modeCard, isTogether && s.modeCardOn]}
+                                                    onPress={() => {
+                                                        Haptics.selectionAsync();
+                                                        setAssignToPartnerId(null);
+                                                        setTogetherPartnerId(pid);
+                                                    }}
+                                                >
+                                                    <View style={[s.modeIconWrap, isTogether && s.modeIconWrapOn]}>
+                                                        <Users size={16} color={isTogether ? '#FFFFFF' : '#8E8E93'} />
+                                                    </View>
+                                                    <Text style={[s.modeTitle, isTogether && s.modeTitleOn]}>Together</Text>
+                                                    <Text style={s.modeDesc}>You and {name} both do it</Text>
+                                                </Pressable>
+                                                <Pressable
+                                                    style={[s.modeCard, assignToPartner && s.modeCardOn]}
+                                                    onPress={() => {
+                                                        Haptics.selectionAsync();
+                                                        setTogetherPartnerId(null);
+                                                        setAssignToPartnerId(pid);
+                                                    }}
+                                                >
+                                                    <View style={[s.modeIconWrap, assignToPartner && s.modeIconWrapOn]}>
+                                                        <ArrowRight size={16} color={assignToPartner ? '#FFFFFF' : '#8E8E93'} />
+                                                    </View>
+                                                    <Text style={[s.modeTitle, assignToPartner && s.modeTitleOn]}>Assign</Text>
+                                                    <Text style={s.modeDesc}>Send to {name} to do</Text>
+                                                </Pressable>
+                                            </View>
+                                        );
+                                    })()}
                                 </View>
-                            </View>
+
+                                {/* Visibility - only when task is for self */}
+                                {!assignToPartner && !isTogether && (
+                                    <View style={s.section}>
+                                        <Text style={s.sectionLabel}>Visibility</Text>
+                                        <View style={s.pillRow}>
+                                            <Pressable
+                                                style={[s.pill, !isPrivate && s.pillActive]}
+                                                onPress={() => {
+                                                    Haptics.selectionAsync();
+                                                    setIsPrivate(false);
+                                                }}
+                                            >
+                                                <UserPlus size={14} color={!isPrivate ? '#007AFF' : '#8E8E93'} />
+                                                <Text style={[s.pillText, !isPrivate && s.pillTextActive]}>Shared</Text>
+                                            </Pressable>
+                                            <Pressable
+                                                style={[s.pill, isPrivate && s.pillWarn]}
+                                                onPress={() => {
+                                                    Haptics.selectionAsync();
+                                                    setIsPrivate(true);
+                                                }}
+                                            >
+                                                <Lock size={14} color={isPrivate ? '#FF9500' : '#8E8E93'} />
+                                                <Text style={[s.pillText, isPrivate && s.pillTextWarn]}>Private</Text>
+                                            </Pressable>
+                                        </View>
+                                    </View>
+                                )}
+                            </>
                         )}
 
                         {/* Checklist Section */}
@@ -674,6 +906,99 @@ const s = StyleSheet.create({
     },
     pillTextWarn: {
         color: '#FF9500',
+    },
+
+    // People
+    personPill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        paddingVertical: 6,
+        paddingLeft: 6,
+        paddingRight: 14,
+        borderRadius: 100,
+        backgroundColor: '#F5F5F5',
+    },
+    personPillSelected: {
+        backgroundColor: '#F0F0F0',
+        borderWidth: 1.5,
+        borderColor: '#1C1C1E',
+        paddingVertical: 4.5,
+        paddingLeft: 4.5,
+        paddingRight: 12.5,
+    },
+    personAvatar: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    personAvatarImg: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+    },
+    personInitial: {
+        fontSize: 13,
+        fontWeight: '700',
+    },
+    personName: {
+        fontSize: 15,
+        fontWeight: '500',
+        color: '#3C3C43',
+    },
+    personNameSelected: {
+        color: '#1C1C1E',
+        fontWeight: '600',
+    },
+    modeCards: {
+        flexDirection: 'row',
+        gap: 10,
+        marginTop: 14,
+    },
+    modeCard: {
+        flex: 1,
+        backgroundColor: '#F8F8F8',
+        borderRadius: 14,
+        padding: 14,
+        borderWidth: 1.5,
+        borderColor: 'transparent',
+    },
+    modeCardOn: {
+        backgroundColor: '#FFFFFF',
+        borderColor: '#1C1C1E',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+        elevation: 2,
+    },
+    modeIconWrap: {
+        width: 32,
+        height: 32,
+        borderRadius: 10,
+        backgroundColor: '#ECECEC',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 10,
+    },
+    modeIconWrapOn: {
+        backgroundColor: '#1C1C1E',
+    },
+    modeTitle: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#AEAEB2',
+        marginBottom: 2,
+    },
+    modeTitleOn: {
+        color: '#1C1C1E',
+    },
+    modeDesc: {
+        fontSize: 12,
+        color: '#AEAEB2',
+        lineHeight: 16,
     },
 
     // Checklist

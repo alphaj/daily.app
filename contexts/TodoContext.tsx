@@ -91,6 +91,8 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
         ...t,
         completed: newCompleted,
         completedAt: newCompleted ? new Date().toISOString() : undefined,
+        // Sync all subtasks with parent completion state
+        subtasks: t.subtasks?.map(st => ({ ...st, completed: newCompleted })),
       } : t
     );
 
@@ -229,15 +231,71 @@ export const [TodoProvider, useTodos] = createContextHook(() => {
   }, [todos, saveTodos]);
 
   const toggleSubtask = useCallback(async (todoId: string, subtaskId: string) => {
-    const newTodos = todos.map(t => {
-      if (t.id !== todoId || !t.subtasks) return t;
-      return {
-        ...t,
-        subtasks: t.subtasks.map(st =>
-          st.id === subtaskId ? { ...st, completed: !st.completed } : st
-        ),
-      };
+    const todo = todos.find(t => t.id === todoId);
+    if (!todo || !todo.subtasks) return;
+
+    const updatedSubtasks = todo.subtasks.map(st =>
+      st.id === subtaskId ? { ...st, completed: !st.completed } : st
+    );
+    const allCompleted = updatedSubtasks.every(st => st.completed);
+    const anyIncomplete = updatedSubtasks.some(st => !st.completed);
+
+    let newTodos = todos.map(t => {
+      if (t.id !== todoId) return t;
+
+      if (allCompleted && !t.completed) {
+        // All subtasks done → auto-complete parent
+        return { ...t, subtasks: updatedSubtasks, completed: true, completedAt: new Date().toISOString() };
+      } else if (anyIncomplete && t.completed) {
+        // Subtask unchecked on completed parent → uncomplete parent
+        return { ...t, subtasks: updatedSubtasks, completed: false, completedAt: undefined };
+      }
+
+      return { ...t, subtasks: updatedSubtasks };
     });
+
+    // Handle repeat spawning when auto-completing via last subtask
+    if (allCompleted && !todo.completed && todo.repeat && todo.repeat !== 'none') {
+      const alreadySpawned = newTodos.some(t => t.repeatSourceId === todoId);
+      if (!alreadySpawned) {
+        const nextDate = getNextRepeatDate(todo.repeat, new Date());
+        if (nextDate) {
+          const alreadyDelivered = todo.isTogether && newTodos.some(t =>
+            t.isTogether && t.dueDate === nextDate && t.title === todo.title && t.id !== todoId && !t.completed
+          );
+          if (!alreadyDelivered) {
+            const nextTodo: Todo = {
+              id: generateId(),
+              title: todo.title,
+              completed: false,
+              createdAt: new Date().toISOString(),
+              dueDate: nextDate,
+              dueTime: todo.dueTime,
+              priority: todo.priority,
+              isWork: todo.isWork,
+              emoji: todo.emoji,
+              emojiColor: todo.emojiColor,
+              estimatedMinutes: todo.estimatedMinutes,
+              timeOfDay: todo.timeOfDay,
+              repeat: todo.repeat,
+              isPrivate: todo.isPrivate,
+              repeatSourceId: todoId,
+              subtasks: todo.subtasks?.map(st => ({
+                ...st,
+                id: generateId(),
+                completed: false,
+              })),
+              isTogether: todo.isTogether,
+              togetherPartnerId: todo.togetherPartnerId,
+              togetherPartnerName: todo.togetherPartnerName,
+              togetherPartnerAvatarUrl: todo.togetherPartnerAvatarUrl,
+            };
+            newTodos = [...newTodos, nextTodo];
+          }
+        }
+      }
+    }
+
     setTodos(newTodos);
     await saveTodos(newTodos);
   }, [todos, saveTodos]);

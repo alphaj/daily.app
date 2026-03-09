@@ -102,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(null);
       } else {
         setProfile(data as UserProfile);
-        registerPushToken().catch(() => {});
+        registerPushToken().catch((err) => console.warn('[auth] Push token registration failed:', err));
       }
     } catch (err) {
       console.error('[auth] Failed to fetch profile:', err);
